@@ -205,10 +205,18 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('chat-message')
   handleChatMessage(
     @MessageBody()
-    data: { streamId: string; senderId: string; message: string },
+    data: {
+      streamId: string;
+      senderId: string;
+      message: string;
+      timestamp: Date;
+      signature: string;
+      publicKey: string;
+    },
     @ConnectedSocket() socket: WebSocket,
   ) {
-    const { streamId, senderId, message } = data;
+    const { streamId, senderId, message, timestamp, signature, publicKey } =
+      data;
     const stream = this.streams.get(streamId);
     if (!stream) return;
 
@@ -220,7 +228,14 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.socket.send(
           JSON.stringify({
             event: 'chat-message',
-            data: { streamId, senderId, message },
+            data: {
+              streamId,
+              senderId,
+              message,
+              timestamp,
+              signature,
+              publicKey,
+            },
           }),
         );
       }

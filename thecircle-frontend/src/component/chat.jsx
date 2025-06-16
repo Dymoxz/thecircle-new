@@ -1,11 +1,115 @@
 import React, { useEffect, useState, useRef } from "react";
 
+// Helper functions for key management and signing/verifying
+const KEY_NAME = "chat_keypair";
+
+async function generateKeyPair() {
+	return window.crypto.subtle.generateKey(
+		{
+			name: "RSASSA-PKCS1-v1_5",
+			modulusLength: 2048,
+			publicExponent: new Uint8Array([1, 0, 1]),
+			hash: "SHA-256",
+		},
+		true,
+		["sign", "verify"]
+	);
+}
+// pub, priv
+
+async function exportPublicKey(key) {
+	const spki = await window.crypto.subtle.exportKey("spki", key);
+	return btoa(String.fromCharCode(...new Uint8Array(spki)));
+}
+
+async function importPublicKey(spkiB64) {
+	const binary = Uint8Array.from(atob(spkiB64), (c) => c.charCodeAt(0));
+	return window.crypto.subtle.importKey(
+		"spki",
+		binary,
+		{ name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+		true,
+		["verify"]
+	);
+}
+
+async function exportPrivateKey(key) {
+	const pkcs8 = await window.crypto.subtle.exportKey("pkcs8", key);
+	return btoa(String.fromCharCode(...new Uint8Array(pkcs8)));
+}
+
+async function importPrivateKey(pkcs8B64) {
+	const binary = Uint8Array.from(atob(pkcs8B64), (c) => c.charCodeAt(0));
+	return window.crypto.subtle.importKey(
+		"pkcs8",
+		binary,
+		{ name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+		true,
+		["sign"]
+	);
+}
+
+async function getOrCreateKeyPair() {
+	let stored = localStorage.getItem(KEY_NAME);
+	if (stored) {
+		const { pub, priv } = JSON.parse(stored);
+		return {
+			publicKey: await importPublicKey(pub),
+			privateKey: await importPrivateKey(priv),
+			pubB64: pub,
+		};
+	} else {
+		const keyPair = await generateKeyPair();
+		const pub = await exportPublicKey(keyPair.publicKey);
+		const priv = await exportPrivateKey(keyPair.privateKey);
+		localStorage.setItem(KEY_NAME, JSON.stringify({ pub, priv }));
+		return {
+			publicKey: keyPair.publicKey,
+			privateKey: keyPair.privateKey,
+			pubB64: pub,
+		};
+	}
+}
+
+async function signMessage(privateKey, dataObj) {
+	const enc = new TextEncoder();
+	const dataStr = JSON.stringify(dataObj);
+	const data = enc.encode(dataStr);
+	const sig = await window.crypto.subtle.sign(
+		"RSASSA-PKCS1-v1_5",
+		privateKey,
+		data
+	);
+	return btoa(String.fromCharCode(...new Uint8Array(sig)));
+}
+
+async function verifyMessage(publicKey, dataObj, signatureB64) {
+	const enc = new TextEncoder();
+	const dataStr = JSON.stringify(dataObj);
+	const data = enc.encode(dataStr);
+	const sig = Uint8Array.from(atob(signatureB64), (c) => c.charCodeAt(0));
+	return window.crypto.subtle.verify(
+		"RSASSA-PKCS1-v1_5",
+		publicKey,
+		sig,
+		data
+	);
+}
+
 // Props: streamId (room), username, wsUrl (e.g. wss://yourserver)
 const Chat = ({ streamId, username, wsUrl }) => {
 	const [messages, setMessages] = useState([]);
 	const [input, setInput] = useState("");
 	const wsRef = useRef(null);
 	const messagesEndRef = useRef(null);
+	const keyPairRef = useRef(null);
+
+	useEffect(() => {
+		// Generate or load keypair on mount
+		getOrCreateKeyPair().then((kp) => {
+			keyPairRef.current = kp;
+		});
+	}, []);
 
 	useEffect(() => {
 		// Connect to backend WebSocket
@@ -22,19 +126,54 @@ const Chat = ({ streamId, username, wsUrl }) => {
 			);
 		};
 
-		ws.onmessage = (event) => {
+		ws.onmessage = async (event) => {
 			try {
 				const msg = JSON.parse(event.data);
 				if (
 					msg.event === "chat-message" &&
 					msg.data.streamId === streamId
 				) {
+					console.log("[Chat] Received message:", msg.data);
+					// Try to verify signature if present
+					let verified = false;
+					if (msg.data.signature && msg.data.publicKey) {
+						try {
+							const pubKey = await importPublicKey(
+								msg.data.publicKey
+							);
+							const dataObj = {
+								streamId: msg.data.streamId,
+								senderId: msg.data.senderId,
+								message: msg.data.message,
+								timestamp: msg.data.timestamp,
+							};
+							console.log(
+								"[Chat] Verifying with publicKey:",
+								msg.data.publicKey
+							);
+							console.log(
+								"[Chat] Verifying signature:",
+								msg.data.signature
+							);
+							verified = await verifyMessage(
+								pubKey,
+								dataObj,
+								msg.data.signature
+							);
+						} catch (err) {
+							console.error(
+								"[Chat] Signature verification error:",
+								err
+							);
+						}
+					}
 					setMessages((prev) => [
 						...prev,
 						{
 							user: msg.data.senderId,
 							text: msg.data.message,
-							timestamp: new Date().toISOString(),
+							timestamp: msg.data.timestamp,
+							verified,
 						},
 					]);
 				}
@@ -50,13 +189,36 @@ const Chat = ({ streamId, username, wsUrl }) => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 	}, [messages]);
 
-	const sendMessage = (e) => {
+	const sendMessage = async (e) => {
 		e.preventDefault();
-		if (input.trim() && wsRef.current && wsRef.current.readyState === 1) {
+		if (
+			input.trim() &&
+			wsRef.current &&
+			wsRef.current.readyState === 1 &&
+			keyPairRef.current
+		) {
+			const timestamp = new Date().toISOString();
+			const dataObj = {
+				streamId,
+				senderId: username,
+				message: input,
+				timestamp,
+			};
+			const signature = await signMessage(
+				keyPairRef.current.privateKey,
+				dataObj
+			);
+			console.log("[Chat] Sending message:", dataObj);
+			console.log("[Chat] Public Key (b64):", keyPairRef.current.pubB64);
+			console.log("[Chat] Signature (b64):", signature);
 			wsRef.current.send(
 				JSON.stringify({
 					event: "chat-message",
-					data: { streamId, senderId: username, message: input },
+					data: {
+						...dataObj,
+						signature,
+						publicKey: keyPairRef.current.pubB64,
+					},
 				})
 			);
 			setInput("");
@@ -93,6 +255,17 @@ const Chat = ({ streamId, username, wsUrl }) => {
 							{msg.user}
 						</span>
 						<span style={{ marginLeft: 8 }}>{msg.text}</span>
+						{msg.verified !== undefined && (
+							<span
+								style={{
+									marginLeft: 8,
+									fontSize: 10,
+									color: msg.verified ? "#22c55e" : "#ef4444",
+								}}
+							>
+								{msg.verified ? "✔️ verified" : "❌ unverified"}
+							</span>
+						)}
 						<span
 							style={{
 								float: "right",
