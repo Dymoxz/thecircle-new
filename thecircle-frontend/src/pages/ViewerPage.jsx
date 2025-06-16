@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Play, Users, Eye, Clock, Calendar, MessageCircle, Send, RefreshCw, X, LayoutGrid } from 'lucide-react';
+import { Play, Users, Calendar, MessageCircle, Send, RefreshCw, X, LayoutGrid, StopCircle } from 'lucide-react';
 
 // WebSocket URL configuration
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -18,10 +18,8 @@ const mockChatMessages = [
 const ViewerPage = () => {
     const [streams, setStreams] = useState([]);
     const [currentStreamId, setCurrentStreamId] = useState(null);
-    const [chatMessage, setChatMessage] = useState('');
     const [isWsConnected, setIsWsConnected] = useState(false);
     const [isStreamListOpen, setIsStreamListOpen] = useState(false);
-    const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
 
     const remoteVideoRef = useRef(null);
     const socketRef = useRef(null);
@@ -32,7 +30,6 @@ const ViewerPage = () => {
         streamerName: "CodeMaster_Dev",
         title: "Building a React Streaming App - Live Coding Session",
         viewers: 247,
-        startTime: "2:34:12",
         category: "Programming",
         tags: ["React", "JavaScript", "WebRTC", "Live Coding"]
     };
@@ -76,9 +73,7 @@ const ViewerPage = () => {
                 }
                 case 'stream-ended': {
                     if (msg.data.streamId === currentStreamId) {
-                        if (peerRef.current) peerRef.current.close();
-                        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-                        setCurrentStreamId(null);
+                        handleStopWatching();
                         alert(`Stream ${msg.data.streamId} has ended.`);
                     }
                     socket.send(JSON.stringify({ event: 'get-streams', data: {} }));
@@ -92,13 +87,27 @@ const ViewerPage = () => {
             socket.close();
             if (peerRef.current) peerRef.current.close();
         };
-    }, [currentStreamId]);
+    }, []);
 
     const handleConnectToStream = (streamId) => {
-        if (peerRef.current) peerRef.current.close();
+        if (peerRef.current) {
+            peerRef.current.close();
+        }
         setCurrentStreamId(streamId);
         socketRef.current.send(JSON.stringify({ event: 'register', data: { id: viewerId, clientType: 'viewer', streamId } }));
         setIsStreamListOpen(false); // Close mobile list on selection
+    };
+
+    const handleStopWatching = () => {
+        if (peerRef.current) {
+            peerRef.current.close();
+            peerRef.current = null;
+        }
+        if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = null;
+        }
+        setCurrentStreamId(null);
+        // The backend's `handleDisconnect` will manage cleanup.
     };
 
     const handleRefresh = () => {
@@ -107,7 +116,6 @@ const ViewerPage = () => {
         }
     };
 
-    // UI Render Helper for the Stream List
     const StreamListPanel = () => (
         <div className="p-4 flex flex-col h-full">
             <div className="flex items-center justify-between mb-4 flex-shrink-0">
@@ -115,71 +123,115 @@ const ViewerPage = () => {
                 <button onClick={handleRefresh} disabled={!isWsConnected} className="p-2 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 disabled:opacity-50 transition-colors"><RefreshCw className="w-5 h-5" /></button>
             </div>
             <div className="flex-1 overflow-y-auto space-y-3 -mr-2 pr-2">
-                {streams.length > 0 ? (
-                    streams.map((streamId) => (
-                        <div key={streamId} onClick={() => handleConnectToStream(streamId)} className={`p-3 rounded-2xl cursor-pointer transition-all duration-200 border-2 ${streamId === currentStreamId ? 'bg-cyan-500/20 border-cyan-400 ring-2 ring-cyan-400' : 'bg-slate-800/60 border-transparent hover:border-slate-500'}`}>
-                            <div className="flex items-center space-x-3"><div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0"><Play className="w-5 h-5 text-white" /></div><div><h3 className="font-semibold text-sm truncate">Stream {streamId.slice(-8)}</h3><p className="text-xs text-slate-400">CodeMaster_Dev</p></div></div>
+                {streams.length > 0 ? streams.map((streamId) => (
+                    <div key={streamId} onClick={() => handleConnectToStream(streamId)} className={`p-3 rounded-2xl cursor-pointer transition-all duration-200 border-2 ${streamId === currentStreamId ? 'bg-cyan-500/20 border-cyan-400 ring-2 ring-cyan-400' : 'bg-slate-800/60 border-transparent hover:border-slate-500'}`}>
+                        <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0"><Play className="w-5 h-5 text-white" /></div>
+                            <div>
+                                <h3 className="font-semibold text-sm truncate">Stream {streamId.slice(-8)}</h3>
+                                <p className="text-xs text-slate-400">CodeMaster_Dev</p>
+                            </div>
                         </div>
-                    ))
-                ) : (
-                    <div className="text-center py-8 text-slate-400"><div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-4"><Play className="w-8 h-8 text-slate-500" /></div><p className="text-sm">No streams available</p></div>
+                    </div>
+                )) : (
+                    <div className="text-center py-8 text-slate-400">
+                        <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-4"><Play className="w-8 h-8 text-slate-500" /></div>
+                        <p className="text-sm">No streams available</p>
+                    </div>
                 )}
             </div>
         </div>
     );
 
+    const ChatPanelContent = () => (
+        <>
+            <h3 className="font-semibold mb-4 flex items-center text-lg flex-shrink-0"><MessageCircle className="w-5 h-5 mr-3 text-cyan-400" />Live Chat</h3>
+            <div className="flex-1 space-y-4 pr-2 overflow-y-auto">
+                {mockChatMessages.map((msg, index) => (
+                    <div key={index} className="flex flex-col items-start text-sm">
+                        <span className={`font-bold ${msg.color}`}>{msg.user}</span>
+                        <p className="bg-slate-800/50 p-2 rounded-lg rounded-tl-none mt-1">{msg.message}</p>
+                    </div>
+                ))}
+            </div>
+            <div className="mt-4 flex items-center space-x-2 flex-shrink-0">
+                <input type="text" placeholder="Send a message..." className="flex-1 bg-slate-800/60 border border-slate-600 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none" />
+                <button className="p-2 bg-cyan-500 hover:bg-cyan-600 rounded-lg transition-colors"><Send className="w-5 h-5 text-slate-900" /></button>
+            </div>
+        </>
+    );
+
     return (
         <div className="h-[100dvh] w-screen text-slate-100 overflow-hidden bg-slate-900 relative">
-            <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full" />
+            <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
 
-            {/* --- Overlays & Floating Panels --- */}
             {!currentStreamId && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl z-10">
                     <div className="text-center p-8">
-                        <div className="w-24 h-24 bg-cyan-500/20 rounded-3xl flex items-center justify-center mx-auto mb-6"><Play className="w-12 h-12 text-cyan-400" /></div>
                         <h3 className="text-2xl font-bold mb-2">Select a Stream</h3>
                         <p className="text-slate-300">Choose a live stream to start watching</p>
                     </div>
                 </div>
             )}
 
-            {/* --- Left Side: Mobile Button & Stream List --- */}
+            {/* Left Side: Mobile Button & Stream List */}
             <button onClick={() => setIsStreamListOpen(true)} className="absolute top-4 left-4 z-30 bg-slate-900/50 backdrop-blur-lg border border-slate-100/10 rounded-full p-3 shadow-lg lg:hidden"><LayoutGrid className="w-6 h-6 text-slate-100" /></button>
-            <div className={`absolute top-4 left-4 max-h-[calc(100vh-2rem)] w-80 bg-slate-900/50 backdrop-blur-lg border border-slate-100/10 rounded-2xl z-20 hidden lg:flex flex-col`}><StreamListPanel /></div>
-            {isStreamListOpen && <div className="absolute inset-0 z-40 bg-slate-900/80 backdrop-blur-2xl lg:hidden"><StreamListPanel /></div>}
+            <div className="absolute top-4 left-4 max-h-[calc(100vh-2rem)] w-80 bg-slate-900/50 backdrop-blur-lg border border-slate-100/10 rounded-2xl z-20 hidden lg:flex flex-col"><StreamListPanel /></div>
+            {isStreamListOpen && (
+                <div className="absolute inset-0 z-40 bg-slate-900/80 backdrop-blur-2xl lg:hidden">
+                    <button onClick={() => setIsStreamListOpen(false)} className="absolute top-4 right-4 z-50 p-2"><X className="w-6 h-6" /></button>
+                    <StreamListPanel />
+                </div>
+            )}
 
-
-            {/* --- Right Side: Info, Chat Button & Chat Panels --- */}
-            <div className="absolute top-4 right-4 max-h-[calc(100vh-2rem)] w-80 space-y-4 flex flex-col z-20">
+            {/* Right Side Panels (Desktop) */}
+            <div className="absolute top-4 right-4 max-h-[calc(100vh-2rem)] w-80 space-y-4 hidden lg:flex flex-col z-20">
                 {currentStreamId && (
                     <>
-                        {/* Stream Info Panel (Desktop) */}
-                        <div className="bg-slate-900/50 backdrop-blur-lg border border-slate-100/10 rounded-2xl p-4 hidden lg:block">
+                        <div className="bg-slate-900/50 backdrop-blur-lg border border-slate-100/10 rounded-2xl p-4">
                             <h2 className="text-lg font-bold mb-3">{streamInfo.title}</h2>
-                            <div className="flex items-center space-x-3 mb-4"><div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex-shrink-0 flex items-center justify-center"><span className="text-xs font-bold">CM</span></div><div className="text-sm"><p className="font-semibold text-white">{streamInfo.streamerName}</p><p className="text-slate-400">{streamInfo.category}</p></div></div>
-                            <div className="text-xs text-slate-300 space-y-2 border-t border-slate-700 pt-3"><div className="flex items-center space-x-2"><Calendar className="w-4 h-4 text-cyan-400" /><span>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</span></div><div className="flex items-center space-x-2"><Users className="w-4 h-4 text-cyan-400" /><span>{streamInfo.viewers} viewers</span></div></div>
+                            <div className="flex items-center space-x-3 mb-4">
+                                <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex-shrink-0 flex items-center justify-center"><span className="text-xs font-bold">CM</span></div>
+                                <div className="text-sm">
+                                    <p className="font-semibold text-white">{streamInfo.streamerName}</p>
+                                    <p className="text-slate-400">{streamInfo.category}</p>
+                                </div>
+                            </div>
+                            <div className="text-xs text-slate-300 space-y-2 border-t border-slate-700 pt-3">
+                                <div className="flex items-center space-x-2"><Calendar className="w-4 h-4 text-cyan-400" /><span>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</span></div>
+                                <div className="flex items-center space-x-2"><Users className="w-4 h-4 text-cyan-400" /><span>{streamInfo.viewers} viewers</span></div>
+                            </div>
                             <div className="flex flex-wrap gap-2 mt-4">{streamInfo.tags.map(tag => <span key={tag} className="bg-slate-700/50 px-3 py-1 rounded-full text-xs">{tag}</span>)}</div>
                         </div>
-
-                        {/* Desktop Chat Panel */}
-                        <div className="bg-slate-900/50 backdrop-blur-lg border border-slate-100/10 rounded-2xl p-4 hidden lg:flex flex-col flex-1">
-                            <h3 className="font-semibold mb-4 flex items-center text-lg"><MessageCircle className="w-5 h-5 mr-3 text-cyan-400" />Live Chat</h3>
-                            <div className="flex-1 space-y-4 pr-2 overflow-y-auto">{mockChatMessages.map((msg, index) => <div key={index} className="flex flex-col items-start text-sm"><span className={`font-bold ${msg.color}`}>{msg.user}</span><p className="bg-slate-800/50 p-2 rounded-lg rounded-tl-none mt-1">{msg.message}</p></div>)}</div>
-                            <div className="mt-4 flex items-center space-x-2"><input type="text" placeholder="Send a message..." className="flex-1 bg-slate-800/60 border border-slate-600 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none" /><button className="p-2 bg-cyan-500 hover:bg-cyan-600 rounded-lg transition-colors"><Send className="w-5 h-5 text-slate-900" /></button></div>
+                        <div className="bg-slate-900/50 backdrop-blur-lg border border-slate-100/10 rounded-2xl p-4 flex flex-col flex-1"><ChatPanelContent /></div>
+                        <div className="bg-slate-900/50 backdrop-blur-lg border border-slate-100/10 rounded-2xl p-3">
+                            <button
+                                onClick={handleStopWatching}
+                                className="flex items-center justify-center w-full px-4 py-3 bg-red-500/80 hover:bg-red-500 backdrop-blur-sm rounded-xl text-white font-semibold transition-colors"
+                            >
+                                <StopCircle className="w-5 h-5 mr-2" />
+                                Stop Watching
+                            </button>
                         </div>
-
-                        {/* Mobile Chat Bubble */}
-                        <button onClick={() => setIsMobileChatOpen(true)} className="bg-slate-900/50 backdrop-blur-lg border border-slate-100/10 rounded-full p-3 shadow-lg lg:hidden ml-auto"><MessageCircle className="w-6 h-6 text-slate-100" /></button>
                     </>
                 )}
             </div>
 
-            {/* Mobile Chat Overlay */}
-            {isMobileChatOpen && (
-                <div className="absolute inset-0 z-50 bg-slate-900/80 backdrop-blur-2xl flex flex-col p-4 lg:hidden">
-                    <div className="flex items-center justify-between mb-4 flex-shrink-0"><h3 className="font-semibold flex items-center text-lg"><MessageCircle className="w-5 h-5 mr-3 text-cyan-400" />Live Chat</h3><button onClick={() => setIsMobileChatOpen(false)} className="p-2 -m-2"><X className="w-6 h-6 text-slate-300" /></button></div>
-                    <div className="flex-1 space-y-4 pr-2 overflow-y-auto">{mockChatMessages.map((msg, index) => <div key={index} className="flex flex-col items-start text-sm"><span className={`font-bold ${msg.color}`}>{msg.user}</span><p className="bg-slate-800/50 p-2 rounded-lg rounded-tl-none mt-1">{msg.message}</p></div>)}</div>
-                    <div className="mt-4 flex items-center space-x-2 flex-shrink-0"><input type="text" placeholder="Send a message..." className="flex-1 bg-slate-800/60 border border-slate-600 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all outline-none" /><button className="p-2 bg-cyan-500 hover:bg-cyan-600 rounded-lg transition-colors"><Send className="w-5 h-5 text-slate-900" /></button></div>
+            {/* --- Persistent Mobile UI --- */}
+            {currentStreamId && (
+                <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col z-30 lg:hidden">
+                    <div className="mb-4">
+                        <button
+                            onClick={handleStopWatching}
+                            className="flex items-center justify-center w-full px-4 py-3 bg-red-600/80 hover:bg-red-700/80 backdrop-blur-sm rounded-xl text-white font-semibold transition-colors"
+                        >
+                            <StopCircle className="w-5 h-5 mr-2" />
+                            Stop Watching
+                        </button>
+                    </div>
+                    <div className="h-[40dvh] bg-slate-900/80 backdrop-blur-2xl rounded-2xl p-4 flex flex-col">
+                        <ChatPanelContent />
+                    </div>
                 </div>
             )}
         </div>
