@@ -42,6 +42,16 @@ const mockChatMessages = [
     { user: 'Frank', color: 'text-orange-400', message: 'lol that was a close one' },
 ];
 
+const VIDEO_CONSTRAINTS = {
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+    frameRate: { ideal: 30, max: 60 }
+};
+const AUDIO_CONSTRAINTS = {
+    echoCancellation: true,
+    noiseSuppression: true,
+    sampleRate: 48000
+};
 
 const StreamerPage = () => {
     // ... all state and refs remain the same
@@ -112,7 +122,16 @@ const StreamerPage = () => {
                     peersRef.current.set(viewerId, peer);
                     setViewerCount(prev => prev + 1);
                     if (localStreamRef.current) {
-                        localStreamRef.current.getTracks().forEach(track => peer.addTrack(track, localStreamRef.current));
+                        localStreamRef.current.getTracks().forEach(track => {
+                            const sender = peer.addTrack(track, localStreamRef.current);
+                            // Set higher max bitrate for video tracks
+                            if (track.kind === 'video' && sender.setParameters) {
+                                const params = sender.getParameters();
+                                if (!params.encodings) params.encodings = [{}];
+                                params.encodings[0].maxBitrate = 6000 * 1000; // 2.5 Mbps
+                                sender.setParameters(params);
+                            }
+                        });
                     }
                     peer.onicecandidate = (e) => {
                         if (e.candidate) socket.send(JSON.stringify({ event: 'ice-candidate', data: { to: viewerId, candidate: e.candidate } }));
@@ -164,7 +183,10 @@ const StreamerPage = () => {
 
     const handleStartStream = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentCamera }, audio: true });
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { ...VIDEO_CONSTRAINTS, facingMode: currentCamera },
+                audio: AUDIO_CONSTRAINTS
+            });
             localStreamRef.current = stream;
             if (localVideoRef.current) localVideoRef.current.srcObject = stream;
             const streamId = `stream-${streamerId}`;
@@ -178,6 +200,13 @@ const StreamerPage = () => {
     };
 
     const handleStopStream = () => {
+        // Send end-stream event to backend before cleanup
+        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+            socketRef.current.send(JSON.stringify({
+                event: 'end-stream',
+                data: { id: streamerId, streamId: `stream-${streamerId}` }
+            }));
+        }
         if (localStreamRef.current) localStreamRef.current.getTracks().forEach(track => track.stop());
         localStreamRef.current = null;
         if (localVideoRef.current) localVideoRef.current.srcObject = null;
@@ -208,7 +237,9 @@ const StreamerPage = () => {
 
         const newFacingMode = currentCamera === 'user' ? 'environment' : 'user';
         try {
-            const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: newFacingMode } });
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                video: { ...VIDEO_CONSTRAINTS, facingMode: newFacingMode }
+            });
             const newVideoTrack = newStream.getVideoTracks()[0];
             const audioTrack = localStreamRef.current.getAudioTracks()[0];
             localStreamRef.current = new MediaStream([newVideoTrack, audioTrack]);
@@ -217,7 +248,16 @@ const StreamerPage = () => {
 
             peersRef.current.forEach(peer => {
                 const sender = peer.getSenders().find(s => s.track?.kind === 'video');
-                if (sender) sender.replaceTrack(newVideoTrack);
+                if (sender) {
+                    sender.replaceTrack(newVideoTrack);
+                    // Set higher max bitrate for new video track
+                    if (sender.setParameters) {
+                        const params = sender.getParameters();
+                        if (!params.encodings) params.encodings = [{}];
+                        params.encodings[0].maxBitrate = 6000 * 1000;
+                        sender.setParameters(params);
+                    }
+                }
             });
             setCurrentCamera(newFacingMode);
         } catch (err) {

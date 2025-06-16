@@ -182,4 +182,26 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
             }));
         }
     }
+
+    @SubscribeMessage('end-stream')
+    handleEndStream(
+        @MessageBody() data: { id: string; streamId: string },
+        @ConnectedSocket() socket: WebSocket,
+    ) {
+        const { id, streamId } = data;
+        const stream = this.streams.get(streamId);
+        if (stream && stream.streamerId === id) {
+            stream.viewers.forEach(viewerId => {
+                const viewer = this.clients.find(c => c.id === viewerId);
+                if (viewer) {
+                    viewer.socket.send(JSON.stringify({
+                        event: 'stream-ended',
+                        data: { streamId }
+                    }));
+                }
+            });
+            this.streams.delete(streamId);
+            console.log(`[END-STREAM] Streamer ${id} ended streamId=${streamId}`);
+        }
+    }
 }

@@ -15,6 +15,12 @@ const mockChatMessages = [
     { user: 'Eve', color: 'text-purple-400', message: 'Great quality stream! Looks so smooth.' },
 ];
 
+const VIDEO_CONSTRAINTS = {
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+    frameRate: { ideal: 30, max: 60 }
+};
+
 const ViewerPage = () => {
     const [streams, setStreams] = useState([]);
     const [currentStreamId, setCurrentStreamId] = useState(null);
@@ -60,6 +66,19 @@ const ViewerPage = () => {
                         if (e.candidate) socket.send(JSON.stringify({ event: 'ice-candidate', data: { to: from, candidate: e.candidate } }));
                     };
                     await peer.setRemoteDescription(new RTCSessionDescription(offer));
+                    // Set preferred video bitrate if possible
+                    peer.getTransceivers().forEach(transceiver => {
+                        if (transceiver.receiver && transceiver.receiver.track && transceiver.receiver.track.kind === 'video') {
+                            const receiver = transceiver.receiver;
+                            if (receiver && receiver.getParameters) {
+                                const params = receiver.getParameters();
+                                if (params.encodings && params.encodings.length > 0) {
+                                    params.encodings[0].maxBitrate = 2500 * 1000; // 2.5 Mbps
+                                    receiver.setParameters(params);
+                                }
+                            }
+                        }
+                    });
                     const answer = await peer.createAnswer();
                     await peer.setLocalDescription(answer);
                     socket.send(JSON.stringify({ event: 'answer', data: { to: from, answer } }));
@@ -76,7 +95,10 @@ const ViewerPage = () => {
                         handleStopWatching();
                         alert(`Stream ${msg.data.streamId} has ended.`);
                     }
-                    socket.send(JSON.stringify({ event: 'get-streams', data: {} }));
+                    // Always refresh stream list on stream-ended
+                    if (socketRef.current?.readyState === WebSocket.OPEN) {
+                        socketRef.current.send(JSON.stringify({ event: 'get-streams', data: {} }));
+                    }
                     break;
                 }
                 default: break;
@@ -94,7 +116,11 @@ const ViewerPage = () => {
             peerRef.current.close();
         }
         setCurrentStreamId(streamId);
-        socketRef.current.send(JSON.stringify({ event: 'register', data: { id: viewerId, clientType: 'viewer', streamId } }));
+        // Send preferred video constraints to backend (optional, for future use)
+        socketRef.current.send(JSON.stringify({
+            event: 'register',
+            data: { id: viewerId, clientType: 'viewer', streamId, video: VIDEO_CONSTRAINTS }
+        }));
         setIsStreamListOpen(false); // Close mobile list on selection
     };
 
@@ -163,7 +189,7 @@ const ViewerPage = () => {
 
     return (
         <div className="h-[100dvh] w-screen text-slate-100 overflow-hidden bg-slate-900 relative">
-            <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
+            <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full" />
 
             {!currentStreamId && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl z-10">
