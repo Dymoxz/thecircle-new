@@ -2,8 +2,23 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { EventsModule } from './events/events.module';
+import 'dotenv/config';
+import { MongooseModule } from '@nestjs/mongoose';
 @Module({
-  imports: [EventsModule],
+  imports: [
+    MongooseModule.forRoot(process.env.CONNECTION_STRING!, {
+      connectionFactory: (connection) => {
+        connection.on('connected', () => {
+          console.log(
+            `Mongoose db connected to ${process.env.CONNECTION_STRING}`,
+          );
+        });
+        connection._events.connected();
+        return connection;
+      },
+    }),
+    EventsModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
