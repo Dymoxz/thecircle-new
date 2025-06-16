@@ -3,7 +3,6 @@ import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
 import StreamerPage from './pages/StreamerPage';
 import ViewerPage from './pages/ViewerPage';
-import './App.css'; // Add some basic styling
 
 const HomePage = () => (
     <div className="home-container">
