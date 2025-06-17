@@ -1,77 +1,178 @@
-import React, {useState} from 'react';
-import { Lock, Mail } from "lucide-react";
-import { useNavigate } from "react-router-dom"; // Add this import
+import React, { useState, useEffect } from 'react';
+import { Lock, Mail, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { login } from "../login.service";
+
+// --- The Circle Logo SVG (matching HomePage) ---
+const TheCircleLogo = () => (
+    <svg width="80" height="80" viewBox="0 0 120 120" className="mx-auto mb-6 drop-shadow-[0_4px_32px_rgba(80,0,20,0.5)]">
+        <defs>
+            <radialGradient id="circle-maroon" cx="50%" cy="50%" r="70%">
+                <stop offset="0%" stopColor="#fff" />
+                <stop offset="60%" stopColor="#a83246" />
+                <stop offset="100%" stopColor="#2d0a14" />
+            </radialGradient>
+            <linearGradient id="circle-maroon-stroke" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#fff" />
+                <stop offset="100%" stopColor="#a83246" />
+            </linearGradient>
+        </defs>
+        <circle cx="60" cy="60" r="54" fill="url(#circle-maroon)" opacity="0.95"/>
+        <circle cx="60" cy="60" r="44" fill="none" stroke="url(#circle-maroon-stroke)" strokeWidth="8" opacity="0.7"/>
+        <circle cx="60" cy="60" r="22" fill="none" stroke="url(#circle-maroon-stroke)" strokeWidth="5" opacity="0.8"/>
+        <circle cx="60" cy="60" r="11" fill="url(#circle-maroon-stroke)" opacity="0.95"/>
+    </svg>
+);
 
 const LoginPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const navigate = useNavigate(); // Add this line
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const navigate = useNavigate();
 
-    const handleSubmit = (e) => {
+    useEffect(() => {
+        document.title = 'The Circle - Login';
+    }, []);
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // Handle login logic here
-        console.log('Logging in with:', {email, password});
-        // On success:
+        setLoading(true);
+        setError('');
+        try {
+            const result = await login(email, password);
+            if (result.token) {
+                navigate('/');
+            } else {
+                setError(result.message || 'Login failed');
+            }
+        } catch (err) {
+            setError('Network error. Please try again.');
+        }
+        setLoading(false);
+    };
+
+    const handleBackToHome = () => {
         navigate('/');
     };
 
     return (
-        <div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative flex items-center justify-center">
-            {/* Animated Gradient Background */}
-            <div
-                className="absolute inset-0 bg-gradient-to-r from-neutral-900 via-teal-900 to-neutral-900 bg-[length:200%_200%] animate-gradient"
-                style={{ willChange: 'background-position', zIndex: 0 }}
-            />
-            {/* Blurred overlay card */}
-            <div className="w-full max-w-md p-8 space-y-8 bg-neutral-900/50 backdrop-blur-lg rounded-3xl shadow-2xl border border-neutral-100/10 relative z-10">
-                {/* Header Section */}
-                <div className="text-center">
-                    <h1 className="text-4xl font-bold text-white mb-2">
-                        Designer Workspace
-                    </h1>
-                    <p className="text-neutral-300">
-                        Log in to your expressive dashboard
-                    </p>
+        <div className="min-h-screen w-screen bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] text-white flex items-center justify-center p-4 relative overflow-hidden font-oswald">
+
+            {/* Back Button */}
+            <button
+                onClick={handleBackToHome}
+                className="absolute top-6 left-6 z-20 group flex items-center space-x-2 text-white/70 hover:text-white transition-all duration-300"
+            >
+                <div className="w-10 h-10 bg-white/5 backdrop-blur-2xl border border-white/10 rounded-full flex items-center justify-center transition-all duration-300 group-hover:bg-white/10 group-hover:scale-105">
+                    <ArrowLeft className="w-5 h-5" />
                 </div>
-                {/* Login Form */}
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Email Input */}
-                    <div className="relative">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={20}/>
-                        <input
-                            type="email"
-                            placeholder="Email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="w-full pl-12 pr-4 py-3 bg-neutral-800/60 text-white placeholder-neutral-400 rounded-2xl border border-neutral-600 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-300"
-                            required
-                        />
+                <span className="text-sm font-light opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ fontFamily: 'sans-serif' }}>
+                    Back to Home
+                </span>
+            </button>
+
+            {/* Main Login Container */}
+            <div className="relative z-10 w-full max-w-lg">
+
+                {/* Frosted Glass Login Card (NO BLUR) */}
+                <div className="bg-white/80 border border-white/10 rounded-3xl p-8 shadow-xl shadow-black/30 transition-all duration-300">
+
+                    {/* Header Section */}
+                    <div className="text-center mb-8">
+                        <TheCircleLogo />
+                        <h1
+                            className="text-[#5c0000] text-4xl md:text-5xl font-bold uppercase mb-2 tracking-wider"
+                            style={{ textShadow: "0 4px 24px rgba(168,50,70,0.15)" }}
+                        >
+                            Access
+                        </h1>
+                        <p className="text-[#5c0000] text-base font-light" style={{ fontFamily: 'sans-serif' }}>
+                            Enter the circle. Your secrets await.
+                        </p>
                     </div>
-                    {/* Password Input */}
-                    <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={20} />
-                        <input
-                            type="password"
-                            placeholder="Password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full pl-12 pr-4 py-3 bg-neutral-800/60 text-white placeholder-neutral-400 rounded-2xl border border-neutral-600 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-300"
-                            required
-                        />
+
+                    {/* Error Message */}
+                    {error && (
+                        <div className="mb-6 bg-[#a83246]/10 backdrop-blur-xl border border-[#a83246]/30 rounded-2xl px-4 py-3 text-center">
+                            <p className="text-[#5c0000] text-sm font-light" style={{ fontFamily: 'sans-serif' }}>
+                                {error}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Login Form */}
+                    <form onSubmit={handleSubmit} className="space-y-6">
+
+                        {/* Email Input Container */}
+                        <div className="relative group">
+                            <input
+                                type="email"
+                                placeholder="Email Address"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full pl-16 pr-4 py-4 bg-white/60 backdrop-blur-xl text-[#a83246] placeholder-[#a83246]/50 rounded-2xl border border-[#a83246]/20 focus:outline-none focus:bg-white/80 focus:border-[#a83246]/40 focus:ring-2 focus:ring-[#a83246]/30 transition-all duration-300"
+                                style={{ fontFamily: 'sans-serif' }}
+                                required
+                                disabled={loading}
+                            />
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#a83246]/10 rounded-full flex items-center justify-center border border-[#a83246]/20 transition-all duration-300 group-focus-within:bg-[#a83246]/20 group-focus-within:border-[#a83246]/40">
+                                <Mail className="w-4 h-4 text-[#a83246]" />
+                            </div>
+                        </div>
+
+                        {/* Password Input Container */}
+                        <div className="relative group">
+                            <input
+                                type="password"
+                                placeholder="Password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full pl-16 pr-4 py-4 bg-white/60 backdrop-blur-xl text-[#5c0000] placeholder-[#a83246]/50 rounded-2xl border border-[#a83246]/20 focus:outline-none focus:bg-white/80 focus:border-[#a83246]/40 focus:ring-2 focus:ring-[#a83246]/30 transition-all duration-300"
+                                style={{ fontFamily: 'sans-serif' }}
+                                required
+                                disabled={loading}
+                            />
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#a83246]/10 rounded-full flex items-center justify-center border border-[#a83246]/20 transition-all duration-300 group-focus-within:bg-[#a83246]/20 group-focus-within:border-[#a83246]/40">
+                                <Lock className="w-4 h-4 text-[#5c0000]" />
+                            </div>
+                        </div>
+
+                        {/* Login Button */}
+                        <button
+                            type="submit"
+                            className="w-full py-4 bg-[#5c0000]/90 backdrop-blur-xl border border-[#a83246]/30 text-white font-bold uppercase tracking-wider rounded-2xl shadow-xl shadow-black/30 transition-all duration-300 ease-in-out hover:bg-[#a83246] hover:scale-105 hover:shadow-2xl hover:shadow-[#a83246]/40 focus:outline-none focus:ring-2 focus:ring-[#a83246]/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <div className="flex items-center justify-center space-x-2">
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                    <span>Accessing...</span>
+                                </div>
+                            ) : (
+                                'Enter The Circle'
+                            )}
+                        </button>
+                    </form>
+
+                    {/* Footer Links */}
+                    <div className="mt-8 text-center space-y-3">
+                        <button
+                            type="button"
+                            className="text-[#5c0000] text-sm font-light hover:text-[#800000] transition-colors duration-300 underline decoration-transparent hover:decoration-[#a83246] decoration-1 underline-offset-4"
+                            style={{ fontFamily: 'sans-serif' }}
+                        >
+                            Forgot your access code?
+                        </button>
+                        <div className="text-xs text-neutral-700/70 font-sans">
+                            No account? Contact your Circle administrator.
+                        </div>
                     </div>
-                    {/* Pill-shaped Login Button */}
-                    <button
-                        type="submit"
-                        className="w-full p-3 font-bold text-white bg-teal-500 hover:bg-teal-600 rounded-2xl shadow-lg transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900 focus:ring-teal-500"
-                    >
-                        Log In
-                    </button>
-                </form>
-                {/* Footer Link */}
-                <div className="text-center">
-                    <a href="#" className="text-sm text-teal-300 hover:underline">
-                        Forgot Password?
-                    </a>
+                </div>
+
+                {/* Bottom Copyright */}
+                <div className="mt-8 text-center text-xs text-neutral-400/70 font-sans">
+                    © {new Date().getFullYear()} The Circle — Access is privilege.
                 </div>
             </div>
         </div>
