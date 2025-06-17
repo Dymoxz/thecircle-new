@@ -25,7 +25,10 @@ async function bootstrap() {
   const apiApp = await NestFactory.create(ApiModule);
   const globalPrefix = 'api';
   apiApp.setGlobalPrefix(globalPrefix);
-  apiApp.enableCors();
+  app.enableCors({
+    origin: 'http://localhost:8080', // Replace with your frontend URL
+    credentials: true, // If you're using cookies or auth headers
+  });
   await apiApp.listen(3002);
   console.log(`API server running at http://localhost:3002/${globalPrefix}`);
 }

@@ -84,7 +84,7 @@ const HomePage = () => {
                     </Link>
 
                     {/* Login Card */}
-                    <Link to="/login" className="group">
+                    <Link to="/api/auth/login" className="group">
                         <div className="h-full bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 flex flex-col items-center justify-center
                             shadow-xl shadow-black/30 transition-all duration-300 ease-in-out
                             hover:bg-white/10 hover:scale-105 hover:shadow-2xl hover:shadow-[#a83246]/50">
@@ -111,7 +111,7 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/streamer" element={<StreamerPage />} />
                 <Route path="/viewer" element={<ViewerPage />} />
-                <Route path="/login" element={<LoginPage />} />
+                <Route path="/api/auth/login" element={<LoginPage />} />
             </Routes>
         </Router>
     );

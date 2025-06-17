@@ -42,6 +42,7 @@ const LoginPage = () => {
         try {
             const result = await login(email, password);
             if (result.token) {
+                localStorage.setItem('jwt_token', result.token); // Store JWT
                 navigate('/');
             } else {
                 setError(result.message || 'Login failed');

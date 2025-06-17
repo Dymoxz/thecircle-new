@@ -1,25 +1,28 @@
 // thecircle-frontend/src/login.service.ts
 
-export interface LoginResponse {
+export type LoginResponse = {
+    _id?: string;
+    email?: string;
     token?: string;
     message?: string;
-    [key: string]: any;
-}
+};
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
     try {
-        const response = await fetch('/api/login', {
+        // Changed endpoint to explicit https://localhost:3002/api/auth/login
+        const response = await fetch('https://localhost:3002/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
         });
 
-        const data = await response.json();
+        const text = await response.text();
+        const data = text ? JSON.parse(text) : {};
         if (!response.ok) {
-            throw new Error(data.message || 'Login failed');
+            return { message: data.message || 'Login failed' };
         }
         return data;
-    } catch (error: any) {
-        return { message: error.message || 'Network error' };
+    } catch (error) {
+        return { message: (error instanceof Error ? error.message : 'Network error') };
     }
 }
