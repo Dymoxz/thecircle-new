@@ -3,7 +3,8 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
 import StreamerPage from './pages/StreamerPage';
 import ViewerPage from './pages/ViewerPage';
-import { Camera, Eye } from 'lucide-react';
+import { Camera, Eye, Lock } from 'lucide-react';
+import LoginPage from "./pages/LoginPage.jsx";
 
 const HomePage = () => {
     useEffect(() => {
@@ -44,12 +45,20 @@ const HomePage = () => {
 
                     {/* Viewer Card */}
                     <Link to="/viewer" className="group">
+                    <div className="h-full bg-neutral-800/50 backdrop-blur-2xl border border-neutral-100/10 rounded-3xl p-8 flex flex-col items-center justify-center transition-all duration-300 ease-in-out hover:bg-neutral-700/70 hover:scale-105 hover:shadow-2xl hover:shadow-teal-800/10">
+                        <div className="mb-4 w-20 h-20 bg-teal-500/10 rounded-2xl flex items-center justify-center border border-teal-500/20 transition-all duration-300 group-hover:bg-teal-500/20 group-hover:border-teal-500/50">
+                            <Eye className="w-10 h-10 text-teal-400" />
+                        </div>
+                        <h2 className="text-2xl font-semibold mb-1">Watch Now</h2>
+                        <p className="text-neutral-400">Join the action.</p>
+                    </div>
+                </Link>
+                    <Link to="/login" className="group">
                         <div className="h-full bg-neutral-800/50 backdrop-blur-2xl border border-neutral-100/10 rounded-3xl p-8 flex flex-col items-center justify-center transition-all duration-300 ease-in-out hover:bg-neutral-700/70 hover:scale-105 hover:shadow-2xl hover:shadow-teal-800/10">
                             <div className="mb-4 w-20 h-20 bg-teal-500/10 rounded-2xl flex items-center justify-center border border-teal-500/20 transition-all duration-300 group-hover:bg-teal-500/20 group-hover:border-teal-500/50">
-                                <Eye className="w-10 h-10 text-teal-400" />
+                                <Lock className="w-10 h-10 text-teal-400" />
                             </div>
-                            <h2 className="text-2xl font-semibold mb-1">Watch Now</h2>
-                            <p className="text-neutral-400">Join the action.</p>
+                            <h2 className="text-2xl font-semibold mb-1">Login</h2>
                         </div>
                     </Link>
                 </div>
@@ -65,6 +74,7 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/streamer" element={<StreamerPage />} />
                 <Route path="/viewer" element={<ViewerPage />} />
+                <Route path="/login" element={<LoginPage />} />
             </Routes>
         </Router>
     );
