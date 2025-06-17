@@ -10,7 +10,6 @@ import { Request } from 'express';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-    private readonly logger = new Logger(AuthGuard.name);
 
     constructor(private jwtService: JwtService) {}
 
@@ -18,16 +17,12 @@ export class AuthGuard implements CanActivate {
         const request = context.switchToHttp().getRequest();
         const token = this.extractTokenFromHeader(request);
         if (!token) {
-            this.logger.log('No token found');
             throw new UnauthorizedException();
         }
         try {
             const payload = await this.jwtService.verifyAsync(token, {
                 secret: process.env['JWT_SECRET'] || 'secretstring'
             });
-            this.logger.log('payload', payload);
-            // 💡 We're assigning the payload to the request object here
-            // so that we can access it in our route handlers
             request['user'] = payload;
         } catch {
             throw new UnauthorizedException();
