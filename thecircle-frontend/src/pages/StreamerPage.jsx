@@ -571,6 +571,7 @@ const StreamerPage = () => {
 					streamId={streamId} // make sure streamId is defined in your component
 					username={streamerId} // or whatever variable holds the streamer's username/id
 					wsUrl={WS_URL}
+					myStream={true}
 				/>
 			</div>
 		</div>

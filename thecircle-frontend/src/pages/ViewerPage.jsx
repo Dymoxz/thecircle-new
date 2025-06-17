@@ -380,6 +380,7 @@ const ViewerPage = () => {
 								streamId={currentStreamId}
 								username={username}
 								wsUrl={WS_URL}
+								myStream={false}
 							/>
 						</div>
 						<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-3">
