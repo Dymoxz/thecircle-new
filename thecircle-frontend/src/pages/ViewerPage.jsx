@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, use } from "react";
 import { v4 as uuidv4 } from "uuid";
 import {
 	Play,
@@ -11,12 +11,8 @@ import {
 	LayoutGrid,
 	StopCircle,
 } from "lucide-react";
-
-import React, { useState, useRef, useEffect } from "react";
-import { v4 as uuidv4 } from "uuid";
 import Chat from "../component/chat";
 
-// --- START OF FIX ---
 // No longer hardcoded. This will use the same hostname as the browser's address bar.
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const WS_URL = `${wsProtocol}//${window.location.hostname}:3001`;
@@ -62,6 +58,7 @@ const ViewerPage = () => {
 	const socketRef = useRef(null);
 	const peerRef = useRef(null);
 	const viewerId = useRef(uuidv4()).current;
+	const username = viewerId.slice(0, 16);
 
 	const streamInfo = {
 		streamerName: "CodeMaster_Dev",
@@ -79,6 +76,7 @@ const ViewerPage = () => {
 	}, []);
 
 	useEffect(() => {
+		console.log("viewerId:", viewerId);
 		socketRef.current = new WebSocket(WS_URL);
 		const socket = socketRef.current;
 
@@ -378,7 +376,11 @@ const ViewerPage = () => {
 							</div>
 						</div>
 						<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4 flex flex-col flex-1">
-							<ChatPanelContent />
+							<Chat
+								streamId={currentStreamId}
+								username={username}
+								wsUrl={WS_URL}
+							/>
 						</div>
 						<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-3">
 							<button

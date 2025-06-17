@@ -208,6 +208,9 @@ const Chat = ({ streamId, username, wsUrl }) => {
 				keyPairRef.current.privateKey,
 				dataObj
 			);
+			console.log("[Chat] viewerId:", username);
+			console.log("[Chat] streamId:", streamId);
+
 			console.log("[Chat] Sending message:", dataObj);
 			console.log("[Chat] Public Key (b64):", keyPairRef.current.pubB64);
 			console.log("[Chat] Signature (b64):", signature);
