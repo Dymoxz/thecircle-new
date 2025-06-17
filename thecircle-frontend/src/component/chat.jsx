@@ -103,8 +103,7 @@ const Chat = ({ streamId, username, wsUrl }) => {
 	const wsRef = useRef(null);
 	const messagesEndRef = useRef(null);
 	const keyPairRef = useRef(null);
-	const streamerId = "685001e1e7c0e4e8019d1450";
-
+	const streamerId = streamId.split("-")[0]; // Extract streamerId from streamId
 	useEffect(() => {
 		// Fetch old messages from backend (localhost:3002)
 		fetch(`http://localhost:3002/api/chat/stream/${streamerId}`)
