@@ -54,7 +54,6 @@ const AUDIO_CONSTRAINTS = {
 };
 
 const StreamerPage = () => {
-    // ... all state and refs remain the same
     const [isStreaming, setIsStreaming] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
@@ -296,6 +295,13 @@ const StreamerPage = () => {
         <div
             className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative"
         >
+            {/* Animated Carmine Gradient Background */}
+            <div className="absolute inset-0 z-0 pointer-events-none">
+                <div className="absolute inset-0 bg-gradient-to-br from-neutral-900 via-[#be123c] to-[#ff5a7c] opacity-80" />
+                <div className="absolute -top-32 -left-32 w-[600px] h-[600px] bg-gradient-radial from-[#ff5a7c]/30 to-transparent rounded-full blur-3xl animate-pulse-slow" />
+                <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-gradient-radial from-[#be123c]/20 to-transparent rounded-full blur-2xl animate-pulse-slow" />
+                <div className="absolute top-1/2 left-1/2 w-[1200px] h-[1200px] -translate-x-1/2 -translate-y-1/2 bg-gradient-radial from-[#be123c]/10 via-transparent to-transparent rounded-full blur-2xl" />
+            </div>
             <video ref={localVideoRef} autoPlay muted playsInline className="absolute inset-0 w-full h-full" />
 
             {/* --- OVERLAYS --- */}
@@ -303,10 +309,12 @@ const StreamerPage = () => {
             {!isStreaming && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500">
                     <div className="text-center p-8">
-                        <div className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6"><Camera className="w-12 h-12 text-teal-400" /></div>
+                        <div className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                            <Camera className="w-12 h-12 text-[#ff5a7c]" />
+                        </div>
                         <h3 className="text-2xl font-bold mb-2">Ready to Stream</h3>
                         <p className="text-neutral-300 mb-6 max-w-sm">Press the button below or in the side panel to start.</p>
-                        <button onClick={handleStartStream} disabled={!isWsConnected} className="bg-teal-500 hover:bg-teal-600 disabled:bg-neutral-600 disabled:cursor-not-allowed text-neutral-900 px-8 py-3 rounded-2xl font-semibold transition-all duration-300 ease-in-out shadow-lg shadow-teal-500/20 hover:shadow-teal-500/40 transform hover:scale-105 lg:hidden">{isWsConnected ? 'Start Stream' : 'Connecting...'}</button>
+                        <button onClick={handleStartStream} disabled={!isWsConnected} className="bg-gradient-to-r from-[#ff5a7c] via-[#be123c] to-[#7f1d1d] hover:from-[#be123c] hover:to-[#ff5a7c] disabled:bg-neutral-600 disabled:cursor-not-allowed text-neutral-100 px-8 py-3 rounded-2xl font-semibold transition-all duration-300 ease-in-out shadow-lg shadow-[#be123c]/20 hover:shadow-[#be123c]/40 transform hover:scale-105 lg:hidden">{isWsConnected ? 'Start Stream' : 'Connecting...'}</button>
                     </div>
                 </div>
             )}
@@ -332,39 +340,39 @@ const StreamerPage = () => {
             {isStreaming && (
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center">
                     <div className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg">
-                        <ControlButton onClick={toggleMute} className={isMuted ? 'bg-red-500/80 hover:bg-red-500 text-white' : 'bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200'}>{isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}</ControlButton>
-                        <ControlButton onClick={toggleVideo} className={isVideoOff ? 'bg-red-500/80 hover:bg-red-500 text-white' : 'bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200'}>{isVideoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}</ControlButton>
+                        <ControlButton onClick={toggleMute} className={isMuted ? 'bg-gradient-to-r from-[#be123c] to-[#ff5a7c] text-white' : 'bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200'}>{isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}</ControlButton>
+                        <ControlButton onClick={toggleVideo} className={isVideoOff ? 'bg-gradient-to-r from-[#be123c] to-[#ff5a7c] text-white' : 'bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200'}>{isVideoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}</ControlButton>
                         <ControlButton onClick={handleFlipCamera} className="bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"><RotateCcw className="w-6 h-6" /></ControlButton>
                         <div className="w-px h-8 bg-neutral-100/10 mx-2"></div>
-                        <ControlButton onClick={handlePauseStream} className={isPaused ? 'bg-teal-500/80 hover:bg-teal-500 text-white' : 'bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900'}>{isPaused ? <Play className="w-6 h-6" /> : <Pause className="w-6 h-6" />}</ControlButton>
-                        <ControlButton onClick={handleStopStream} className="bg-red-500/80 hover:bg-red-500 text-white"><Square className="w-6 h-6" /></ControlButton>
+                        <ControlButton onClick={handlePauseStream} className={isPaused ? 'bg-gradient-to-r from-[#be123c] to-[#ff5a7c] text-white' : 'bg-gradient-to-r from-yellow-500/80 to-yellow-600/80 text-neutral-900'}>{isPaused ? <Play className="w-6 h-6" /> : <Pause className="w-6 h-6" />}</ControlButton>
+                        <ControlButton onClick={handleStopStream} className="bg-gradient-to-r from-[#be123c] to-[#ff5a7c] text-white"><Square className="w-6 h-6" /></ControlButton>
                     </div>
                 </div>
             )}
 
             <div className="absolute top-4 right-4 w-80 space-y-4 hidden lg:flex flex-col max-h-[calc(100vh-2rem)]">
-                <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 p-4 rounded-2xl">
-                    <h3 className="font-semibold mb-4 flex items-center text-lg"><Monitor className="w-5 h-5 mr-3 text-teal-400" />Stream Info</h3>
+                <div className="bg-neutral-900/50 backdrop-blur-lg border border-[#be123c]/20 p-4 rounded-2xl">
+                    <h3 className="font-semibold mb-4 flex items-center text-lg"><Monitor className="w-5 h-5 mr-3 text-[#ff5a7c]" />Stream Info</h3>
                     <div className="space-y-3 text-sm">
                         <div className="flex justify-between items-center"><span className="text-neutral-400">Status</span><span className={`font-semibold px-2 py-0.5 rounded-md text-xs ${isStreaming ? (isPaused ? 'bg-yellow-500/20 text-yellow-300' : 'bg-teal-500/20 text-teal-300') : 'bg-neutral-700 text-neutral-300'}`}>{isStreaming ? (isPaused ? 'Paused' : 'Live') : 'Offline'}</span></div>
                         <div className="flex justify-between items-center"><span className="text-neutral-400">Camera</span><span className="capitalize">{currentCamera === 'user' ? 'Front' : 'Back'}</span></div>
                     </div>
                 </div>
-                <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 p-4 rounded-2xl">
-                    <h3 className="font-semibold mb-4 flex items-center text-lg"><Settings className="w-5 h-5 mr-3 text-teal-400" />Quick Controls</h3>
+                <div className="bg-neutral-900/50 backdrop-blur-lg border border-[#be123c]/20 p-4 rounded-2xl">
+                    <h3 className="font-semibold mb-4 flex items-center text-lg"><Settings className="w-5 h-5 mr-3 text-[#ff5a7c]" />Quick Controls</h3>
                     {!isStreaming ? (
-                        <button onClick={handleStartStream} disabled={!isWsConnected} className="w-full bg-teal-500 hover:bg-teal-600 disabled:bg-neutral-600 disabled:cursor-not-allowed text-neutral-900 py-3 px-4 rounded-xl font-semibold transition-all duration-300 ease-in-out flex items-center justify-center space-x-2 transform hover:scale-105 active:scale-100"><Play className="w-5 h-5" /><span>{isWsConnected ? 'Start Stream' : 'Connecting...'}</span></button>
+                        <button onClick={handleStartStream} disabled={!isWsConnected} className="w-full bg-gradient-to-r from-[#ff5a7c] via-[#be123c] to-[#7f1d1d] hover:from-[#be123c] hover:to-[#ff5a7c] disabled:bg-neutral-600 disabled:cursor-not-allowed text-neutral-100 py-3 px-4 rounded-xl font-semibold transition-all duration-300 ease-in-out flex items-center justify-center space-x-2 transform hover:scale-105 active:scale-100"><Play className="w-5 h-5" /><span>{isWsConnected ? 'Start Stream' : 'Connecting...'}</span></button>
                     ) : (
                         <div className="space-y-3">
-                            <button onClick={handlePauseStream} className={`w-full py-3 px-4 rounded-xl font-semibold transition-colors flex items-center justify-center space-x-2 ${isPaused ? 'bg-teal-500/80 hover:bg-teal-500 text-white' : 'bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900'}`}>{isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}<span>{isPaused ? 'Resume Stream' : 'Pause Stream'}</span></button>
-                            <button onClick={handleStopStream} className="w-full bg-red-500/80 hover:bg-red-500 text-white py-3 px-4 rounded-xl font-semibold transition-colors flex items-center justify-center space-x-2"><Square className="w-5 h-5" /><span>End Stream</span></button>
+                            <button onClick={handlePauseStream} className={`w-full py-3 px-4 rounded-xl font-semibold transition-colors flex items-center justify-center space-x-2 ${isPaused ? 'bg-gradient-to-r from-[#be123c] to-[#ff5a7c] text-white' : 'bg-gradient-to-r from-yellow-500/80 to-yellow-600/80 text-neutral-900'}`}>{isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}<span>{isPaused ? 'Resume Stream' : 'Pause Stream'}</span></button>
+                            <button onClick={handleStopStream} className="w-full bg-gradient-to-r from-[#be123c] to-[#ff5a7c] text-white py-3 px-4 rounded-xl font-semibold transition-colors flex items-center justify-center space-x-2"><Square className="w-5 h-5" /><span>End Stream</span></button>
                         </div>
                     )}
                 </div>
 
                 {/* --- NEW CHAT PANEL --- */}
-                <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4 flex flex-col flex-1">
-                    <h3 className="font-semibold mb-4 flex items-center text-lg"><MessageSquare className="w-5 h-5 mr-3 text-teal-400" />Live Chat</h3>
+                <div className="bg-neutral-900/50 backdrop-blur-lg border border-[#be123c]/20 rounded-2xl p-4 flex flex-col flex-1">
+                    <h3 className="font-semibold mb-4 flex items-center text-lg"><MessageSquare className="w-5 h-5 mr-3 text-[#ff5a7c]" />Live Chat</h3>
                     {/* Message List */}
                     <div className="flex-1 space-y-4 pr-2 overflow-y-auto">
                         {mockChatMessages.map((msg, index) => (
@@ -379,9 +387,9 @@ const StreamerPage = () => {
                         <input
                             type="text"
                             placeholder="Send a message..."
-                            className="flex-1 bg-neutral-800/60 border border-neutral-600 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all outline-none"
+                            className="flex-1 bg-neutral-800/60 border border-[#be123c]/40 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-[#ff5a7c] focus:border-[#ff5a7c] transition-all outline-none"
                         />
-                        <button className="p-2 bg-teal-500 hover:bg-teal-600 rounded-lg transition-colors">
+                        <button className="p-2 bg-gradient-to-r from-[#ff5a7c] to-[#be123c] hover:from-[#be123c] hover:to-[#ff5a7c] rounded-lg transition-colors">
                             <Send className="w-5 h-5 text-neutral-900" />
                         </button>
                     </div>
