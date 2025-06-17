@@ -6,16 +6,15 @@ import { Model } from 'mongoose';
 
 @Injectable()
 export class UserService {
-
-    constructor(
-        @InjectModel(UserModel.name) private userModel: Model<UserDocument>
-    ) {}
+  constructor(
+    @InjectModel(UserModel.name) private userModel: Model<UserDocument>,
+  ) {}
 
   async getUser(email: string): Promise<IUser | null> {
     const user = await this.userModel.findOne({ email }).exec();
     if (!user) {
-        console.log('Item not found');
+      console.log('Item not found');
     }
-    return user; 
+    return user;
   }
 }

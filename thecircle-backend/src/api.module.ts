@@ -5,6 +5,8 @@ import { EventsModule } from './events/events.module';
 import 'dotenv/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from './user/user.module';
+import { ChatModule } from './chat/chat.module';
+import { AppModule } from './app.module';
 @Module({
   imports: [
     MongooseModule.forRoot(process.env.CONNECTION_STRING!, {
@@ -18,7 +20,9 @@ import { UsersModule } from './user/user.module';
         return connection;
       },
     }),
-    UsersModule
+    UsersModule,
+    ChatModule,
+    AppModule,
   ],
   controllers: [],
   providers: [],

@@ -103,6 +103,25 @@ const Chat = ({ streamId, username, wsUrl }) => {
 	const wsRef = useRef(null);
 	const messagesEndRef = useRef(null);
 	const keyPairRef = useRef(null);
+	const streamerId = "685001e1e7c0e4e8019d1450";
+
+	useEffect(() => {
+		// Fetch old messages from backend (localhost:3002)
+		fetch(`http://localhost:3002/api/chat/stream/${streamerId}`)
+			.then((res) => res.json())
+			.then((data) => {
+				const mapped = data.map((chat) => ({
+					user: chat.sender,
+					text: chat.message,
+					timestamp: chat.timestamp,
+					verified: true,
+				}));
+				setMessages(mapped);
+			})
+			.catch((err) => {
+				console.error("Failed to fetch chat history", err);
+			});
+	}, [streamerId]);
 
 	useEffect(() => {
 		// Generate or load keypair on mount

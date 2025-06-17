@@ -1,4 +1,4 @@
-import { Chat, IUser } from './user.interface';
+import { IUser } from './user.interface';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { IsMongoId } from 'class-validator';
 
@@ -38,12 +38,6 @@ export class User implements IUser {
     type: Number,
   })
   followerCount!: Number;
-
-  @Prop({
-    required: false,
-    type: [Object],
-  })
-  chatHistory?: Chat[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
