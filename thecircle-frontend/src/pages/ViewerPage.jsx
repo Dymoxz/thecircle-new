@@ -73,19 +73,6 @@ const ViewerPage = () => {
                         if (e.candidate) socket.send(JSON.stringify({ event: 'ice-candidate', data: { to: from, candidate: e.candidate } }));
                     };
                     await peer.setRemoteDescription(new RTCSessionDescription(offer));
-                    // Set preferred video bitrate if possible
-                    peer.getTransceivers().forEach(transceiver => {
-                        if (transceiver.receiver && transceiver.receiver.track && transceiver.receiver.track.kind === 'video') {
-                            const receiver = transceiver.receiver;
-                            if (receiver && receiver.getParameters) {
-                                const params = receiver.getParameters();
-                                if (params.encodings && params.encodings.length > 0) {
-                                    params.encodings[0].maxBitrate = 2500 * 1000; // 2.5 Mbps
-                                    receiver.setParameters(params);
-                                }
-                            }
-                        }
-                    });
                     const answer = await peer.createAnswer();
                     await peer.setLocalDescription(answer);
                     socket.send(JSON.stringify({ event: 'answer', data: { to: from, answer } }));
