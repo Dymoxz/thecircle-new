@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BrowserRouter as Router, Route, Routes, Link } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, Link, useNavigate } from "react-router-dom"; // Import useNavigate
 // Make sure to import your other pages if they are in different files
 import StreamerPage from "./pages/StreamerPage"; // Assuming these pages exist
 import ViewerPage from "./pages/ViewerPage"; // Assuming these pages exist
@@ -7,7 +7,7 @@ import LoginPage from "./pages/LoginPage.jsx"; // Assuming this page exists
 import RequireAuth from "./component/RequireAuth.jsx"; // Assuming this component exists
 
 // Importing new icons for the homepage layout
-import { Camera, Eye, Lock, Search, SlidersHorizontal, ArrowDownWideNarrow, User, Settings } from "lucide-react";
+import { Camera, Eye, Lock, Search, SlidersHorizontal, ArrowDownWideNarrow, User } from "lucide-react"; // Removed Settings icon
 
 // --- The Circle Logo SVG ---
 // Updated to remove auto-margins, size, and margin-bottom, as its placement is now controlled by the parent flex container.
@@ -59,6 +59,7 @@ const TheCircleLogo = ({ className }) => ( // Add className prop for external st
 );
 
 const HomePage = () => {
+  const navigate = useNavigate(); // Initialize useNavigate
   useEffect(() => {
     document.title = "The Circle - Home";
   }, []);
@@ -95,23 +96,24 @@ const HomePage = () => {
       stream.streamer.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Function to handle profile click
+  const handleProfileClick = () => {
+    navigate("/login"); // Navigate to the login page (or a dedicated profile page)
+  };
+
   return (
-      // Main container with full screen height and a deep maroon gradient background
       <div className="min-h-screen bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] text-white flex p-4 font-oswald overflow-hidden">
-        {/* Main Content Area - Takes up available space */}
         <div className="flex-grow flex flex-col p-4">
-          {/* Top Section: Title, Search Bar, Sort, and Filter Buttons */}
           <div className="flex flex-col md:flex-row items-center justify-between mb-8">
-            {/* The Circle Title with Logo */}
-            {/* CHANGE: Added a flex container for the logo and title, and adjusted logo size/margin */}
             <div className="flex items-center mb-4 md:mb-0">
-              <TheCircleLogo className="w-26 h-26 mr-4" /> {/* Apply specific size and margin */}
-              <h1 className="text-4xl md:text-5xl font-bold uppercase tracking-wider text-white">
+              {/* Adjusted TheCircleLogo size */}
+              <TheCircleLogo className="w-10 h-10 mr-2" />
+              {/* Adjusted heading size to match the desired profile height */}
+              <h1 className="text-3xl font-bold uppercase tracking-wider text-white">
                 The Circle
               </h1>
             </div>
 
-            {/* Search Bar */}
             <div className="flex-grow max-w-xl md:mx-8 w-full relative">
               <input
                   type="text"
@@ -123,7 +125,6 @@ const HomePage = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
             </div>
 
-            {/* Sort and Filter Buttons */}
             <div className="flex space-x-2 mt-4 md:mt-0">
               <button className="flex items-center px-4 py-2 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-colors shadow-md">
                 <ArrowDownWideNarrow className="w-4 h-4 mr-2" /> Sort
@@ -134,8 +135,6 @@ const HomePage = () => {
             </div>
           </div>
 
-          {/* Streams Grid - Displays all available or filtered streams */}
-          {/* CHANGE: Adjusted grid columns to lg:grid-cols-3 and added more top margin (mt-12) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 flex-grow mt-12">
             {filteredStreams.length > 0 ? (
                 filteredStreams.map(stream => (
@@ -162,50 +161,42 @@ const HomePage = () => {
           </div>
         </div>
 
-        {/* Right Panel - Fixed width sidebar */}
-        {/* CHANGE: Updated main panel background, border, padding, and rounded corners */}
-        <div className="w-full md:w-80 flex-shrink-0 ml-0 md:ml-6 mt-6 md:mt-0 flex flex-col space-y-6"> {/* Added space-y-6 for vertical spacing between panels */}
-          {/* Top Part of Right Panel: Profile + Go Live Button */}
-          <div className="bg-white/80 border-white/10 rounded-3xl p-8 shadow-xl shadow-black/30 flex flex-col items-center">
-            <div className="flex justify-between mb-3 items-center">
-            <div className="w-14 h-14 rounded-full bg-neutral-700 flex items-center justify-center mr-3 mb-3 border-4 border-[#a83246] overflow-hidden">
-              {/* Placeholder for user avatar, could be dynamic later */}
-              <User className="w-16 h-16 text-neutral-300" />
+        <div className="w-full md:w-80 flex-shrink-0 ml-0 md:ml-6 mt-6 md:mt-0 flex flex-col space-y-6">
+          {/* My Profile section: Now clickable and with hover effects for intuition */}
+          <div
+              className="bg-white/80 border-white/10 rounded-3xl p-4 shadow-md shadow-black/30 flex flex-col items-center cursor-pointer
+                         transition-all duration-200 ease-in-out hover:bg-white/90 hover:shadow-2xl hover:shadow-black/40"
+              onClick={handleProfileClick} // Make the entire div clickable
+          >
+            <div className="flex items-center justify-start w-full mb-2">
+              <div className="w-10 h-10 rounded-full bg-neutral-700 flex items-center justify-center mr-2 border-2 border-[#a83246] overflow-hidden">
+                <User className="w-10 h-10 text-neutral-300" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-800">My Profile</h2>
             </div>
-            <h2 className="text-xl font-bold text-gray-800 mb-2">My Profile</h2>
-            </div>{/* Changed text to gray-800 for contrast */}
-            {/* Link to StreamerPage for "Go Live" functionality */}
             <Link to="/streamer" className="w-full">
-              <button className="flex items-center justify-center w-full px-4 py-2 rounded-full bg-[#a83246] text-white font-semibold hover:bg-[#c04d65] transition-colors shadow-lg shadow-[#a83246]/40">
-                <Camera className="w-5 h-5 mr-2" /> Go Live
+              <button className="flex items-center justify-center w-full px-3 py-1.5 text-sm rounded-lg bg-[#a83246] text-white font-semibold hover:bg-[#c04d65] transition-colors shadow-lg shadow-[#a83246]/40">
+                <Camera className="w-4 h-4 mr-1" /> Go Live
               </button>
             </Link>
-            {/* Settings Button (can link to a settings page if needed) */}
-            <Link to="/login" className="w-full mt-2"> {/* Using login as a placeholder for settings route */}
-              <button className="flex items-center justify-center w-full px-4 py-2 rounded-full bg-white/40 text-gray-800 font-semibold hover:bg-white/60 transition-colors shadow-md"> {/* Adjusted background and text color */}
-                <Settings className="w-5 h-5 mr-2" /> Settings
-              </button>
-            </Link>
+            {/* Settings button removed */}
           </div>
 
-          {/* Bottom Part of Right Panel: List of People You Follow */}
-          <div className="flex-grow bg-white/80 border-white/10 rounded-3xl p-8 shadow-xl shadow-black/30 overflow-y-auto">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Following</h3> {/* Changed text to gray-800 for contrast */}
+          <div className="flex-grow bg-white/80 border-white/10 rounded-3xl p-8 shadow-md shadow-black/30 overflow-y-auto">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Following</h3>
             <ul>
               {followedUsers.map(user => (
-                  <li key={user.id} className="flex items-center mb-3 p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"> {/* Adjusted hover background */}
-                    <div className={`w-6 h-6 rounded-full mr-3 flex-shrink-0  overflow-hidden`}>
-                      {/* User Avatar */}
+                  <li key={user.id} className="flex items-center mb-3 p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer">
+                    <div className="w-6 h-6 rounded-full mr-3 flex-shrink-0  overflow-hidden">
                       <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
                     </div>
-                    <span className="text-gray-800 font-semibold flex-grow truncate">{user.name}</span> {/* Changed text to gray-800 for contrast */}
-                  {user.isOnline && (
-                      <div className="relative inline-flex">
-                        <div className="rounded-full bg-red-500 h-[8px] w-[8px] inline-block mr-2"></div>
-                        <div className="absolute animate-ping rounded-full bg-red-500 h-[8px] w-[8px] mr-2"></div>
-                      </div>                  )}
+                    <span className="text-gray-800 font-semibold flex-grow truncate">{user.name}</span>
+                    {user.isOnline && (
+                        <div className="relative inline-flex">
+                          <div className="rounded-full bg-red-500 h-[8px] w-[8px] inline-block mr-2"></div>
+                          <div className="absolute animate-ping rounded-full bg-red-500 h-[8px] w-[8px] mr-2"></div>
+                        </div>                  )}
                   </li>
-
               ))}
             </ul>
           </div>
