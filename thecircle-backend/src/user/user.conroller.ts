@@ -10,8 +10,10 @@ import {
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { IUser } from './user.interface';
+import { AuthGuard } from 'src/auth/auth.guards';
 
 @Controller('user')
+@UseGuards(AuthGuard)
 export class UserController {
   constructor(private readonly userService: UserService) {}
 

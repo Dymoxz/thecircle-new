@@ -69,9 +69,9 @@ const ViewerPage = () => {
 	};
 
 	useEffect(() => {
-		document.title = "StreamHub - Watch";
+		document.title = "The Circle - Watch";
 		return () => {
-			document.title = "StreamHub";
+			document.title = "The Circle";
 		};
 	}, []);
 
@@ -198,7 +198,7 @@ const ViewerPage = () => {
 	const StreamListPanel = () => (
 		<div className="p-4 flex flex-col h-full">
 			<div className="flex items-center justify-between mb-4 flex-shrink-0">
-				<h2 className="text-xl font-bold text-teal-400">
+				<h2 className="text-xl font-bold text-[#ff5a7c]">
 					Live Streams
 				</h2>
 				<button
@@ -217,12 +217,12 @@ const ViewerPage = () => {
 							onClick={() => handleConnectToStream(streamId)}
 							className={`p-3 rounded-2xl cursor-pointer transition-all duration-200 border-2 ${
 								streamId === currentStreamId
-									? "bg-teal-500/20 border-teal-400 ring-2 ring-teal-400"
-									: "bg-neutral-800/60 border-transparent hover:border-neutral-500"
+									? "bg-gradient-to-r from-[#ff5a7c]/20 to-[#be123c]/20 border-[#ff5a7c] ring-2 ring-[#ff5a7c]"
+									: "bg-neutral-800/60 border-transparent hover:border-[#be123c]"
 							}`}
 						>
 							<div className="flex items-center space-x-3">
-								<div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-800 rounded-full flex items-center justify-center flex-shrink-0">
+								<div className="w-10 h-10 bg-gradient-to-br from-[#ff5a7c] to-[#be123c] rounded-full flex items-center justify-center flex-shrink-0">
 									<Play className="w-5 h-5 text-white" />
 								</div>
 								<div>
@@ -284,6 +284,13 @@ const ViewerPage = () => {
 
 	return (
 		<div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
+			{/* Animated Carmine Gradient Background */}
+			<div className="absolute inset-0 z-0 pointer-events-none">
+				<div className="absolute inset-0 bg-gradient-to-br from-neutral-900 via-[#be123c] to-[#ff5a7c] opacity-80" />
+				<div className="absolute -top-32 -left-32 w-[600px] h-[600px] bg-gradient-radial from-[#ff5a7c]/30 to-transparent rounded-full blur-3xl animate-pulse-slow" />
+				<div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-gradient-radial from-[#be123c]/20 to-transparent rounded-full blur-2xl animate-pulse-slow" />
+				<div className="absolute top-1/2 left-1/2 w-[1200px] h-[1200px] -translate-x-1/2 -translate-y-1/2 bg-gradient-radial from-[#be123c]/10 via-transparent to-transparent rounded-full blur-2xl" />
+			</div>
 			<video
 				ref={remoteVideoRef}
 				autoPlay
@@ -330,12 +337,12 @@ const ViewerPage = () => {
 			<div className="absolute top-4 right-4 max-h-[calc(100vh-2rem)] w-80 space-y-4 hidden lg:flex flex-col z-20">
 				{currentStreamId && (
 					<>
-						<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4">
-							<h2 className="text-lg font-bold mb-3">
+						<div className="bg-neutral-900/50 backdrop-blur-lg border border-[#be123c]/20 rounded-2xl p-4">
+							<h2 className="text-lg font-bold mb-3 bg-gradient-to-r from-[#ff5a7c] via-[#be123c] to-[#7f1d1d] bg-clip-text text-transparent">
 								{streamInfo.title}
 							</h2>
 							<div className="flex items-center space-x-3 mb-4">
-								<div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-800 rounded-full flex-shrink-0 flex items-center justify-center">
+								<div className="w-10 h-10 bg-gradient-to-br from-[#ff5a7c] to-[#be123c] rounded-full flex-shrink-0 flex items-center justify-center">
 									<span className="text-xs font-bold">
 										CM
 									</span>
@@ -351,7 +358,7 @@ const ViewerPage = () => {
 							</div>
 							<div className="text-xs text-neutral-300 space-y-2 border-t border-neutral-700 pt-3">
 								<div className="flex items-center space-x-2">
-									<Calendar className="w-4 h-4 text-teal-400" />
+									<Calendar className="w-4 h-4 text-[#ff5a7c]" />
 									<span>
 										{new Date().toLocaleDateString(
 											"en-US",
@@ -360,7 +367,7 @@ const ViewerPage = () => {
 									</span>
 								</div>
 								<div className="flex items-center space-x-2">
-									<Users className="w-4 h-4 text-teal-400" />
+									<Users className="w-4 h-4 text-[#ff5a7c]" />
 									<span>{streamInfo.viewers} viewers</span>
 								</div>
 							</div>
@@ -368,14 +375,14 @@ const ViewerPage = () => {
 								{streamInfo.tags.map((tag) => (
 									<span
 										key={tag}
-										className="bg-neutral-700/50 px-3 py-1 rounded-full text-xs"
+										className="bg-[#be123c]/30 px-3 py-1 rounded-full text-xs"
 									>
 										{tag}
 									</span>
 								))}
 							</div>
 						</div>
-						<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4 flex flex-col flex-1">
+						<div className="bg-neutral-900/50 backdrop-blur-lg border border-[#be123c]/20 rounded-2xl p-4 flex flex-col flex-1">
 							<Chat
 								streamId={currentStreamId}
 								username={username}
@@ -383,10 +390,10 @@ const ViewerPage = () => {
 								myStream={false}
 							/>
 						</div>
-						<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-3">
+						<div className="bg-neutral-900/50 backdrop-blur-lg border border-[#be123c]/20 rounded-2xl p-3">
 							<button
 								onClick={handleStopWatching}
-								className="flex items-center justify-center w-full px-4 py-3 bg-red-500/80 hover:bg-red-500 backdrop-blur-sm rounded-xl text-white font-semibold transition-colors"
+								className="flex items-center justify-center w-full px-4 py-3 bg-gradient-to-r from-[#be123c] to-[#ff5a7c] hover:from-[#ff5a7c] hover:to-[#be123c] backdrop-blur-sm rounded-xl text-white font-semibold transition-colors"
 							>
 								<StopCircle className="w-5 h-5 mr-2" />
 								Stop Watching
@@ -402,7 +409,7 @@ const ViewerPage = () => {
 					<div className="mb-4">
 						<button
 							onClick={handleStopWatching}
-							className="flex items-center justify-center w-full px-4 py-3 bg-red-600/80 hover:bg-red-700/80 backdrop-blur-sm rounded-xl text-white font-semibold transition-colors"
+							className="flex items-center justify-center w-full px-4 py-3 bg-gradient-to-r from-[#be123c] to-[#ff5a7c] hover:from-[#ff5a7c] hover:to-[#be123c] backdrop-blur-sm rounded-xl text-white font-semibold transition-colors"
 						>
 							<StopCircle className="w-5 h-5 mr-2" />
 							Stop Watching

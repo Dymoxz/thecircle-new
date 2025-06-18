@@ -45,13 +45,13 @@ const AUDIO_CONSTRAINTS = {
 };
 
 const StreamerPage = () => {
-	const [isStreaming, setIsStreaming] = useState(false);
-	const [isPaused, setIsPaused] = useState(false);
-	const [isMuted, setIsMuted] = useState(false);
-	const [isVideoOff, setIsVideoOff] = useState(false);
-	const [currentCamera, setCurrentCamera] = useState("user");
-	const [viewerCount, setViewerCount] = useState(0);
-	const [streamDuration, setStreamDuration] = useState(0);
+    const [isStreaming, setIsStreaming] = useState(false);
+    const [isPaused, setIsPaused] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
+    const [isVideoOff, setIsVideoOff] = useState(false);
+    const [currentCamera, setCurrentCamera] = useState('user');
+    const [viewerCount, setViewerCount] = useState(0);
+    const [streamDuration, setStreamDuration] = useState(0);
 
 	const localVideoRef = useRef(null);
 	const socketRef = useRef(null);

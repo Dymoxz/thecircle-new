@@ -7,6 +7,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from './user/user.module';
 import { ChatModule } from './chat/chat.module';
 import { AppModule } from './app.module';
+import { AuthModule } from './auth/auth.module';
 @Module({
   imports: [
     MongooseModule.forRoot(process.env.CONNECTION_STRING!, {
@@ -23,6 +24,7 @@ import { AppModule } from './app.module';
     UsersModule,
     ChatModule,
     AppModule,
+    AuthModule
   ],
   controllers: [],
   providers: [],
