@@ -1,7 +1,8 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {v4 as uuidv4} from 'uuid';
-import {Calendar, LayoutGrid, Play, RefreshCw, StopCircle, Users, X, Pause, Volume2, VolumeX} from 'lucide-react';
+import {Calendar, LayoutGrid, Play, RefreshCw, StopCircle, Users, X, Pause, Volume2, VolumeX, ArrowLeft} from 'lucide-react';
 import * as mediasoupClient from 'mediasoup-client';
+import {useNavigate} from 'react-router-dom';
 import Chat from '../component/chat';
 
 // WebSocket URL configuration
@@ -23,6 +24,10 @@ const ViewerPage = () => {
     const [showPauseOverlay, setShowPauseOverlay] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
+    const [volume, setVolume] = useState(1.0);
+    const [previousVolume, setPreviousVolume] = useState(1.0);
+    const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+    const volumeSliderTimeoutRef = useRef(null);
 
     const remoteVideoRef = useRef(null);
     const socketRef = useRef(null);
@@ -42,6 +47,8 @@ const ViewerPage = () => {
         category: "Programming",
         tags: ["React", "JavaScript", "WebRTC", "Live Coding"]
     };
+
+    const navigate = useNavigate();
 
     useEffect(() => {
         document.title = 'StreamHub - Watch';
@@ -144,6 +151,9 @@ const ViewerPage = () => {
             }
             consumersRef.current.forEach(consumer => consumer.close());
             consumersRef.current.clear();
+            if (volumeSliderTimeoutRef.current) {
+                clearTimeout(volumeSliderTimeoutRef.current);
+            }
         };
     }, []);
 
@@ -522,6 +532,9 @@ const ViewerPage = () => {
         }
         setCurrentStreamId(null);
         currentStreamIdRef.current = null;
+        
+        // Navigate to home page
+        navigate('/');
     };
 
     const handleRefresh = () => {
@@ -653,16 +666,54 @@ const ViewerPage = () => {
 
     const handleMute = () => {
         if (!remoteVideoRef.current) return;
-        remoteVideoRef.current.muted = !isMuted;
-        setIsMuted(!isMuted);
+        
+        if (!isMuted) {
+            // Muting - save current volume and set to 0
+            setPreviousVolume(volume);
+            setVolume(0);
+            remoteVideoRef.current.volume = 0;
+            setIsMuted(true);
+        } else {
+            // Unmuting - restore previous volume
+            setVolume(previousVolume);
+            remoteVideoRef.current.volume = previousVolume;
+            setIsMuted(false);
+        }
+    };
+
+    const handleVolumeChange = (newVolume) => {
+        if (!remoteVideoRef.current) return;
+        
+        setVolume(newVolume);
+        remoteVideoRef.current.volume = newVolume;
+        
+        // Update mute state based on volume
+        if (newVolume === 0) {
+            setIsMuted(true);
+        } else {
+            setIsMuted(false);
+        }
+    };
+
+    const handleVolumeSliderShow = () => {
+        if (volumeSliderTimeoutRef.current) {
+            clearTimeout(volumeSliderTimeoutRef.current);
+        }
+        setShowVolumeSlider(true);
+    };
+
+    const handleVolumeSliderHide = () => {
+        volumeSliderTimeoutRef.current = setTimeout(() => {
+            setShowVolumeSlider(false);
+        }, 300);
     };
 
     // Keep isMuted state in sync with video element
     useEffect(() => {
         if (remoteVideoRef.current) {
-            remoteVideoRef.current.muted = isMuted;
+            remoteVideoRef.current.volume = volume;
         }
-    }, [isMuted]);
+    }, [volume]);
 
     // Keep isPaused state in sync with video element
     useEffect(() => {
@@ -682,7 +733,69 @@ const ViewerPage = () => {
     useEffect(() => {
         setIsPaused(false);
         setIsMuted(false);
+        setVolume(1.0);
+        setPreviousVolume(1.0);
     }, [currentStreamId]);
+
+    // Add CSS for horizontal slider
+    useEffect(() => {
+        const style = document.createElement('style');
+        style.textContent = `
+            .slider-horizontal {
+                -webkit-appearance: none;
+                appearance: none;
+                background: transparent;
+                cursor: pointer;
+                pointer-events: auto;
+            }
+            .slider-horizontal::-webkit-slider-track {
+                -webkit-appearance: none;
+                appearance: none;
+                background: #374151;
+                border-radius: 4px;
+                height: 8px;
+            }
+            .slider-horizontal::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 16px;
+                height: 16px;
+                background: #14b8a6;
+                border-radius: 50%;
+                cursor: pointer;
+                border: 2px solid #ffffff;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                pointer-events: auto;
+            }
+            .slider-horizontal::-moz-range-track {
+                background: #374151;
+                border-radius: 4px;
+                height: 8px;
+                border: none;
+            }
+            .slider-horizontal::-moz-range-thumb {
+                width: 16px;
+                height: 16px;
+                background: #14b8a6;
+                border-radius: 50%;
+                cursor: pointer;
+                border: 2px solid #ffffff;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                pointer-events: auto;
+            }
+            .slider-horizontal:focus {
+                outline: none;
+            }
+            .slider-horizontal:hover {
+                cursor: pointer;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        return () => {
+            document.head.removeChild(style);
+        };
+    }, []);
 
     return (
         <div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
@@ -785,12 +898,23 @@ const ViewerPage = () => {
             {/* Left Side: Mobile Button & Stream List */}
             <button
                 onClick={() => setIsStreamListOpen(true)}
-                className="absolute top-4 left-4 z-30 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-full p-3 shadow-lg lg:hidden"
+                className="absolute top-4 left-16 z-30 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-full p-3 shadow-lg lg:hidden"
             >
                 <LayoutGrid className="w-6 h-6 text-neutral-100"/>
             </button>
+            
+            {/* Back Button - Top Left */}
+            {currentStreamId && (
+                <button
+                    onClick={handleStopWatching}
+                    className="absolute top-4 left-4 z-30 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-full p-3 shadow-lg text-neutral-100 hover:bg-neutral-800/50 transition-colors"
+                >
+                    <ArrowLeft className="w-6 h-6"/>
+                </button>
+            )}
+            
             <div
-                className="absolute top-4 left-4 max-h-[calc(100vh-2rem)] w-80 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl z-20 hidden lg:flex flex-col">
+                className="absolute top-20 left-4 max-h-[calc(100vh-5rem)] w-80 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl z-20 hidden lg:flex flex-col">
                 <StreamListPanel/>
             </div>
             {isStreamListOpen && (
@@ -844,16 +968,6 @@ const ViewerPage = () => {
                                 ))}
                             </div>
                         </div>
-                        <div
-                            className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-3">
-                            <button
-                                onClick={handleStopWatching}
-                                className="flex items-center justify-center w-full px-4 py-3 bg-red-500/80 hover:bg-red-500 backdrop-blur-sm rounded-xl text-white font-semibold transition-colors"
-                            >
-                                <StopCircle className="w-5 h-5 mr-2"/>
-                                Stop Watching
-                            </button>
-                        </div>
                         <ChatPanelContent/>
                     </>
                 )}
@@ -861,20 +975,44 @@ const ViewerPage = () => {
 
             {/* --- BOTTOM BAR CONTROLS --- */}
             {currentStreamId && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center z-20">
-                    <div className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg">
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
+                    <div className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg min-w-[160px] justify-center">
                         <button
                             onClick={handlePause}
                             className={`p-3 rounded-2xl transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 ${isPaused ? 'bg-teal-500/80 hover:bg-teal-500 text-white' : 'bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900'}`}
                         >
                             {isPaused ? <Play className="w-6 h-6"/> : <Pause className="w-6 h-6"/>}
                         </button>
-                        <button
-                            onClick={handleMute}
-                            className={`p-3 rounded-2xl transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 ${isMuted ? 'bg-red-500/80 hover:bg-red-500 text-white' : 'bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200'}`}
+                        {/* Volume Control - Button and Slider */}
+                        <div 
+                            className="relative flex items-center bg-neutral-800/70 rounded-2xl px-2 py-2"
+                            onMouseEnter={handleVolumeSliderShow}
+                            onMouseLeave={handleVolumeSliderHide}
                         >
-                            {isMuted ? <VolumeX className="w-6 h-6"/> : <Volume2 className="w-6 h-6"/>}
-                        </button>
+                            <button
+                                onClick={handleMute}
+                                className={`p-3 rounded-xl transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 ${isMuted ? 'bg-red-500/80 hover:bg-red-500 text-white' : 'bg-neutral-700/50 hover:bg-neutral-600/50 text-neutral-200'}`}
+                            >
+                                {isMuted ? <VolumeX className="w-5 h-5"/> : <Volume2 className="w-5 h-5"/>}
+                            </button>
+                            {/* Volume Slider - Absolutely positioned to the right of the button */}
+                            {showVolumeSlider && (
+                                <div className="absolute left-full top-1/2 -translate-y-1/2 flex items-center space-x-2 bg-neutral-800/90 rounded-xl px-3 py-2 ml-2 shadow-lg z-50 min-w-[180px]">
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.01"
+                                        value={volume}
+                                        onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                                        className="flex-1 h-2 bg-neutral-600 rounded-full appearance-none cursor-pointer slider-horizontal"
+                                    />
+                                    <div className="text-xs text-neutral-300 min-w-[2.5rem] text-center">
+                                        {Math.round(volume * 100)}%
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
