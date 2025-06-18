@@ -1,0 +1,611 @@
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import * as mediasoup from 'mediasoup';
+import * as fs from 'fs';
+import * as path from 'path';
+import { spawn } from 'child_process';
+import * as os from 'os';
+
+// Types for mediasoup
+type MediasoupWorker = {
+  worker: mediasoup.types.Worker;
+  router: mediasoup.types.Router;
+  isActive: boolean;
+};
+
+type TransportInfo = {
+  id: string;
+  type: 'webrtc' | 'plain';
+  transport: mediasoup.types.WebRtcTransport | mediasoup.types.PlainTransport;
+  producer?: mediasoup.types.Producer;
+  consumers: Map<string, mediasoup.types.Consumer>;
+};
+
+type StreamerInfo = {
+  id: string;
+  socket: any;
+  transport: TransportInfo;
+  streamId: string;
+  isStreaming: boolean;
+  recordingProcess?: any;
+  recordingPath?: string;
+  producers: Map<string, mediasoup.types.Producer>;
+};
+
+type ViewerInfo = {
+  id: string;
+  socket: any;
+  transport: TransportInfo;
+  streamId: string;
+};
+
+type StreamInfo = {
+  streamId: string;
+  streamer: StreamerInfo;
+  viewers: Map<string, ViewerInfo>;
+  router: mediasoup.types.Router;
+  recordingPath: string;
+};
+
+@Injectable()
+export class MediasoupService implements OnModuleDestroy {
+  private readonly logger = new Logger(MediasoupService.name);
+  private workers: MediasoupWorker[] = [];
+  private streams = new Map<string, StreamInfo>();
+  private currentWorkerIndex = 0;
+
+  private getLocalIpAddress(): string {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      const iface = interfaces[name];
+      if (iface) {
+        for (const alias of iface) {
+          if (alias.family === 'IPv4' && !alias.internal) {
+            return alias.address;
+          }
+        }
+      }
+    }
+    return '127.0.0.1'; // fallback
+  }
+
+  private getConfig() {
+    return {
+      numWorkers: 1, // For local development
+      workerSettings: {
+        logLevel: 'warn' as mediasoup.types.WorkerLogLevel,
+        logTags: [
+          'info',
+          'ice',
+          'dtls',
+          'rtp',
+          'srtp',
+          'rtcp',
+        ] as mediasoup.types.WorkerLogTag[],
+        rtcMinPort: 10000,
+        rtcMaxPort: 10100,
+      },
+      routerOptions: {
+        mediaCodecs: [
+          {
+            kind: 'audio' as mediasoup.types.MediaKind,
+            mimeType: 'audio/opus',
+            clockRate: 48000,
+            channels: 2,
+          },
+          {
+            kind: 'video' as mediasoup.types.MediaKind,
+            mimeType: 'video/VP8',
+            clockRate: 90000,
+            parameters: {
+              'x-google-start-bitrate': 1000,
+            },
+          },
+          {
+            kind: 'video' as mediasoup.types.MediaKind,
+            mimeType: 'video/H264',
+            clockRate: 90000,
+            parameters: {
+              'packetization-mode': 1,
+              'profile-level-id': '42e01f',
+              'level-asymmetry-allowed': 1,
+            },
+          },
+        ],
+      },
+      webRtcTransportOptions: {
+        listenIps: [
+          {
+            ip: '0.0.0.0',
+            announcedIp: this.getLocalIpAddress(),
+          },
+        ],
+        enableUdp: true,
+        enableTcp: true,
+        preferUdp: true,
+        initialAvailableOutgoingBitrate: 1000000,
+        iceServers: [
+          {
+            urls: [
+              'stun:stun.l.google.com:19302',
+              'stun:stunq.l.google.com:19302',
+              'stun:stun2.l.google.com:19302',
+              'stun:stun3.l.google.com:19302',
+              'stun:stun4.l.google.com:19302',
+            ],
+          },
+        ],
+      },
+      recordingOptions: {
+        outputPath: './recordings',
+        videoCodec: 'libx264',
+        audioCodec: 'aac',
+        videoBitrate: '2000k',
+        audioBitrate: '128k',
+        format: 'mp4',
+      },
+    };
+  }
+
+  async onModuleInit() {
+    const localIp = this.getLocalIpAddress();
+    this.logger.log(`Detected local IP address: ${localIp}`);
+    await this.createWorkers();
+    this.ensureRecordingDirectory();
+  }
+
+  async onModuleDestroy() {
+    await this.closeWorkers();
+    await this.closeAllStreams();
+  }
+
+  private async createWorkers() {
+    for (let i = 0; i < this.getConfig().numWorkers; i++) {
+      const worker = await mediasoup.createWorker({
+        logLevel: this.getConfig().workerSettings.logLevel,
+        logTags: this.getConfig().workerSettings.logTags,
+        rtcMinPort: this.getConfig().workerSettings.rtcMinPort,
+        rtcMaxPort: this.getConfig().workerSettings.rtcMaxPort,
+      });
+
+      const router = await worker.createRouter({
+        mediaCodecs: this.getConfig().routerOptions.mediaCodecs,
+      });
+
+      this.workers.push({
+        worker,
+        router,
+        isActive: true,
+      });
+
+      this.logger.log(`Worker ${i} created`);
+    }
+  }
+
+  private async closeWorkers() {
+    for (const workerInfo of this.workers) {
+      workerInfo.worker.close();
+    }
+    this.workers = [];
+  }
+
+  private getNextWorker(): MediasoupWorker {
+    const worker = this.workers[this.currentWorkerIndex];
+    this.currentWorkerIndex =
+      (this.currentWorkerIndex + 1) % this.workers.length;
+    return worker;
+  }
+
+  private ensureRecordingDirectory() {
+    if (!fs.existsSync(this.getConfig().recordingOptions.outputPath)) {
+      fs.mkdirSync(this.getConfig().recordingOptions.outputPath, {
+        recursive: true,
+      });
+    }
+  }
+
+  async createStream(
+    streamId: string,
+    streamerId: string,
+    streamerSocket: any,
+  ): Promise<StreamInfo> {
+    const worker = this.getNextWorker();
+    const router = worker.router;
+
+    const streamInfo: StreamInfo = {
+      streamId,
+      streamer: {
+        id: streamerId,
+        socket: streamerSocket,
+        transport: {
+          id: '',
+          type: 'webrtc',
+          transport: null as any,
+          consumers: new Map(),
+        },
+        streamId,
+        isStreaming: false,
+        producers: new Map(),
+      },
+      viewers: new Map(),
+      router,
+      recordingPath: path.join(
+        this.getConfig().recordingOptions.outputPath,
+        `${streamId}.${this.getConfig().recordingOptions.format}`,
+      ),
+    };
+
+    this.streams.set(streamId, streamInfo);
+    this.logger.log(`Stream created: ${streamId}`);
+    return streamInfo;
+  }
+
+  async createWebRtcTransport(
+    streamId: string,
+    isStreamer: boolean,
+    clientId?: string,
+  ): Promise<any> {
+    const stream = this.streams.get(streamId);
+    if (!stream) {
+      throw new Error(`Stream ${streamId} not found`);
+    }
+
+    const transportOptions = this.getConfig().webRtcTransportOptions;
+    this.logger.log(`Creating WebRTC transport with options:`, {
+      listenIps: transportOptions.listenIps,
+      iceServers: transportOptions.iceServers,
+      enableUdp: transportOptions.enableUdp,
+      enableTcp: transportOptions.enableTcp,
+    });
+
+    const transport = await stream.router.createWebRtcTransport(transportOptions);
+
+    const transportInfo: TransportInfo = {
+      id: transport.id,
+      type: 'webrtc',
+      transport,
+      consumers: new Map(),
+    };
+
+    if (isStreamer) {
+      stream.streamer.transport = transportInfo;
+    } else {
+      // Store transport for viewer
+      if (clientId) {
+        const viewer = stream.viewers.get(clientId);
+        if (viewer) {
+          viewer.transport = transportInfo;
+          this.logger.log(
+            `Transport ${transport.id} stored for viewer ${clientId}`,
+          );
+        } else {
+          this.logger.warn(
+            `Viewer ${clientId} not found when creating transport`,
+          );
+        }
+      }
+    }
+
+    return {
+      id: transport.id,
+      iceParameters: transport.iceParameters,
+      iceCandidates: transport.iceCandidates,
+      dtlsParameters: transport.dtlsParameters,
+    };
+  }
+
+  async connectTransport(
+    streamId: string,
+    transportId: string,
+    dtlsParameters: any,
+    isStreamer: boolean,
+  ): Promise<void> {
+    console.log('[CONNECT] connectTransport called with:', { streamId, transportId, isStreamer });
+    
+    const stream = this.streams.get(streamId);
+    if (!stream) {
+      console.log('[CONNECT] Stream not found:', streamId);
+      throw new Error(`Stream ${streamId} not found`);
+    }
+
+    let transport: mediasoup.types.WebRtcTransport | undefined;
+    if (isStreamer) {
+      transport = stream.streamer.transport
+        .transport as mediasoup.types.WebRtcTransport;
+      console.log('[CONNECT] Found streamer transport:', transport.id);
+    } else {
+      // Find viewer transport
+      for (const viewer of stream.viewers.values()) {
+        if (viewer.transport.id === transportId) {
+          transport = viewer.transport
+            .transport as mediasoup.types.WebRtcTransport;
+          console.log('[CONNECT] Found viewer transport:', transport.id);
+          break;
+        }
+      }
+    }
+
+    if (!transport) {
+      console.log('[CONNECT] Transport not found:', transportId);
+      throw new Error(`Transport ${transportId} not found`);
+    }
+
+    console.log('[CONNECT] Connecting transport with dtlsParameters:', dtlsParameters);
+    await transport.connect({ dtlsParameters });
+    console.log('[CONNECT] Transport connected successfully');
+  }
+
+  async createProducer(
+    streamId: string,
+    transportId: string,
+    kind: 'audio' | 'video',
+    rtpParameters: any,
+  ): Promise<any> {
+    const stream = this.streams.get(streamId);
+    if (!stream) {
+      throw new Error(`Stream ${streamId} not found`);
+    }
+
+    const transport = stream.streamer.transport
+      .transport as mediasoup.types.WebRtcTransport;
+    if (transport.id !== transportId) {
+      throw new Error(`Transport ${transportId} not found`);
+    }
+
+    const producer = await transport.produce({
+      kind,
+      rtpParameters,
+    });
+
+    // Store producer by kind
+    stream.streamer.producers.set(kind, producer);
+    stream.streamer.isStreaming = true;
+
+    // Start recording when first producer is created
+    if (stream.streamer.producers.size === 1) {
+      await this.startRecording(stream);
+    }
+
+    this.logger.log(
+      `Producer created: ${producer.id} (${kind}) for stream: ${streamId}`,
+    );
+
+    return {
+      id: producer.id,
+      kind: producer.kind,
+    };
+  }
+
+  async createConsumer(
+    streamId: string,
+    viewerId: string,
+    transportId: string,
+    rtpCapabilities: any,
+  ): Promise<any> {
+    console.log('[SERVICE] createConsumer called with:', { streamId, viewerId, transportId });
+    
+    const stream = this.streams.get(streamId);
+    if (!stream) {
+      console.log('[SERVICE] Stream not found:', streamId);
+      throw new Error(`Stream ${streamId} not found`);
+    }
+
+    const viewer = stream.viewers.get(viewerId);
+    if (!viewer) {
+      console.log('[SERVICE] Viewer not found:', viewerId);
+      throw new Error(`Viewer ${viewerId} not found`);
+    }
+
+    const transport = viewer.transport
+      .transport as mediasoup.types.WebRtcTransport;
+    if (transport.id !== transportId) {
+      console.log('[SERVICE] Transport ID mismatch:', { expected: transport.id, received: transportId });
+      throw new Error(`Transport ${transportId} not found`);
+    }
+
+    console.log('[SERVICE] Stream has producers:', stream.streamer.producers.size);
+    if (stream.streamer.producers.size === 0) {
+      console.log('[SERVICE] No producers available');
+      throw new Error(`No producers available for stream ${streamId}`);
+    }
+
+    // Create consumers for all available producers
+    const consumers: Array<{
+      id: string;
+      kind: mediasoup.types.MediaKind;
+      rtpParameters: mediasoup.types.RtpParameters;
+      type: mediasoup.types.ConsumerType;
+      producerId: string;
+    }> = [];
+
+    for (const [kind, producer] of stream.streamer.producers.entries()) {
+      console.log('[SERVICE] Creating consumer for producer:', { kind, producerId: producer.id });
+      
+      const consumer = await transport.consume({
+        producerId: producer.id,
+        rtpCapabilities,
+        paused: false,
+      });
+
+      viewer.transport.consumers.set(consumer.id, consumer);
+      consumers.push({
+        id: consumer.id,
+        kind: consumer.kind,
+        rtpParameters: consumer.rtpParameters,
+        type: consumer.type,
+        producerId: consumer.producerId,
+      });
+
+      this.logger.log(
+        `Consumer created: ${consumer.id} (${kind}) for viewer: ${viewerId}`,
+      );
+    }
+
+    console.log('[SERVICE] Returning consumers:', consumers);
+    return consumers;
+  }
+
+  async addViewer(
+    streamId: string,
+    viewerId: string,
+    viewerSocket: any,
+  ): Promise<ViewerInfo> {
+    const stream = this.streams.get(streamId);
+    if (!stream) {
+      throw new Error(`Stream ${streamId} not found`);
+    }
+
+    const viewerInfo: ViewerInfo = {
+      id: viewerId,
+      socket: viewerSocket,
+      transport: {
+        id: '',
+        type: 'webrtc',
+        transport: null as any,
+        consumers: new Map(),
+      },
+      streamId,
+    };
+
+    stream.viewers.set(viewerId, viewerInfo);
+    this.logger.log(`Viewer ${viewerId} added to stream ${streamId}`);
+    return viewerInfo;
+  }
+
+  async removeViewer(streamId: string, viewerId: string): Promise<void> {
+    const stream = this.streams.get(streamId);
+    if (!stream) {
+      return;
+    }
+
+    const viewer = stream.viewers.get(viewerId);
+    if (viewer) {
+      // Close all consumers
+      for (const consumer of viewer.transport.consumers.values()) {
+        consumer.close();
+      }
+      viewer.transport.consumers.clear();
+
+      // Close transport
+      if (viewer.transport.transport) {
+        viewer.transport.transport.close();
+      }
+
+      stream.viewers.delete(viewerId);
+      this.logger.log(`Viewer ${viewerId} removed from stream ${streamId}`);
+    }
+  }
+
+  async closeStream(streamId: string): Promise<void> {
+    const stream = this.streams.get(streamId);
+    if (!stream) {
+      return;
+    }
+
+    // Stop recording
+    await this.stopRecording(stream);
+
+    // Close all viewers
+    for (const viewerId of stream.viewers.keys()) {
+      await this.removeViewer(streamId, viewerId);
+    }
+
+    // Close all streamer producers
+    for (const producer of stream.streamer.producers.values()) {
+      producer.close();
+    }
+    stream.streamer.producers.clear();
+
+    // Close streamer transport
+    if (stream.streamer.transport.transport) {
+      stream.streamer.transport.transport.close();
+    }
+
+    this.streams.delete(streamId);
+    this.logger.log(`Stream ${streamId} closed`);
+  }
+
+  private async closeAllStreams(): Promise<void> {
+    for (const streamId of this.streams.keys()) {
+      await this.closeStream(streamId);
+    }
+  }
+
+  async getActiveStreams(): Promise<string[]> {
+    return Array.from(this.streams.keys());
+  }
+
+  async getStreamInfo(streamId: string): Promise<StreamInfo | null> {
+    return this.streams.get(streamId) || null;
+  }
+
+  private async startRecording(stream: StreamInfo): Promise<void> {
+    if (stream.streamer.recordingProcess) {
+      return; // Already recording
+    }
+
+    const { recordingOptions } = this.getConfig();
+
+    // For now, we'll create a simple recording process
+    // In a real implementation, you'd want to pipe the actual RTP streams
+    const ffmpegArgs = [
+      '-f',
+      'lavfi',
+      '-i',
+      'testsrc2=size=1280x720:rate=30',
+      '-f',
+      'lavfi',
+      '-i',
+      'sine=frequency=1000:duration=0',
+      '-c:v',
+      recordingOptions.videoCodec,
+      '-c:a',
+      recordingOptions.audioCodec,
+      '-b:v',
+      recordingOptions.videoBitrate,
+      '-b:a',
+      recordingOptions.audioBitrate,
+      '-f',
+      recordingOptions.format,
+      stream.recordingPath,
+    ];
+
+    const recordingProcess = spawn('ffmpeg', ffmpegArgs, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    stream.streamer.recordingProcess = recordingProcess;
+    stream.streamer.recordingPath = stream.recordingPath;
+
+    recordingProcess.on('error', (error) => {
+      this.logger.error(
+        `Recording error for stream ${stream.streamId}:`,
+        error,
+      );
+    });
+
+    recordingProcess.on('exit', (code) => {
+      this.logger.log(
+        `Recording process exited with code ${code} for stream ${stream.streamId}`,
+      );
+    });
+
+    this.logger.log(`Recording started for stream ${stream.streamId}`);
+  }
+
+  private async stopRecording(stream: StreamInfo): Promise<void> {
+    if (stream.streamer.recordingProcess) {
+      stream.streamer.recordingProcess.kill('SIGTERM');
+      stream.streamer.recordingProcess = null;
+      this.logger.log(`Recording stopped for stream ${stream.streamId}`);
+    }
+  }
+
+  async getRtpCapabilities(streamId: string): Promise<any> {
+    const stream = this.streams.get(streamId);
+    if (!stream) {
+      throw new Error(`Stream ${streamId} not found`);
+    }
+
+    return stream.router.rtpCapabilities;
+  }
+}
