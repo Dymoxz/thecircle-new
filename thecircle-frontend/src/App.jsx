@@ -141,7 +141,7 @@ const HomePage = () => {
                 filteredStreams.map(stream => (
                     <div
                         key={stream.id}
-                        className="bg-white/80 backdrop-blur-sm rounded-lg overflow-hidden shadow-xl shadow-black/30 transition-all duration-300 ease-in-out hover:scale-[1.02] cursor-pointer"
+                        className="bg-white/80  backdrop-blur-sm rounded-lg overflow-hidden shadow-xl shadow-black/30 transition-all duration-300 ease-in-out hover:scale-[1.02] cursor-pointer"
                         onClick={() => alert(`Navigating to ${stream.streamer}'s stream: ${stream.title}`)} // Placeholder for navigation
                     >
                       <img src={stream.thumbnail} alt={stream.title} className="w-full h-40 object-cover" />
@@ -194,15 +194,18 @@ const HomePage = () => {
             <ul>
               {followedUsers.map(user => (
                   <li key={user.id} className="flex items-center mb-3 p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"> {/* Adjusted hover background */}
-                    <div className={`w-8 h-8 rounded-full mr-3 flex-shrink-0 border-2 ${user.isOnline ? 'border-green-500' : 'border-neutral-500'} overflow-hidden`}>
+                    <div className={`w-6 h-6 rounded-full mr-3 flex-shrink-0  overflow-hidden`}>
                       {/* User Avatar */}
                       <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
                     </div>
                     <span className="text-gray-800 font-semibold flex-grow truncate">{user.name}</span> {/* Changed text to gray-800 for contrast */}
-                    <span className={`text-xs ml-2 ${user.isOnline ? 'text-green-600' : 'text-neutral-600'}`}> {/* Adjusted text color for contrast */}
-                      {user.isOnline ? 'Online' : 'Offline'}
-                </span>
+                  {user.isOnline && (
+                      <div className="relative inline-flex">
+                        <div className="rounded-full bg-red-500 h-[8px] w-[8px] inline-block mr-2"></div>
+                        <div className="absolute animate-ping rounded-full bg-red-500 h-[8px] w-[8px] mr-2"></div>
+                      </div>                  )}
                   </li>
+
               ))}
             </ul>
           </div>
