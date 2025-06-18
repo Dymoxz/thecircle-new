@@ -1,20 +1,20 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { v4 as uuidv4 } from 'uuid';
+import React, {useEffect, useRef, useState} from 'react';
+import {v4 as uuidv4} from 'uuid';
 import {
-    Play,
-    Square,
-    Pause,
-    RotateCcw,
     Camera,
+    Eye,
+    MessageSquare,
     Mic,
     MicOff,
+    Monitor,
+    Pause,
+    Play,
+    RotateCcw,
+    Send,
+    Settings,
+    Square,
     Video,
     VideoOff,
-    Eye,
-    Settings,
-    Monitor,
-    MessageSquare,
-    Send,
 } from 'lucide-react';
 import * as mediasoupClient from 'mediasoup-client';
 
@@ -23,7 +23,7 @@ const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_URL = `${wsProtocol}//${window.location.hostname}:3001`;
 
 // --- Helper Component for Styled Buttons ---
-const ControlButton = ({ onClick, children, className = '', ...props }) => (
+const ControlButton = ({onClick, children, className = '', ...props}) => (
     <button
         onClick={onClick}
         className={`p-3 rounded-2xl backdrop-blur-lg transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 ${className}`}
@@ -35,18 +35,18 @@ const ControlButton = ({ onClick, children, className = '', ...props }) => (
 
 // --- Mock Data for Chat Panel ---
 const mockChatMessages = [
-    { user: 'Alice', color: 'text-pink-400', message: 'This stream is awesome! 🔥' },
-    { user: 'Bob', color: 'text-blue-400', message: 'What game is this?' },
-    { user: 'Charlie', color: 'text-teal-400', message: 'Loving the energy! Keep it up!' },
-    { user: 'Diana', color: 'text-yellow-400', message: 'Can you show the settings you are using?' },
-    { user: 'Eve', color: 'text-purple-400', message: 'Great quality stream! Looks so smooth.' },
-    { user: 'Frank', color: 'text-orange-400', message: 'lol that was a close one' },
+    {user: 'Alice', color: 'text-pink-400', message: 'This stream is awesome! 🔥'},
+    {user: 'Bob', color: 'text-blue-400', message: 'What game is this?'},
+    {user: 'Charlie', color: 'text-teal-400', message: 'Loving the energy! Keep it up!'},
+    {user: 'Diana', color: 'text-yellow-400', message: 'Can you show the settings you are using?'},
+    {user: 'Eve', color: 'text-purple-400', message: 'Great quality stream! Looks so smooth.'},
+    {user: 'Frank', color: 'text-orange-400', message: 'lol that was a close one'},
 ];
 
 const VIDEO_CONSTRAINTS = {
-    width: { ideal: 1280 },
-    height: { ideal: 720 },
-    frameRate: { ideal: 30, max: 60 }
+    width: {ideal: 1280},
+    height: {ideal: 720},
+    frameRate: {ideal: 30, max: 60}
 };
 const AUDIO_CONSTRAINTS = {
     echoCancellation: true,
@@ -107,21 +107,21 @@ const StreamerPage = () => {
             const msg = JSON.parse(event.data);
             switch (msg.event) {
                 case 'viewer-joined': {
-                    const { viewerId } = msg.data;
+                    const {viewerId} = msg.data;
                     if (viewerId) {
                         setViewerCount(prev => prev + 1);
                     }
                     break;
                 }
                 case 'rtp-capabilities': {
-                    const { rtpCapabilities } = msg.data;
+                    const {rtpCapabilities} = msg.data;
                     if (deviceRef.current) {
-                        deviceRef.current.load({ routerRtpCapabilities: rtpCapabilities });
+                        deviceRef.current.load({routerRtpCapabilities: rtpCapabilities});
                     }
                     break;
                 }
                 case 'transport-created': {
-                    const { transport } = msg.data;
+                    const {transport} = msg.data;
                     await createSendTransport(transport);
                     // After transport is created, produce the tracks
                     await produceTracks();
@@ -132,7 +132,7 @@ const StreamerPage = () => {
                     break;
                 }
                 case 'produced': {
-                    const { producer } = msg.data;
+                    const {producer} = msg.data;
                     console.log('Producer created:', producer);
                     break;
                 }
@@ -140,7 +140,8 @@ const StreamerPage = () => {
                     console.error('Server error:', msg.data.message);
                     break;
                 }
-                default: break;
+                default:
+                    break;
             }
         };
 
@@ -180,7 +181,7 @@ const StreamerPage = () => {
             const videoTrack = stream.getVideoTracks()[0];
             if (videoTrack) {
                 console.log('Producing video track');
-                const videoProducer = await sendTransport.produce({ track: videoTrack });
+                const videoProducer = await sendTransport.produce({track: videoTrack});
                 videoProducerRef.current = videoProducer;
                 console.log('Video producer created:', videoProducer.id);
             }
@@ -189,7 +190,7 @@ const StreamerPage = () => {
             const audioTrack = stream.getAudioTracks()[0];
             if (audioTrack) {
                 console.log('Producing audio track');
-                const audioProducer = await sendTransport.produce({ track: audioTrack });
+                const audioProducer = await sendTransport.produce({track: audioTrack});
                 audioProducerRef.current = audioProducer;
                 console.log('Audio producer created:', audioProducer.id);
             }
@@ -206,12 +207,12 @@ const StreamerPage = () => {
 
             // Load device with router RTP capabilities
             const rtpCapabilities = await getRtpCapabilities();
-            await device.load({ routerRtpCapabilities: rtpCapabilities });
+            await device.load({routerRtpCapabilities: rtpCapabilities});
 
             const sendTransport = device.createSendTransport(transportOptions);
             sendTransportRef.current = sendTransport;
 
-            sendTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+            sendTransport.on('connect', async ({dtlsParameters}, callback, errback) => {
                 try {
                     await connectTransport(dtlsParameters);
                     callback();
@@ -220,10 +221,10 @@ const StreamerPage = () => {
                 }
             });
 
-            sendTransport.on('produce', async ({ kind, rtpParameters }, callback, errback) => {
+            sendTransport.on('produce', async ({kind, rtpParameters}, callback, errback) => {
                 try {
                     const producer = await produce(kind, rtpParameters);
-                    callback({ id: producer.id });
+                    callback({id: producer.id});
                 } catch (error) {
                     errback(error);
                 }
@@ -240,12 +241,12 @@ const StreamerPage = () => {
         const streamId = `stream-${streamerId}`;
         socketRef.current.send(JSON.stringify({
             event: 'get-rtp-capabilities',
-            data: { streamId }
+            data: {streamId}
         }));
 
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Timeout getting RTP capabilities')), 5000);
-            
+
             const originalOnMessage = socketRef.current.onmessage;
             socketRef.current.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
@@ -272,7 +273,7 @@ const StreamerPage = () => {
 
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Timeout connecting transport')), 5000);
-            
+
             const originalOnMessage = socketRef.current.onmessage;
             socketRef.current.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
@@ -303,7 +304,7 @@ const StreamerPage = () => {
 
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Timeout producing')), 5000);
-            
+
             const originalOnMessage = socketRef.current.onmessage;
             socketRef.current.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
@@ -323,7 +324,7 @@ const StreamerPage = () => {
     const handleStartStream = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { ...VIDEO_CONSTRAINTS, facingMode: currentCamera },
+                video: {...VIDEO_CONSTRAINTS, facingMode: currentCamera},
                 audio: AUDIO_CONSTRAINTS
             });
             localStreamRef.current = stream;
@@ -332,13 +333,13 @@ const StreamerPage = () => {
             const streamId = `stream-${streamerId}`;
             socketRef.current.send(JSON.stringify({
                 event: 'register',
-                data: { id: streamerId, clientType: 'streamer', streamId }
+                data: {id: streamerId, clientType: 'streamer', streamId}
             }));
 
             // Create transport
             socketRef.current.send(JSON.stringify({
                 event: 'create-transport',
-                data: { streamId, isStreamer: true }
+                data: {streamId, isStreamer: true}
             }));
 
             setIsStreaming(true);
@@ -353,7 +354,7 @@ const StreamerPage = () => {
         if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
             socketRef.current.send(JSON.stringify({
                 event: 'end-stream',
-                data: { streamId: `stream-${streamerId}` }
+                data: {streamId: `stream-${streamerId}`}
             }));
         }
 
@@ -393,7 +394,7 @@ const StreamerPage = () => {
 
         const nextPausedState = !isPaused;
         const tracks = localStreamRef.current.getTracks();
-        
+
         tracks.forEach(track => {
             track.enabled = !nextPausedState;
         });
@@ -410,7 +411,7 @@ const StreamerPage = () => {
         const newFacingMode = currentCamera === 'user' ? 'environment' : 'user';
         try {
             const newStream = await navigator.mediaDevices.getUserMedia({
-                video: { ...VIDEO_CONSTRAINTS, facingMode: newFacingMode }
+                video: {...VIDEO_CONSTRAINTS, facingMode: newFacingMode}
             });
             const newVideoTrack = newStream.getVideoTracks()[0];
             const audioTrack = localStreamRef.current.getAudioTracks()[0];
@@ -420,7 +421,7 @@ const StreamerPage = () => {
 
             // Replace video producer if it exists
             if (videoProducerRef.current && sendTransportRef.current) {
-                videoProducerRef.current.replaceTrack({ track: newVideoTrack });
+                videoProducerRef.current.replaceTrack({track: newVideoTrack});
             }
 
             setCurrentCamera(newFacingMode);
@@ -450,21 +451,28 @@ const StreamerPage = () => {
 
     return (
         <div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
-            <video ref={localVideoRef} autoPlay muted playsInline className="absolute inset-0 w-full h-full" />
+            <video ref={localVideoRef}
+                   autoPlay
+                   playsInline
+                   muted
+                   className="absolute inset-0 w-full h-full"/>
 
             {/* --- OVERLAYS --- */}
 
             {!isStreaming && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500">
+                <div
+                    className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500">
                     <div className="text-center p-8">
-                        <div className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                            <Camera className="w-12 h-12 text-teal-400" />
+                        <div
+                            className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                            <Camera className="w-12 h-12 text-teal-400"/>
                         </div>
                         <h3 className="text-2xl font-bold mb-2">Ready to Stream</h3>
-                        <p className="text-neutral-300 mb-6 max-w-sm">Press the button below or in the side panel to start.</p>
-                        <button 
-                            onClick={handleStartStream} 
-                            disabled={!isWsConnected} 
+                        <p className="text-neutral-300 mb-6 max-w-sm">Press the button below or in the side panel to
+                            start.</p>
+                        <button
+                            onClick={handleStartStream}
+                            disabled={!isWsConnected}
                             className="bg-teal-500 hover:bg-teal-600 disabled:bg-neutral-600 disabled:cursor-not-allowed text-neutral-900 px-8 py-3 rounded-2xl font-semibold transition-all duration-300 ease-in-out shadow-lg shadow-teal-500/20 hover:shadow-teal-500/40 transform hover:scale-105 lg:hidden"
                         >
                             {isWsConnected ? 'Start Stream' : 'Connecting...'}
@@ -474,10 +482,13 @@ const StreamerPage = () => {
             )}
 
             {isStreaming && (isPaused || isVideoOff) && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500">
+                <div
+                    className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500">
                     <div className="text-center p-8">
-                        <div className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                            {isPaused ? <Pause className="w-12 h-12 text-neutral-400" /> : <VideoOff className="w-12 h-12 text-neutral-400" />}
+                        <div
+                            className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                            {isPaused ? <Pause className="w-12 h-12 text-neutral-400"/> :
+                                <VideoOff className="w-12 h-12 text-neutral-400"/>}
                         </div>
                         <h3 className="text-2xl font-bold mb-2">{isPaused ? 'Stream Paused' : 'Camera Off'}</h3>
                         <p className="text-neutral-300 max-w-sm">
@@ -488,14 +499,15 @@ const StreamerPage = () => {
             )}
 
             {isStreaming && (
-                <div className="absolute top-4 left-4 flex items-center space-x-4 text-sm bg-neutral-900/30 backdrop-blur-xl p-2 pl-3 rounded-3xl border border-neutral-100/10 shadow-lg">
+                <div
+                    className="absolute top-4 left-4 flex items-center space-x-4 text-sm bg-neutral-900/30 backdrop-blur-xl p-2 pl-3 rounded-3xl border border-neutral-100/10 shadow-lg">
                     <div className="flex items-center space-x-2 bg-red-500/90 px-3 py-1 rounded-full">
                         <div className="w-2 h-2 bg-white rounded-full animate-ping absolute opacity-75"></div>
                         <div className="w-2 h-2 bg-white rounded-full"></div>
                         <span className="font-semibold uppercase tracking-wider text-xs">Live</span>
                     </div>
                     <div className="flex items-center space-x-2 text-neutral-200 pr-2">
-                        <Eye className="w-5 h-5" />
+                        <Eye className="w-5 h-5"/>
                         <span className="font-medium">{viewerCount}</span>
                     </div>
                     <div className="text-neutral-200 font-mono hidden sm:block bg-neutral-800/50 px-3 py-1 rounded-lg">
@@ -506,37 +518,38 @@ const StreamerPage = () => {
 
             {isStreaming && (
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center">
-                    <div className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg">
-                        <ControlButton 
-                            onClick={toggleMute} 
+                    <div
+                        className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg">
+                        <ControlButton
+                            onClick={toggleMute}
                             className={isMuted ? 'bg-red-500/80 hover:bg-red-500 text-white' : 'bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200'}
                         >
-                            {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                            {isMuted ? <MicOff className="w-6 h-6"/> : <Mic className="w-6 h-6"/>}
                         </ControlButton>
-                        <ControlButton 
-                            onClick={toggleVideo} 
+                        <ControlButton
+                            onClick={toggleVideo}
                             className={isVideoOff ? 'bg-red-500/80 hover:bg-red-500 text-white' : 'bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200'}
                         >
-                            {isVideoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
+                            {isVideoOff ? <VideoOff className="w-6 h-6"/> : <Video className="w-6 h-6"/>}
                         </ControlButton>
-                        <ControlButton 
-                            onClick={handleFlipCamera} 
+                        <ControlButton
+                            onClick={handleFlipCamera}
                             className="bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
                         >
-                            <RotateCcw className="w-6 h-6" />
+                            <RotateCcw className="w-6 h-6"/>
                         </ControlButton>
                         <div className="w-px h-8 bg-neutral-100/10 mx-2"></div>
-                        <ControlButton 
-                            onClick={handlePauseStream} 
+                        <ControlButton
+                            onClick={handlePauseStream}
                             className={isPaused ? 'bg-teal-500/80 hover:bg-teal-500 text-white' : 'bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900'}
                         >
-                            {isPaused ? <Play className="w-6 h-6" /> : <Pause className="w-6 h-6" />}
+                            {isPaused ? <Play className="w-6 h-6"/> : <Pause className="w-6 h-6"/>}
                         </ControlButton>
-                        <ControlButton 
-                            onClick={handleStopStream} 
+                        <ControlButton
+                            onClick={handleStopStream}
                             className="bg-red-500/80 hover:bg-red-500 text-white"
                         >
-                            <Square className="w-6 h-6" />
+                            <Square className="w-6 h-6"/>
                         </ControlButton>
                     </div>
                 </div>
@@ -545,7 +558,7 @@ const StreamerPage = () => {
             <div className="absolute top-4 right-4 w-80 space-y-4 hidden lg:flex flex-col max-h-[calc(100vh-2rem)]">
                 <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 p-4 rounded-2xl">
                     <h3 className="font-semibold mb-4 flex items-center text-lg">
-                        <Monitor className="w-5 h-5 mr-3 text-teal-400" />
+                        <Monitor className="w-5 h-5 mr-3 text-teal-400"/>
                         Stream Info
                     </h3>
                     <div className="space-y-3 text-sm">
@@ -566,34 +579,34 @@ const StreamerPage = () => {
 
                 <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 p-4 rounded-2xl">
                     <h3 className="font-semibold mb-4 flex items-center text-lg">
-                        <Settings className="w-5 h-5 mr-3 text-teal-400" />
+                        <Settings className="w-5 h-5 mr-3 text-teal-400"/>
                         Quick Controls
                     </h3>
                     {!isStreaming ? (
-                        <button 
-                            onClick={handleStartStream} 
-                            disabled={!isWsConnected} 
+                        <button
+                            onClick={handleStartStream}
+                            disabled={!isWsConnected}
                             className="w-full bg-teal-500 hover:bg-teal-600 disabled:bg-neutral-600 disabled:cursor-not-allowed text-neutral-900 py-3 px-4 rounded-xl font-semibold transition-all duration-300 ease-in-out flex items-center justify-center space-x-2 transform hover:scale-105 active:scale-100"
                         >
-                            <Play className="w-5 h-5" />
+                            <Play className="w-5 h-5"/>
                             <span>{isWsConnected ? 'Start Stream' : 'Connecting...'}</span>
                         </button>
                     ) : (
                         <div className="space-y-3">
-                            <button 
-                                onClick={handlePauseStream} 
+                            <button
+                                onClick={handlePauseStream}
                                 className={`w-full py-3 px-4 rounded-xl font-semibold transition-colors flex items-center justify-center space-x-2 ${
                                     isPaused ? 'bg-teal-500/80 hover:bg-teal-500 text-white' : 'bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900'
                                 }`}
                             >
-                                {isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
+                                {isPaused ? <Play className="w-5 h-5"/> : <Pause className="w-5 h-5"/>}
                                 <span>{isPaused ? 'Resume Stream' : 'Pause Stream'}</span>
                             </button>
-                            <button 
-                                onClick={handleStopStream} 
+                            <button
+                                onClick={handleStopStream}
                                 className="w-full bg-red-500/80 hover:bg-red-500 text-white py-3 px-4 rounded-xl font-semibold transition-colors flex items-center justify-center space-x-2"
                             >
-                                <Square className="w-5 h-5" />
+                                <Square className="w-5 h-5"/>
                                 <span>End Stream</span>
                             </button>
                         </div>
@@ -601,9 +614,10 @@ const StreamerPage = () => {
                 </div>
 
                 {/* --- CHAT PANEL --- */}
-                <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4 flex flex-col flex-1">
+                <div
+                    className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4 flex flex-col flex-1">
                     <h3 className="font-semibold mb-4 flex items-center text-lg">
-                        <MessageSquare className="w-5 h-5 mr-3 text-teal-400" />
+                        <MessageSquare className="w-5 h-5 mr-3 text-teal-400"/>
                         Live Chat
                     </h3>
                     {/* Message List */}
@@ -623,7 +637,7 @@ const StreamerPage = () => {
                             className="flex-1 bg-neutral-800/60 border border-neutral-600 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all outline-none"
                         />
                         <button className="p-2 bg-teal-500 hover:bg-teal-600 rounded-lg transition-colors">
-                            <Send className="w-5 h-5 text-neutral-900" />
+                            <Send className="w-5 h-5 text-neutral-900"/>
                         </button>
                     </div>
                 </div>
