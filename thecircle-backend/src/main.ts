@@ -10,7 +10,9 @@ async function bootstrap() {
   // Define path to certs, assuming they are in a 'certs' folder at the project root
   const httpsOptions = {
     key: fs.readFileSync(path.join(__dirname, '..', '..', 'certs', 'key.pem')),
-    cert: fs.readFileSync(path.join(__dirname, '..', '..', 'certs', 'cert.pem')),
+    cert: fs.readFileSync(
+      path.join(__dirname, '..', '..', 'certs', 'cert.pem'),
+    ),
   };
 
   const app = await NestFactory.create(AppModule, { httpsOptions });
@@ -19,15 +21,20 @@ async function bootstrap() {
   app.enableCors(); // Enable CORS for HTTP requests
 
   await app.listen(3001); // The port can be different from the original server.js
-  console.log('WebRTC signaling server running at https://localhost:3001 (WSS)');
+  console.log(
+    'WebRTC signaling server running at https://localhost:3001 (WSS)',
+  );
 
   // API server on HTTP (or HTTPS if you want)
-  const apiApp = await NestFactory.create(ApiModule);
+  const apiApp = await NestFactory.create(ApiModule, {
+    httpsOptions: httpsOptions,
+  });
   const globalPrefix = 'api';
   apiApp.setGlobalPrefix(globalPrefix);
-  app.enableCors({
-    origin: 'http://localhost:8080', // Replace with your frontend URL
+  apiApp.enableCors({
+    origin: 'https://localhost:8080', // Replace with your frontend URL
     credentials: true, // If you're using cookies or auth headers
+    allowedHeaders: ['content-type', 'Authorization'],
   });
   await apiApp.listen(3002);
   console.log(`API server running at http://localhost:3002/${globalPrefix}`);
