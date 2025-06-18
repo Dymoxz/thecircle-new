@@ -2,6 +2,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { WsAdapter } from '@nestjs/platform-ws';
+import { ApiModule } from './api.module';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -23,5 +24,19 @@ async function bootstrap() {
   console.log(
     'WebRTC signaling server running at https://localhost:3001 (WSS)',
   );
+
+  // API server on HTTP (or HTTPS if you want)
+  const apiApp = await NestFactory.create(ApiModule, {
+    httpsOptions: httpsOptions,
+  });
+  const globalPrefix = 'api';
+  apiApp.setGlobalPrefix(globalPrefix);
+  apiApp.enableCors({
+    origin: 'https://localhost:8080', // Replace with your frontend URL
+    credentials: true, // If you're using cookies or auth headers
+    allowedHeaders: ['content-type', 'Authorization'],
+  });
+  await apiApp.listen(3002);
+  console.log(`API server running at https://localhost:3002/${globalPrefix}`);
 }
 bootstrap();

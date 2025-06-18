@@ -2,19 +2,13 @@ import React, {useEffect, useRef, useState} from 'react';
 import {v4 as uuidv4} from 'uuid';
 import {Calendar, LayoutGrid, MessageCircle, Play, RefreshCw, Send, StopCircle, Users, X} from 'lucide-react';
 import * as mediasoupClient from 'mediasoup-client';
+import Chat from '../component/chat';
 
 // WebSocket URL configuration
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_URL = `${wsProtocol}//${window.location.hostname}:3001`;
 
-// Mock Data for Chat Panel
-const mockChatMessages = [
-    {user: 'Alice', color: 'text-pink-400', message: 'This stream is awesome! 🔥'},
-    {user: 'Bob', color: 'text-blue-400', message: 'What game is this?'},
-    {user: 'Charlie', color: 'text-teal-400', message: 'Loving the energy! Keep it up!'},
-    {user: 'Diana', color: 'text-yellow-400', message: 'Can you show the settings you are using?'},
-    {user: 'Eve', color: 'text-purple-400', message: 'Great quality stream! Looks so smooth.'},
-];
+
 
 const VIDEO_CONSTRAINTS = {
     width: {ideal: 1280},
@@ -32,6 +26,7 @@ const ViewerPage = () => {
     const socketRef = useRef(null);
     const viewerId = useRef(uuidv4()).current;
     const currentStreamIdRef = useRef(null);
+    const username = useRef('Viewer_' + viewerId.slice(0, 8)).current; // Simple username based on viewer ID
 
     // Mediasoup refs
     const deviceRef = useRef(null);
@@ -588,30 +583,12 @@ const ViewerPage = () => {
     );
 
     const ChatPanelContent = () => (
-        <>
-            <h3 className="font-semibold mb-4 flex items-center text-lg flex-shrink-0">
-                <MessageCircle className="w-5 h-5 mr-3 text-teal-400"/>
-                Live Chat
-            </h3>
-            <div className="flex-1 space-y-4 pr-2 overflow-y-auto">
-                {mockChatMessages.map((msg, index) => (
-                    <div key={index} className="flex flex-col items-start text-sm">
-                        <span className={`font-bold ${msg.color}`}>{msg.user}</span>
-                        <p className="bg-neutral-800/50 p-2 rounded-lg rounded-tl-none mt-1">{msg.message}</p>
-                    </div>
-                ))}
-            </div>
-            <div className="mt-4 flex items-center space-x-2 flex-shrink-0">
-                <input
-                    type="text"
-                    placeholder="Send a message..."
-                    className="flex-1 bg-neutral-800/60 border border-neutral-600 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all outline-none"
-                />
-                <button className="p-2 bg-teal-500 hover:bg-teal-600 rounded-lg transition-colors">
-                    <Send className="w-5 h-5 text-neutral-900"/>
-                </button>
-            </div>
-        </>
+        <Chat
+            streamId= {currentStreamId}
+            username={username}
+            socket={socketRef.current}
+            myStream={false}
+        />
     );
 
     return (

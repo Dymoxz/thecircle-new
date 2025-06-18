@@ -96,13 +96,62 @@ async function verifyMessage(publicKey, dataObj, signatureB64) {
 	);
 }
 
-// Props: streamId (room), username, wsUrl (e.g. wss://yourserver)
-const Chat = ({ streamId, username, wsUrl }) => {
+// Props: streamId (room), username (e.g. wss://yourserver)
+const Chat = ({ streamId, username, socket, myStream }) => {
 	const [messages, setMessages] = useState([]);
 	const [input, setInput] = useState("");
 	const wsRef = useRef(null);
 	const messagesEndRef = useRef(null);
 	const keyPairRef = useRef(null);
+	const streamerId = streamId.split("-")[1]; // Extract streamerId from streamId
+	const INCOMING_BUFFER_KEY = `incoming_chat_buffer_${streamId}`;
+	const timerRef = useRef(null);
+	const incomingTimerRef = useRef(null);
+
+	// Buffering logic for all incoming messages
+	function saveIncomingBuffer(buffer) {
+		if (myStream === true) {
+			localStorage.setItem(INCOMING_BUFFER_KEY, JSON.stringify(buffer));
+		}
+	}
+	function loadIncomingBuffer() {
+		const raw = localStorage.getItem(INCOMING_BUFFER_KEY);
+		return raw ? JSON.parse(raw) : [];
+	}
+	async function flushIncomingBuffer() {
+    const buffer = loadIncomingBuffer();
+    if (buffer.length > 0) {
+        console.log("[Chat] Flushing incoming buffer:", JSON.stringify(buffer));
+        // Remove buffer before sending to prevent race conditions
+        localStorage.removeItem(INCOMING_BUFFER_KEY);
+        // Send buffered messages to backend
+        await fetch(`https://localhost:3002/api/chat/save/`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(buffer),
+        });
+    }
+}
+
+	useEffect(() => {
+		// Fetch old messages from backend (localhost:3002)
+		fetch(`http://localhost:3002/api/chat/stream/${streamerId}`)
+			.then((res) => res.json())
+			.then((data) => {
+				const mapped = data.map((chat) => ({
+					user: chat.sender,
+					text: chat.message,
+					timestamp: chat.timestamp,
+					verified: true,
+				}));
+				setMessages(mapped);
+			})
+			.catch((err) => {
+				console.error("Failed to fetch chat history", err);
+			});
+	}, [streamerId]);
 
 	useEffect(() => {
 		// Generate or load keypair on mount
@@ -113,20 +162,10 @@ const Chat = ({ streamId, username, wsUrl }) => {
 
 	useEffect(() => {
 		// Connect to backend WebSocket
-		const ws = new WebSocket(wsUrl);
-		wsRef.current = ws;
+		wsRef.current = socket
+		if (!socket) return;
 
-		ws.onopen = () => {
-			// Register as viewer for this stream
-			ws.send(
-				JSON.stringify({
-					event: "register",
-					data: { id: username, clientType: "viewer", streamId },
-				})
-			);
-		};
-
-		ws.onmessage = async (event) => {
+		const onMessage = async (event) => {
 			try {
 				const msg = JSON.parse(event.data);
 				if (
@@ -167,23 +206,35 @@ const Chat = ({ streamId, username, wsUrl }) => {
 							);
 						}
 					}
-					setMessages((prev) => [
-						...prev,
-						{
-							user: msg.data.senderId,
-							text: msg.data.message,
-							timestamp: msg.data.timestamp,
-							verified,
-						},
-					]);
+					const chatObj = {
+						sender: msg.data.senderId,
+						message: msg.data.message,
+						timestamp: msg.data.timestamp,
+						streamer: streamerId,
+						verified,
+					};
+					setMessages((prev) => [...prev, chatObj]);
+
+					// Buffering logic for all incoming messages
+					let buffer = loadIncomingBuffer();
+					buffer.push(chatObj);
+					saveIncomingBuffer(buffer);
+					if (!incomingTimerRef.current) {
+						incomingTimerRef.current = setTimeout(() => {
+							flushIncomingBuffer();
+							incomingTimerRef.current = null;
+						}, 5000);
+					}
 				}
 			} catch (e) {}
 		};
 
+		socket.addEventListener("message", onMessage);
+
 		return () => {
-			ws.close();
+			socket.removeEventListener('message', onMessage);
 		};
-	}, [streamId, username, wsUrl]);
+	}, [streamId, username, socket]);
 
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -208,12 +259,6 @@ const Chat = ({ streamId, username, wsUrl }) => {
 				keyPairRef.current.privateKey,
 				dataObj
 			);
-			console.log("[Chat] viewerId:", username);
-			console.log("[Chat] streamId:", streamId);
-
-			console.log("[Chat] Sending message:", dataObj);
-			console.log("[Chat] Public Key (b64):", keyPairRef.current.pubB64);
-			console.log("[Chat] Signature (b64):", signature);
 			wsRef.current.send(
 				JSON.stringify({
 					event: "chat-message",
@@ -224,9 +269,19 @@ const Chat = ({ streamId, username, wsUrl }) => {
 					},
 				})
 			);
+
 			setInput("");
 		}
 	};
+
+	// Clear timer on unmount
+	useEffect(() => {
+		return () => {
+			if (timerRef.current) clearTimeout(timerRef.current);
+			if (incomingTimerRef.current)
+				clearTimeout(incomingTimerRef.current);
+		};
+	}, []);
 
 	return (
 		<div
@@ -251,13 +306,13 @@ const Chat = ({ streamId, username, wsUrl }) => {
 							padding: 6,
 							borderRadius: 6,
 							background:
-								msg.user === username ? "#23232b" : "#202024",
+								msg.sender === username ? "#23232b" : "#202024",
 						}}
 					>
 						<span style={{ fontWeight: "bold", color: "#7dd3fc" }}>
-							{msg.user}
+							{msg.sender}
 						</span>
-						<span style={{ marginLeft: 8 }}>{msg.text}</span>
+						<span style={{ marginLeft: 8 }}>{msg.message}</span>
 						{msg.verified !== undefined && (
 							<span
 								style={{

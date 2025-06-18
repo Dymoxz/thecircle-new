@@ -17,9 +17,10 @@ import {
     VideoOff,
 } from 'lucide-react';
 import * as mediasoupClient from 'mediasoup-client';
+import Chat from '../component/chat';
 
 // WebSocket URL configuration
-const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const WS_URL = `${wsProtocol}//${window.location.hostname}:3001`;
 
 // --- Helper Component for Styled Buttons ---
@@ -34,14 +35,7 @@ const ControlButton = ({onClick, children, className = '', ...props}) => (
 );
 
 // --- Mock Data for Chat Panel ---
-const mockChatMessages = [
-    {user: 'Alice', color: 'text-pink-400', message: 'This stream is awesome! 🔥'},
-    {user: 'Bob', color: 'text-blue-400', message: 'What game is this?'},
-    {user: 'Charlie', color: 'text-teal-400', message: 'Loving the energy! Keep it up!'},
-    {user: 'Diana', color: 'text-yellow-400', message: 'Can you show the settings you are using?'},
-    {user: 'Eve', color: 'text-purple-400', message: 'Great quality stream! Looks so smooth.'},
-    {user: 'Frank', color: 'text-orange-400', message: 'lol that was a close one'},
-];
+
 
 const VIDEO_CONSTRAINTS = {
     width: {ideal: 1280},
@@ -49,9 +43,9 @@ const VIDEO_CONSTRAINTS = {
     frameRate: {ideal: 30, max: 60}
 };
 const AUDIO_CONSTRAINTS = {
-    echoCancellation: true,
-    noiseSuppression: true,
-    sampleRate: 48000
+	echoCancellation: true,
+	noiseSuppression: true,
+	sampleRate: 48000,
 };
 
 const StreamerPage = () => {
@@ -77,13 +71,14 @@ const StreamerPage = () => {
     const videoProducerRef = useRef(null);
 
     const streamerId = useRef(uuidv4()).current;
+    const streamId = `stream-${streamerId}`;
 
-    useEffect(() => {
-        document.title = 'StreamHub - Stream';
-        return () => {
-            document.title = 'StreamHub';
-        };
-    }, []);
+	useEffect(() => {
+		document.title = "StreamHub - Stream";
+		return () => {
+			document.title = "StreamHub";
+		};
+	}, []);
 
     const formatDuration = (seconds) => {
         const hours = Math.floor(seconds / 3600);
@@ -102,6 +97,78 @@ const StreamerPage = () => {
         socket.onopen = () => setIsWsConnected(true);
         socket.onclose = () => setIsWsConnected(false);
         socket.onerror = (err) => console.error('[WS] Error:', err);
+
+		socket.onmessage = async (event) => {
+			const msg = JSON.parse(event.data);
+			switch (msg.event) {
+				case "viewer-joined": {
+					const { viewerId } = msg.data;
+					if (!viewerId) break;
+					const peer = new RTCPeerConnection();
+					peersRef.current.set(viewerId, peer);
+					setViewerCount((prev) => prev + 1);
+					if (localStreamRef.current) {
+						localStreamRef.current.getTracks().forEach((track) => {
+							const sender = peer.addTrack(
+								track,
+								localStreamRef.current
+							);
+							// Set higher max bitrate for video tracks
+							if (
+								track.kind === "video" &&
+								sender.setParameters
+							) {
+								const params = sender.getParameters();
+								if (!params.encodings) params.encodings = [{}];
+								params.encodings[0].maxBitrate = 6000 * 1000; // 2.5 Mbps
+								sender.setParameters(params);
+							}
+						});
+					}
+					peer.onicecandidate = (e) => {
+						if (e.candidate)
+							socket.send(
+								JSON.stringify({
+									event: "ice-candidate",
+									data: {
+										to: viewerId,
+										candidate: e.candidate,
+									},
+								})
+							);
+					};
+					const offer = await peer.createOffer();
+					await peer.setLocalDescription(offer);
+					socket.send(
+						JSON.stringify({
+							event: "offer",
+							data: { to: viewerId, offer },
+						})
+					);
+					break;
+				}
+				case "answer": {
+					const { from, answer } = msg.data;
+					const peer = peersRef.current.get(from);
+					if (peer)
+						await peer.setRemoteDescription(
+							new RTCSessionDescription(answer)
+						);
+					break;
+				}
+				case "ice-candidate": {
+					const { from, candidate } = msg.data;
+					const peer = peersRef.current.get(from);
+					if (peer && candidate)
+						await peer.addIceCandidate(
+							new RTCIceCandidate(candidate)
+						);
+					break;
+				}
+				default:
+					break;
+			}
+		};
 
         socket.onmessage = async (event) => {
             const msg = JSON.parse(event.data);
@@ -417,8 +484,6 @@ const StreamerPage = () => {
             const audioTrack = localStreamRef.current.getAudioTracks()[0];
             localStreamRef.current = new MediaStream([newVideoTrack, audioTrack]);
 
-            if (localVideoRef.current) localVideoRef.current.srcObject = localStreamRef.current;
-
             // Replace video producer if it exists
             if (videoProducerRef.current && sendTransportRef.current) {
                 videoProducerRef.current.replaceTrack({track: newVideoTrack});
@@ -430,17 +495,16 @@ const StreamerPage = () => {
             if (currentVideoTrack) localStreamRef.current.addTrack(currentVideoTrack);
         }
     };
+    	const toggleMute = () => {
+		if (!localStreamRef.current) return;
+		const audioTrack = localStreamRef.current.getAudioTracks()[0];
+		if (audioTrack) {
+			audioTrack.enabled = isMuted;
+			setIsMuted(!isMuted);
+		}
+	};
 
-    const toggleMute = () => {
-        if (!localStreamRef.current) return;
-        const audioTrack = localStreamRef.current.getAudioTracks()[0];
-        if (audioTrack) {
-            audioTrack.enabled = isMuted;
-            setIsMuted(!isMuted);
-        }
-    };
-
-    const toggleVideo = () => {
+        const toggleVideo = () => {
         if (!localStreamRef.current) return;
         const videoTrack = localStreamRef.current.getVideoTracks()[0];
         if (videoTrack) {
@@ -449,15 +513,38 @@ const StreamerPage = () => {
         }
     };
 
-    return (
-        <div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
-            <video ref={localVideoRef}
-                   autoPlay
-                   playsInline
-                   muted
-                   className="absolute inset-0 w-full h-full"/>
+	return (
+		<div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
+			<video
+				ref={localVideoRef}
+				autoPlay
+				muted
+				playsInline
+				className="absolute inset-0 w-full h-full"
+			/>
 
-            {/* --- OVERLAYS --- */}
+			{/* --- OVERLAYS --- */}
+			{isStreaming && (isPaused || isVideoOff) && (
+				<div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500">
+					<div className="text-center p-8">
+						<div className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+							{isPaused ? (
+								<Pause className="w-12 h-12 text-neutral-400" />
+							) : (
+								<VideoOff className="w-12 h-12 text-neutral-400" />
+							)}
+						</div>
+						<h3 className="text-2xl font-bold mb-2">
+							{isPaused ? "Stream Paused" : "Camera Off"}
+						</h3>
+						<p className="text-neutral-300 max-w-sm">
+							{isPaused
+								? "Your stream is currently paused for viewers."
+								: "Your camera is currently disabled."}
+						</p>
+					</div>
+				</div>
+			)}
 
             {!isStreaming && (
                 <div
@@ -614,33 +701,12 @@ const StreamerPage = () => {
                 </div>
 
                 {/* --- CHAT PANEL --- */}
-                <div
-                    className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4 flex flex-col flex-1">
-                    <h3 className="font-semibold mb-4 flex items-center text-lg">
-                        <MessageSquare className="w-5 h-5 mr-3 text-teal-400"/>
-                        Live Chat
-                    </h3>
-                    {/* Message List */}
-                    <div className="flex-1 space-y-4 pr-2 overflow-y-auto">
-                        {mockChatMessages.map((msg, index) => (
-                            <div key={index} className="flex flex-col items-start text-sm">
-                                <span className={`font-bold ${msg.color}`}>{msg.user}</span>
-                                <p className="bg-neutral-800/50 p-2 rounded-lg rounded-tl-none mt-1">{msg.message}</p>
-                            </div>
-                        ))}
-                    </div>
-                    {/* Chat Input */}
-                    <div className="mt-4 flex items-center space-x-2">
-                        <input
-                            type="text"
-                            placeholder="Send a message..."
-                            className="flex-1 bg-neutral-800/60 border border-neutral-600 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all outline-none"
-                        />
-                        <button className="p-2 bg-teal-500 hover:bg-teal-600 rounded-lg transition-colors">
-                            <Send className="w-5 h-5 text-neutral-900"/>
-                        </button>
-                    </div>
-                </div>
+                <Chat
+                streamId = {streamId}
+                username={streamerId}
+                socket = {socketRef.current}
+                myStream={true}
+                />
             </div>
         </div>
     );

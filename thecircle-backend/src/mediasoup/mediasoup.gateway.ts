@@ -224,7 +224,7 @@ export class MediasoupGateway
     );
     const { streamId, isStreamer } = data;
     const clientId = this.findClientIdBySocket(socket);
-    
+
     try {
       const transport = await this.mediasoupService.createWebRtcTransport(
         streamId,
@@ -328,9 +328,13 @@ export class MediasoupGateway
   ) {
     const { streamId, transportId, rtpCapabilities } = data;
     const clientId = this.findClientIdBySocket(socket);
-    
-    console.log('[CONSUME] Received consume request:', { streamId, transportId, clientId });
-    
+
+    console.log('[CONSUME] Received consume request:', {
+      streamId,
+      transportId,
+      clientId,
+    });
+
     if (!clientId) {
       console.log('[CONSUME] Client not found for socket');
       socket.send(
@@ -356,7 +360,10 @@ export class MediasoupGateway
       this.logger.log(
         `[CONSUME] Created ${consumers.length} consumers for viewer ${clientId}`,
       );
-      console.log('[CONSUME] Sending consumed event with consumers:', consumers);
+      console.log(
+        '[CONSUME] Sending consumed event with consumers:',
+        consumers,
+      );
       socket.send(
         JSON.stringify({
           event: 'consumed',
@@ -423,5 +430,54 @@ export class MediasoupGateway
     } catch (error) {
       this.logger.error(`Error ending stream: ${error.message}`);
     }
+  }
+  @SubscribeMessage('chat-message')
+  async handleChatMessage(
+    @MessageBody()
+    data: {
+      streamId: string;
+      senderId: string;
+      message: string;
+      timestamp: Date;
+      signature: string;
+      publicKey: string;
+    },
+    @ConnectedSocket() socket: WebSocket,
+  ) {
+    const { streamId, senderId, message, timestamp, signature, publicKey } =
+      data;
+
+    // Get stream info from mediasoupService
+    const stream = await this.mediasoupService.getStreamInfo(streamId);
+    if (!stream) return;
+
+    // Collect all client IDs in the room (streamer + viewers)
+    const recipientIds = [
+      stream.streamer.id,
+      ...Array.from(stream.viewers.keys()),
+    ];
+
+    recipientIds.forEach((clientId) => {
+      const client = this.clients.get(clientId);
+      if (client && client.socket.readyState === WebSocket.OPEN) {
+        client.socket.send(
+          JSON.stringify({
+            event: 'chat-message',
+            data: {
+              streamId,
+              senderId,
+              message,
+              timestamp,
+              signature,
+              publicKey,
+            },
+          }),
+        );
+      }
+    });
+
+    this.logger.log(
+      `[CHAT] Message from ${senderId} in stream ${streamId}: ${message}`,
+    );
   }
 }
