@@ -210,7 +210,11 @@ function App() {
   return (
       <Router>
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={
+            <RequireAuth>
+            <HomePage />
+              </RequireAuth>
+          } />
           {/* Protected route for StreamerPage */}
           <Route
               path="/streamer"
