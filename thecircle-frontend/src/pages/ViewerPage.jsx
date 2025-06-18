@@ -1,13 +1,12 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {v4 as uuidv4} from 'uuid';
-import {Calendar, LayoutGrid, MessageCircle, Play, RefreshCw, Send, StopCircle, Users, X} from 'lucide-react';
+import {Calendar, LayoutGrid, Play, RefreshCw, StopCircle, Users, X} from 'lucide-react';
 import * as mediasoupClient from 'mediasoup-client';
 import Chat from '../component/chat';
 
 // WebSocket URL configuration
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_URL = `${wsProtocol}//${window.location.hostname}:3001`;
-
 
 
 const VIDEO_CONSTRAINTS = {
@@ -317,7 +316,7 @@ const ViewerPage = () => {
 
             // Collect all tracks first
             const tracks = [];
-            
+
             for (const consumerData of consumers) {
                 console.log('Creating consumer for:', consumerData);
                 const consumer = await recvTransportRef.current.consume({
@@ -377,7 +376,7 @@ const ViewerPage = () => {
                 const stream = new MediaStream(tracks);
                 if (remoteVideoRef.current) {
                     remoteVideoRef.current.srcObject = stream;
-                    console.log('Set remote stream with tracks:', tracks.map(t => ({ kind: t.kind, id: t.id })));
+                    console.log('Set remote stream with tracks:', tracks.map(t => ({kind: t.kind, id: t.id})));
                     console.log('Video element srcObject:', remoteVideoRef.current.srcObject);
                     console.log('Video element readyState:', remoteVideoRef.current.readyState);
                     console.log('Video element paused:', remoteVideoRef.current.paused);
@@ -600,7 +599,7 @@ const ViewerPage = () => {
 
     const ChatPanelContent = () => (
         <Chat
-            streamId= {currentStreamId}
+            streamId={currentStreamId}
             username={username}
             socket={socketRef.current}
             myStream={false}
@@ -650,26 +649,30 @@ const ViewerPage = () => {
                 </div>
             )}
 
-            {/* Audio Test Button - Only show when stream is active */}
-            {currentStreamId && remoteVideoRef.current?.srcObject && (
-                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-30">
-                    <button
-                        onClick={() => {
-                            if (remoteVideoRef.current) {
-                                remoteVideoRef.current.muted = false;
-                                remoteVideoRef.current.volume = 1.0;
-                                console.log('Audio manually enabled');
-                                console.log('Video muted state:', remoteVideoRef.current.muted);
-                                console.log('Video volume:', remoteVideoRef.current.volume);
-                                console.log('Video srcObject tracks:', remoteVideoRef.current.srcObject.getTracks().map(t => ({ kind: t.kind, muted: t.muted, enabled: t.enabled })));
-                            }
-                        }}
-                        className="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                    >
-                        Enable Audio
-                    </button>
-                </div>
-            )}
+            {/*/!* Audio Test Button - Only show when stream is active *!/*/}
+            {/*{currentStreamId && remoteVideoRef.current?.srcObject && (*/}
+            {/*    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-30">*/}
+            {/*        <button*/}
+            {/*            onClick={() => {*/}
+            {/*                if (remoteVideoRef.current) {*/}
+            {/*                    remoteVideoRef.current.muted = false;*/}
+            {/*                    remoteVideoRef.current.volume = 1.0;*/}
+            {/*                    console.log('Audio manually enabled');*/}
+            {/*                    console.log('Video muted state:', remoteVideoRef.current.muted);*/}
+            {/*                    console.log('Video volume:', remoteVideoRef.current.volume);*/}
+            {/*                    console.log('Video srcObject tracks:', remoteVideoRef.current.srcObject.getTracks().map(t => ({*/}
+            {/*                        kind: t.kind,*/}
+            {/*                        muted: t.muted,*/}
+            {/*                        enabled: t.enabled*/}
+            {/*                    })));*/}
+            {/*                }*/}
+            {/*            }}*/}
+            {/*            className="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"*/}
+            {/*        >*/}
+            {/*            Enable Audio*/}
+            {/*        </button>*/}
+            {/*    </div>*/}
+            {/*)}*/}
 
             {/* Left Side: Mobile Button & Stream List */}
             <button
@@ -696,7 +699,7 @@ const ViewerPage = () => {
 
             {/* Right Side Panels (Desktop) */}
             <div
-                className="absolute top-4 right-4 max-h-[calc(100vh-2rem)] w-80 space-y-4 hidden lg:flex flex-col z-20">
+                className="absolute top-4 right-4 max-h-[calc(100vh-2rem)] w-80 space-y-4 flex flex-col z-20">
                 {currentStreamId && (
                     <>
                         <div
@@ -734,10 +737,6 @@ const ViewerPage = () => {
                             </div>
                         </div>
                         <div
-                            className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4 flex flex-col flex-1">
-                            <ChatPanelContent/>
-                        </div>
-                        <div
                             className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-3">
                             <button
                                 onClick={handleStopWatching}
@@ -747,27 +746,10 @@ const ViewerPage = () => {
                                 Stop Watching
                             </button>
                         </div>
+                        <ChatPanelContent/>
                     </>
                 )}
             </div>
-
-            {/* --- Persistent Mobile UI --- */}
-            {currentStreamId && (
-                <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col z-30 lg:hidden">
-                    <div className="mb-4">
-                        <button
-                            onClick={handleStopWatching}
-                            className="flex items-center justify-center w-full px-4 py-3 bg-red-600/80 hover:bg-red-700/80 backdrop-blur-sm rounded-xl text-white font-semibold transition-colors"
-                        >
-                            <StopCircle className="w-5 h-5 mr-2"/>
-                            Stop Watching
-                        </button>
-                    </div>
-                    <div className="h-[40dvh] bg-neutral-900/80 backdrop-blur-2xl rounded-2xl p-4 flex flex-col">
-                        <ChatPanelContent/>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { MessageSquare, Send } from "lucide-react";
 
 // Helper functions for key management and signing/verifying
 const KEY_NAME = "chat_keypair";
@@ -284,89 +285,49 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 	}, []);
 
 	return (
-		<div
-			style={{
-				background: "#18181c",
-				borderRadius: 12,
-				boxShadow: "0 2px 12px #0008",
-				padding: 16,
-				width: 340,
-				height: 420,
-				display: "flex",
-				flexDirection: "column",
-				color: "#f1f1f1",
-			}}
-		>
-			<div style={{ flex: 1, overflowY: "auto", marginBottom: 8 }}>
+		<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4 flex flex-col flex-1 pr-4" style={{minHeight: 0}}>
+			<h3 className="font-semibold mb-4 flex items-center text-lg">
+				<MessageSquare className="w-5 h-5 mr-3 text-[#ff5a7c]" />Live Chat
+			</h3>
+			{/* Message List */}
+			<div className="flex-1 space-y-4 overflow-y-auto min-h-0">
 				{messages.map((msg, idx) => (
-					<div
-						key={idx}
-						style={{
-							marginBottom: 8,
-							padding: 6,
-							borderRadius: 6,
-							background:
-								msg.sender === username ? "#23232b" : "#202024",
-						}}
-					>
-						<span style={{ fontWeight: "bold", color: "#7dd3fc" }}>
+					<div key={idx} className="flex flex-col items-start text-sm">
+						<span className={`font-bold flex items-center ${msg.sender === username ? 'text-[#7dd3fc]' : 'text-[#f1f1f1]'}`}>
+							{msg.verified && (
+								<span className="text-green-500 mr-1" title="Verified">
+									{/* Small checkmark icon */}
+									<svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+										<path d="M7 10.5L10 13.5L15 8.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+									</svg>
+								</span>
+							)}
 							{msg.sender}
 						</span>
-						<span style={{ marginLeft: 8 }}>{msg.message}</span>
-						{msg.verified !== undefined && (
-							<span
-								style={{
-									marginLeft: 8,
-									fontSize: 10,
-									color: msg.verified ? "#22c55e" : "#ef4444",
-								}}
-							>
-								{msg.verified ? "✔️ verified" : "❌ unverified"}
+						<p className="bg-neutral-800/50 p-2 rounded-lg rounded-tl-none mt-1">
+							{msg.message}
+							{msg.verified !== undefined && (
+								<span className={`ml-2 text-xs ${msg.verified ? 'text-green-500' : 'text-red-500'}`}/>
+							)}
+							<span className="float-right text-xs text-neutral-400 ml-2">
+								{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : ''}
 							</span>
-						)}
-						<span
-							style={{
-								float: "right",
-								fontSize: 10,
-								color: "#888",
-							}}
-						>
-							{new Date(msg.timestamp).toLocaleTimeString()}
-						</span>
+						</p>
 					</div>
 				))}
 				<div ref={messagesEndRef} />
 			</div>
-			<form onSubmit={sendMessage} style={{ display: "flex", gap: 8 }}>
+			{/* Chat Input */}
+			<form onSubmit={sendMessage} className="mt-4 flex items-center space-x-2">
 				<input
 					type="text"
 					value={input}
 					onChange={(e) => setInput(e.target.value)}
-					placeholder="Type a message..."
-					style={{
-						flex: 1,
-						background: "#23232b",
-						color: "#f1f1f1",
-						border: "none",
-						borderRadius: 6,
-						padding: "8px 12px",
-						outline: "none",
-					}}
+					placeholder="Send a message..."
+					className="flex-1 bg-neutral-800/60 border border-[#be123c]/40 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-[#ff5a7c] focus:border-[#ff5a7c] transition-all outline-none"
 				/>
-				<button
-					type="submit"
-					disabled={!input.trim()}
-					style={{
-						background: "#7dd3fc",
-						color: "#18181c",
-						border: "none",
-						borderRadius: 6,
-						padding: "8px 16px",
-						fontWeight: "bold",
-						cursor: "pointer",
-					}}
-				>
-					Send
+				<button type="submit" disabled={!input.trim()} className="p-2 bg-gradient-to-r from-[#ff5a7c] to-[#be123c] hover:from-[#be123c] hover:to-[#ff5a7c] rounded-lg transition-colors">
+					<Send className="w-5 h-5 text-neutral-900" />
 				</button>
 			</form>
 		</div>

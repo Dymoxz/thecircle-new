@@ -1,21 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {v4 as uuidv4} from 'uuid';
-import {
-    Camera,
-    Eye,
-    MessageSquare,
-    Mic,
-    MicOff,
-    Monitor,
-    Pause,
-    Play,
-    RotateCcw,
-    Send,
-    Settings,
-    Square,
-    Video,
-    VideoOff,
-} from 'lucide-react';
+import {Eye, Mic, MicOff, Monitor, Pause, Play, RotateCcw, Settings, Square, Video, VideoOff,} from 'lucide-react';
 import * as mediasoupClient from 'mediasoup-client';
 import Chat from '../component/chat';
 
@@ -43,9 +28,9 @@ const VIDEO_CONSTRAINTS = {
     frameRate: {ideal: 30, max: 60}
 };
 const AUDIO_CONSTRAINTS = {
-	echoCancellation: true,
-	noiseSuppression: true,
-	sampleRate: 48000,
+    echoCancellation: true,
+    noiseSuppression: true,
+    sampleRate: 48000,
 };
 
 const StreamerPage = () => {
@@ -74,12 +59,12 @@ const StreamerPage = () => {
     const streamerId = useRef(uuidv4()).current;
     const streamId = `stream-${streamerId}`;
 
-	useEffect(() => {
-		document.title = "StreamHub - Stream";
-		return () => {
-			document.title = "StreamHub";
-		};
-	}, []);
+    useEffect(() => {
+        document.title = "StreamHub - Stream";
+        return () => {
+            document.title = "StreamHub";
+        };
+    }, []);
 
     const formatDuration = (seconds) => {
         const hours = Math.floor(seconds / 3600);
@@ -420,12 +405,12 @@ const StreamerPage = () => {
             if (nextPausedState) {
                 socketRef.current.send(JSON.stringify({
                     event: 'pause-stream',
-                    data: { streamId }
+                    data: {streamId}
                 }));
             } else {
                 socketRef.current.send(JSON.stringify({
                     event: 'resume-stream',
-                    data: { streamId }
+                    data: {streamId}
                 }));
             }
         }
@@ -457,16 +442,16 @@ const StreamerPage = () => {
             if (currentVideoTrack) localStreamRef.current.addTrack(currentVideoTrack);
         }
     };
-    	const toggleMute = () => {
-		if (!localStreamRef.current) return;
-		const audioTrack = localStreamRef.current.getAudioTracks()[0];
-		if (audioTrack) {
-			audioTrack.enabled = isMuted;
-			setIsMuted(!isMuted);
-		}
-	};
+    const toggleMute = () => {
+        if (!localStreamRef.current) return;
+        const audioTrack = localStreamRef.current.getAudioTracks()[0];
+        if (audioTrack) {
+            audioTrack.enabled = isMuted;
+            setIsMuted(!isMuted);
+        }
+    };
 
-        const toggleVideo = () => {
+    const toggleVideo = () => {
         if (!localStreamRef.current) return;
         const videoTrack = localStreamRef.current.getVideoTracks()[0];
         if (videoTrack) {
@@ -559,7 +544,8 @@ const StreamerPage = () => {
                 </div>
             )}
 
-            <div className="absolute top-4 right-4 w-80 space-y-4 hidden lg:flex flex-col max-h-[calc(100vh-2rem)] z-20">
+            <div
+                className="absolute top-4 right-4 w-80 space-y-4 hidden lg:flex flex-col max-h-[calc(100vh-2rem)] z-20">
                 <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 p-4 rounded-2xl">
                     <h3 className="font-semibold mb-4 flex items-center text-lg">
                         <Monitor className="w-5 h-5 mr-3 text-teal-400"/>
@@ -619,10 +605,10 @@ const StreamerPage = () => {
 
                 {/* --- CHAT PANEL --- */}
                 <Chat
-                streamId = {streamId}
-                username={streamerId}
-                socket = {socketRef.current}
-                myStream={true}
+                    streamId={streamId}
+                    username={streamerId}
+                    socket={socketRef.current}
+                    myStream={true}
                 />
             </div>
         </div>
