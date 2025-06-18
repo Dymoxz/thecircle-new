@@ -56,6 +56,7 @@ const StreamerPage = () => {
     const [currentCamera, setCurrentCamera] = useState('user');
     const [viewerCount, setViewerCount] = useState(0);
     const [streamDuration, setStreamDuration] = useState(0);
+    const [showPauseOverlay, setShowPauseOverlay] = useState(false); // <-- FIXED: add missing state
 
     const localVideoRef = useRef(null);
     const socketRef = useRef(null);
@@ -99,60 +100,64 @@ const StreamerPage = () => {
         socket.onerror = (err) => console.error('[WS] Error:', err);
 
         socket.onmessage = async (event) => {
-            const msg = JSON.parse(event.data);
-            switch (msg.event) {
-                case 'viewer-joined': {
-                    const {viewerId} = msg.data;
-                    if (viewerId) {
-                        setViewerCount(prev => prev + 1);
+            try {
+                const msg = JSON.parse(event.data);
+                switch (msg.event) {
+                    case 'viewer-joined': {
+                        const {viewerId} = msg.data;
+                        if (viewerId) {
+                            setViewerCount(prev => prev + 1);
+                        }
+                        break;
                     }
-                    break;
-                }
-                case 'rtp-capabilities': {
-                    const {rtpCapabilities} = msg.data;
-                    if (deviceRef.current) {
-                        deviceRef.current.load({routerRtpCapabilities: rtpCapabilities});
+                    case 'rtp-capabilities': {
+                        const {rtpCapabilities} = msg.data;
+                        if (deviceRef.current) {
+                            deviceRef.current.load({routerRtpCapabilities: rtpCapabilities});
+                        }
+                        break;
                     }
-                    break;
-                }
-                case 'transport-created': {
-                    const {transport} = msg.data;
-                    await createSendTransport(transport);
-                    // After transport is created, produce the tracks
-                    await produceTracks();
-                    break;
-                }
-                case 'transport-connected': {
-                    console.log('Transport connected');
-                    break;
-                }
-                case 'produced': {
-                    const {producer} = msg.data;
-                    console.log('Producer created:', producer);
-                    break;
-                }
-                case 'error': {
-                    console.error('Server error:', msg.data.message);
-                    break;
-                }
-                case 'stream-paused': {
-                    setShowPauseOverlay(true);
-                    setIsPaused(true);
-                    if (localVideoRef.current) {
-                        localVideoRef.current.pause();
+                    case 'transport-created': {
+                        const {transport} = msg.data;
+                        await createSendTransport(transport);
+                        // After transport is created, produce the tracks
+                        await produceTracks();
+                        break;
                     }
-                    break;
-                }
-                case 'stream-resumed': {
-                    setShowPauseOverlay(false);
-                    setIsPaused(false);
-                    if (localVideoRef.current) {
-                        localVideoRef.current.play();
+                    case 'transport-connected': {
+                        console.log('Transport connected');
+                        break;
                     }
-                    break;
+                    case 'produced': {
+                        const {producer} = msg.data;
+                        console.log('Producer created:', producer);
+                        break;
+                    }
+                    case 'error': {
+                        console.error('Server error:', msg.data.message);
+                        break;
+                    }
+                    case 'stream-paused': {
+                        setShowPauseOverlay(true);
+                        setIsPaused(true);
+                        if (localVideoRef.current) {
+                            localVideoRef.current.pause();
+                        }
+                        break;
+                    }
+                    case 'stream-resumed': {
+                        setShowPauseOverlay(false);
+                        setIsPaused(false);
+                        if (localVideoRef.current) {
+                            localVideoRef.current.play();
+                        }
+                        break;
+                    }
+                    default:
+                        break;
                 }
-                default:
-                    break;
+            } catch (err) {
+                console.error('WebSocket message handling error:', err);
             }
         };
 
