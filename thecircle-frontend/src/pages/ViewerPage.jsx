@@ -27,6 +27,7 @@ const ViewerPage = () => {
     const [currentStreamId, setCurrentStreamId] = useState(null);
     const [isWsConnected, setIsWsConnected] = useState(false);
     const [isStreamListOpen, setIsStreamListOpen] = useState(false);
+    const [showPauseOverlay, setShowPauseOverlay] = useState(false);
 
     const remoteVideoRef = useRef(null);
     const socketRef = useRef(null);
@@ -114,6 +115,20 @@ const ViewerPage = () => {
                     // Always refresh stream list on stream-ended
                     if (socketRef.current?.readyState === WebSocket.OPEN) {
                         socketRef.current.send(JSON.stringify({event: 'get-streams', data: {}}));
+                    }
+                    break;
+                }
+                case 'stream-paused': {
+                    setShowPauseOverlay(true);
+                    if (remoteVideoRef.current) {
+                        remoteVideoRef.current.pause();
+                    }
+                    break;
+                }
+                case 'stream-resumed': {
+                    setShowPauseOverlay(false);
+                    if (remoteVideoRef.current) {
+                        remoteVideoRef.current.play();
                     }
                     break;
                 }
@@ -372,6 +387,7 @@ const ViewerPage = () => {
                     console.log('Video element readyState:', remoteVideoRef.current.readyState);
                     console.log('Video element paused:', remoteVideoRef.current.paused);
                     console.log('Video element currentTime:', remoteVideoRef.current.currentTime);
+                    console.log('Video element duration:', remoteVideoRef.current.duration);
 
                     // Log track states
                     tracks.forEach(track => {
@@ -631,6 +647,22 @@ const ViewerPage = () => {
                 onVolumeChange={() => console.log('Volume changed:', remoteVideoRef.current?.volume)}
                 onAudioProcess={() => console.log('Audio processing')}
             />
+
+            {currentStreamId && showPauseOverlay && (
+                <div
+                    className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500 z-20">
+                    <div className="text-center p-8">
+                        <div
+                            className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                            <Play className="w-12 h-12 text-neutral-400"/>
+                        </div>
+                        <h3 className="text-2xl font-bold mb-2">Stream Paused</h3>
+                        <p className="text-neutral-300 max-w-sm">
+                            The streamer has paused the broadcast. Please wait...
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {!currentStreamId && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl z-10">

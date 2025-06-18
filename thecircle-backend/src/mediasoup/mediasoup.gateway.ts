@@ -148,6 +148,15 @@ export class MediasoupGateway
               data: { viewerId: id },
             }),
           );
+          // If the stream is currently paused, notify the new viewer
+          if (stream.streamer.isStreaming === false) {
+            socket.send(
+              JSON.stringify({
+                event: 'stream-paused',
+                data: { streamId },
+              }),
+            );
+          }
         }
       } catch (error) {
         this.logger.error(`Error adding viewer: ${error.message}`);
@@ -423,5 +432,61 @@ export class MediasoupGateway
     } catch (error) {
       this.logger.error(`Error ending stream: ${error.message}`);
     }
+  }
+
+  @SubscribeMessage('pause-stream')
+  async handlePauseStream(
+    @MessageBody() data: { streamId: string },
+    @ConnectedSocket() socket: WebSocket,
+  ) {
+    const { streamId } = data;
+    // Notify all viewers of this stream
+    const stream = await this.mediasoupService.getStreamInfo(streamId);
+    if (stream) {
+      for (const viewer of stream.viewers.values()) {
+        viewer.socket.send(
+          JSON.stringify({
+            event: 'stream-paused',
+            data: { streamId },
+          }),
+        );
+      }
+    }
+    // Optionally, notify the streamer as well (for confirmation)
+    socket.send(
+      JSON.stringify({
+        event: 'stream-paused',
+        data: { streamId },
+      }),
+    );
+    this.logger.log(`[PAUSE] Stream ${streamId} paused`);
+  }
+
+  @SubscribeMessage('resume-stream')
+  async handleResumeStream(
+    @MessageBody() data: { streamId: string },
+    @ConnectedSocket() socket: WebSocket,
+  ) {
+    const { streamId } = data;
+    // Notify all viewers of this stream
+    const stream = await this.mediasoupService.getStreamInfo(streamId);
+    if (stream) {
+      for (const viewer of stream.viewers.values()) {
+        viewer.socket.send(
+          JSON.stringify({
+            event: 'stream-resumed',
+            data: { streamId },
+          }),
+        );
+      }
+    }
+    // Optionally, notify the streamer as well (for confirmation)
+    socket.send(
+      JSON.stringify({
+        event: 'stream-resumed',
+        data: { streamId },
+      }),
+    );
+    this.logger.log(`[RESUME] Stream ${streamId} resumed`);
   }
 }

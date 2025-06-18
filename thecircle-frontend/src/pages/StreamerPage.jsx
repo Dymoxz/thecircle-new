@@ -62,6 +62,7 @@ const StreamerPage = () => {
     const [currentCamera, setCurrentCamera] = useState('user');
     const [viewerCount, setViewerCount] = useState(0);
     const [streamDuration, setStreamDuration] = useState(0);
+    const [showPauseOverlay, setShowPauseOverlay] = useState(false);
 
     const localVideoRef = useRef(null);
     const socketRef = useRef(null);
@@ -138,6 +139,22 @@ const StreamerPage = () => {
                 }
                 case 'error': {
                     console.error('Server error:', msg.data.message);
+                    break;
+                }
+                case 'stream-paused': {
+                    setShowPauseOverlay(true);
+                    setIsPaused(true);
+                    if (localVideoRef.current) {
+                        localVideoRef.current.pause();
+                    }
+                    break;
+                }
+                case 'stream-resumed': {
+                    setShowPauseOverlay(false);
+                    setIsPaused(false);
+                    if (localVideoRef.current) {
+                        localVideoRef.current.play();
+                    }
                     break;
                 }
                 default:
@@ -399,7 +416,20 @@ const StreamerPage = () => {
             track.enabled = !nextPausedState;
         });
 
-        setIsPaused(nextPausedState);
+        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+            const streamId = `stream-${streamerId}`;
+            if (nextPausedState) {
+                socketRef.current.send(JSON.stringify({
+                    event: 'pause-stream',
+                    data: { streamId }
+                }));
+            } else {
+                socketRef.current.send(JSON.stringify({
+                    event: 'resume-stream',
+                    data: { streamId }
+                }));
+            }
+        }
     };
 
     const handleFlipCamera = async () => {
@@ -451,56 +481,34 @@ const StreamerPage = () => {
 
     return (
         <div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
-            <video ref={localVideoRef}
-                   autoPlay
-                   playsInline
-                   muted
-                   className="absolute inset-0 w-full h-full"/>
-
-            {/* --- OVERLAYS --- */}
-
-            {!isStreaming && (
-                <div
-                    className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500">
-                    <div className="text-center p-8">
-                        <div
-                            className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                            <Camera className="w-12 h-12 text-teal-400"/>
+            {/* --- VIDEO + OVERLAY CONTAINER --- */}
+            <div className="absolute inset-0 w-full h-full z-0">
+                <video ref={localVideoRef}
+                       autoPlay
+                       playsInline
+                       muted
+                       className="w-full h-full"/>
+                {isStreaming && showPauseOverlay && (
+                    <div
+                        className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500 z-0 pointer-events-none">
+                        <div className="text-center p-8 select-none">
+                            <div
+                                className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                                <Pause className="w-12 h-12 text-neutral-400"/>
+                            </div>
+                            <h3 className="text-2xl font-bold mb-2">Stream Paused</h3>
+                            <p className="text-neutral-300 max-w-sm">
+                                Your stream is currently paused for viewers. We'll be back soon!
+                            </p>
                         </div>
-                        <h3 className="text-2xl font-bold mb-2">Ready to Stream</h3>
-                        <p className="text-neutral-300 mb-6 max-w-sm">Press the button below or in the side panel to
-                            start.</p>
-                        <button
-                            onClick={handleStartStream}
-                            disabled={!isWsConnected}
-                            className="bg-teal-500 hover:bg-teal-600 disabled:bg-neutral-600 disabled:cursor-not-allowed text-neutral-900 px-8 py-3 rounded-2xl font-semibold transition-all duration-300 ease-in-out shadow-lg shadow-teal-500/20 hover:shadow-teal-500/40 transform hover:scale-105 lg:hidden"
-                        >
-                            {isWsConnected ? 'Start Stream' : 'Connecting...'}
-                        </button>
                     </div>
-                </div>
-            )}
-
-            {isStreaming && (isPaused || isVideoOff) && (
-                <div
-                    className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500">
-                    <div className="text-center p-8">
-                        <div
-                            className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                            {isPaused ? <Pause className="w-12 h-12 text-neutral-400"/> :
-                                <VideoOff className="w-12 h-12 text-neutral-400"/>}
-                        </div>
-                        <h3 className="text-2xl font-bold mb-2">{isPaused ? 'Stream Paused' : 'Camera Off'}</h3>
-                        <p className="text-neutral-300 max-w-sm">
-                            {isPaused ? 'Your stream is currently paused for viewers.' : 'Your camera is currently disabled.'}
-                        </p>
-                    </div>
-                </div>
-            )}
-
+                )}
+            </div>
+            {/* --- CONTROLS AND INFO --- */}
+            {/* All UI controls and overlays below should have z-10 or higher to be above the video/blur */}
             {isStreaming && (
                 <div
-                    className="absolute top-4 left-4 flex items-center space-x-4 text-sm bg-neutral-900/30 backdrop-blur-xl p-2 pl-3 rounded-3xl border border-neutral-100/10 shadow-lg">
+                    className="absolute top-4 left-4 flex items-center space-x-4 text-sm bg-neutral-900/30 backdrop-blur-xl p-2 pl-3 rounded-3xl border border-neutral-100/10 shadow-lg z-10">
                     <div className="flex items-center space-x-2 bg-red-500/90 px-3 py-1 rounded-full">
                         <div className="w-2 h-2 bg-white rounded-full animate-ping absolute opacity-75"></div>
                         <div className="w-2 h-2 bg-white rounded-full"></div>
@@ -519,7 +527,7 @@ const StreamerPage = () => {
             {isStreaming && (
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center">
                     <div
-                        className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg">
+                        className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg z-10">
                         <ControlButton
                             onClick={toggleMute}
                             className={isMuted ? 'bg-red-500/80 hover:bg-red-500 text-white' : 'bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200'}
@@ -555,7 +563,7 @@ const StreamerPage = () => {
                 </div>
             )}
 
-            <div className="absolute top-4 right-4 w-80 space-y-4 hidden lg:flex flex-col max-h-[calc(100vh-2rem)]">
+            <div className="absolute top-4 right-4 w-80 space-y-4 hidden lg:flex flex-col max-h-[calc(100vh-2rem)] z-20">
                 <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 p-4 rounded-2xl">
                     <h3 className="font-semibold mb-4 flex items-center text-lg">
                         <Monitor className="w-5 h-5 mr-3 text-teal-400"/>
