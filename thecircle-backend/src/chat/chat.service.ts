@@ -20,6 +20,13 @@ export class ChatService {
       .exec();
   }
 
+  async save(chats: Chat[]): Promise<Chat[]> {
+    if (!Array.isArray(chats)) {
+      throw new Error('Input must be an array of Chat objects');
+    }
+    return this.chatModel.insertMany(chats);
+  }
+
   async findByUser(userId: string): Promise<Chat[]> {
     return this.chatModel
       .find({ sender: userId })

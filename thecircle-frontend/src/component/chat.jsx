@@ -103,7 +103,7 @@ const Chat = ({ streamId, username, wsUrl, myStream }) => {
 	const wsRef = useRef(null);
 	const messagesEndRef = useRef(null);
 	const keyPairRef = useRef(null);
-	const streamerId = streamId.split("-")[0]; // Extract streamerId from streamId
+	const streamerId = streamId.split("-")[1]; // Extract streamerId from streamId
 	const INCOMING_BUFFER_KEY = `incoming_chat_buffer_${streamId}`;
 	const timerRef = useRef(null);
 	const incomingTimerRef = useRef(null);
@@ -121,8 +121,16 @@ const Chat = ({ streamId, username, wsUrl, myStream }) => {
 	async function flushIncomingBuffer() {
 		const buffer = loadIncomingBuffer();
 		if (buffer.length > 0) {
-			console.log("[Chat] Flushing incoming buffer:", buffer);
-			// Dummy: replace with real API call if needed
+			console.log("[Chat] Flushing incoming buffer:", JSON.stringify(buffer));
+			
+			// Send buffered messages to backend
+				await fetch(`https://localhost:3002/api/chat/save/`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify(buffer),
+				});
 			localStorage.removeItem(INCOMING_BUFFER_KEY);
 		}
 	}
@@ -209,9 +217,10 @@ const Chat = ({ streamId, username, wsUrl, myStream }) => {
 						}
 					}
 					const chatObj = {
-						user: msg.data.senderId,
-						text: msg.data.message,
+						sender: msg.data.senderId,
+						message: msg.data.message,
 						timestamp: msg.data.timestamp,
+						streamer: streamerId,
 						verified,
 					};
 					setMessages((prev) => [...prev, chatObj]);
@@ -305,13 +314,13 @@ const Chat = ({ streamId, username, wsUrl, myStream }) => {
 							padding: 6,
 							borderRadius: 6,
 							background:
-								msg.user === username ? "#23232b" : "#202024",
+								msg.sender === username ? "#23232b" : "#202024",
 						}}
 					>
 						<span style={{ fontWeight: "bold", color: "#7dd3fc" }}>
-							{msg.user}
+							{msg.sender}
 						</span>
-						<span style={{ marginLeft: 8 }}>{msg.text}</span>
+						<span style={{ marginLeft: 8 }}>{msg.message}</span>
 						{msg.verified !== undefined && (
 							<span
 								style={{

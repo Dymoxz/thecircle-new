@@ -17,6 +17,8 @@ export class Chat {
 
   @Prop({ type: Date, default: Date.now })
   timestamp: Date;
+  @Prop({ type: Boolean, default: false })
+  verified: boolean;
 }
 
 export const ChatSchema = SchemaFactory.createForClass(Chat);

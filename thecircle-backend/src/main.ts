@@ -37,6 +37,6 @@ async function bootstrap() {
     allowedHeaders: ['content-type', 'Authorization'],
   });
   await apiApp.listen(3002);
-  console.log(`API server running at http://localhost:3002/${globalPrefix}`);
+  console.log(`API server running at https://localhost:3002/${globalPrefix}`);
 }
 bootstrap();

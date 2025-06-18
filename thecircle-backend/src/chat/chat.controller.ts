@@ -21,4 +21,12 @@ export class ChatController {
   async findAll() {
     return this.chatService.findAll();
   }
+
+  @Post('save')
+  async save(@Body() chats: any[]) {
+    if (!Array.isArray(chats)) {
+      throw new Error('Input must be an array of Chat objects');
+    }
+    return this.chatService.save(chats);
+  }
 }

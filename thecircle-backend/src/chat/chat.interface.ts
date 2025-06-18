@@ -5,4 +5,5 @@ export interface IChat {
   streamer: ObjectId;
   message: string;
   timestamp: Date;
+  verified: boolean;
 }
