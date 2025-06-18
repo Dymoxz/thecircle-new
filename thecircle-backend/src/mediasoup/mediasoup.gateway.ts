@@ -433,6 +433,55 @@ export class MediasoupGateway
       this.logger.error(`Error ending stream: ${error.message}`);
     }
   }
+  @SubscribeMessage('chat-message')
+  async handleChatMessage(
+    @MessageBody()
+    data: {
+      streamId: string;
+      senderId: string;
+      message: string;
+      timestamp: Date;
+      signature: string;
+      publicKey: string;
+    },
+    @ConnectedSocket() socket: WebSocket,
+  ) {
+    const { streamId, senderId, message, timestamp, signature, publicKey } =
+      data;
+
+    // Get stream info from mediasoupService
+    const stream = await this.mediasoupService.getStreamInfo(streamId);
+    if (!stream) return;
+
+    // Collect all client IDs in the room (streamer + viewers)
+    const recipientIds = [
+      stream.streamer.id,
+      ...Array.from(stream.viewers.keys()),
+    ];
+
+    recipientIds.forEach((clientId) => {
+      const client = this.clients.get(clientId);
+      if (client && client.socket.readyState === WebSocket.OPEN) {
+        client.socket.send(
+          JSON.stringify({
+            event: 'chat-message',
+            data: {
+              streamId,
+              senderId,
+              message,
+              timestamp,
+              signature,
+              publicKey,
+            },
+          }),
+        );
+      }
+    });
+
+    this.logger.log(
+      `[CHAT] Message from ${senderId} in stream ${streamId}: ${message}`,
+    );
+  }
 
   @SubscribeMessage('pause-stream')
   async handlePauseStream(
