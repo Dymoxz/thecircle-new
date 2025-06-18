@@ -174,7 +174,7 @@ function App() {
           }
         />
         <Route
-          path="/streamer"
+          path="/viewer"
           element={
             <RequireAuth>
               <ViewerPage />
