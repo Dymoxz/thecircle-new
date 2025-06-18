@@ -5,6 +5,7 @@ import StreamerPage from "./pages/StreamerPage";
 import ViewerPage from "./pages/ViewerPage";
 import LoginPage from "./pages/LoginPage.jsx";
 import { Camera, Eye, Lock } from "lucide-react";
+import RequireAuth from "./component/RequireAuth.jsx";
 
 // --- The Circle Logo SVG ---
 // No changes were needed here, but it's included for completeness.
@@ -164,8 +165,22 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/streamer" element={<StreamerPage />} />
-        <Route path="/viewer" element={<ViewerPage />} />
+        <Route
+          path="/streamer"
+          element={
+            <RequireAuth>
+              <StreamerPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/streamer"
+          element={
+            <RequireAuth>
+              <ViewerPage />
+            </RequireAuth>
+          }
+        />
         <Route path="/login" element={<LoginPage />} />
       </Routes>
     </Router>
