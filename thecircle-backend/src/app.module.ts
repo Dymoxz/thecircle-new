@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { EventsModule } from './events/events.module';
+import { MediasoupModule } from './mediasoup/mediasoup.module';
+
 @Module({
-  imports: [EventsModule],
+  imports: [MediasoupModule],
   controllers: [AppController],
   providers: [AppService],
 })

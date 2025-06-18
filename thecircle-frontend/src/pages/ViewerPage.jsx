@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Play, Users, Calendar, MessageCircle, Send, RefreshCw, X, LayoutGrid, StopCircle } from 'lucide-react';
+import * as mediasoupClient from 'mediasoup-client';
 
 // WebSocket URL configuration
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -29,8 +30,13 @@ const ViewerPage = () => {
 
     const remoteVideoRef = useRef(null);
     const socketRef = useRef(null);
-    const peerRef = useRef(null);
     const viewerId = useRef(uuidv4()).current;
+    const currentStreamIdRef = useRef(null);
+
+    // Mediasoup refs
+    const deviceRef = useRef(null);
+    const recvTransportRef = useRef(null);
+    const consumersRef = useRef(new Map());
 
     const streamInfo = {
         streamerName: "CodeMaster_Dev",
@@ -47,6 +53,19 @@ const ViewerPage = () => {
         };
     }, []);
 
+    // Debug video element state when stream changes
+    useEffect(() => {
+        if (currentStreamId && remoteVideoRef.current) {
+            console.log('Stream changed, checking video element state:');
+            console.log('Video element:', remoteVideoRef.current);
+            console.log('Video srcObject:', remoteVideoRef.current.srcObject);
+            console.log('Video readyState:', remoteVideoRef.current.readyState);
+            console.log('Video paused:', remoteVideoRef.current.paused);
+            console.log('Video currentTime:', remoteVideoRef.current.currentTime);
+            console.log('Video duration:', remoteVideoRef.current.duration);
+        }
+    }, [currentStreamId]);
+
     useEffect(() => {
         socketRef.current = new WebSocket(WS_URL);
         const socket = socketRef.current;
@@ -60,28 +79,31 @@ const ViewerPage = () => {
 
         socket.onmessage = async (event) => {
             const msg = JSON.parse(event.data);
+            console.log('[WS MESSAGE]', msg);
             switch (msg.event) {
-                case 'streams': setStreams(msg.data.streams); break;
-                case 'offer': {
-                    const { from, offer } = msg.data;
-                    const peer = new RTCPeerConnection();
-                    peerRef.current = peer;
-                    peer.ontrack = (e) => {
-                        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = e.streams[0];
-                    };
-                    peer.onicecandidate = (e) => {
-                        if (e.candidate) socket.send(JSON.stringify({ event: 'ice-candidate', data: { to: from, candidate: e.candidate } }));
-                    };
-                    await peer.setRemoteDescription(new RTCSessionDescription(offer));
-                    const answer = await peer.createAnswer();
-                    await peer.setLocalDescription(answer);
-                    socket.send(JSON.stringify({ event: 'answer', data: { to: from, answer } }));
+                case 'streams': 
+                    setStreams(msg.data.streams); 
+                    break;
+                case 'rtp-capabilities': {
+                    const { rtpCapabilities } = msg.data;
+                    if (deviceRef.current) {
+                        deviceRef.current.load({ routerRtpCapabilities: rtpCapabilities });
+                    }
                     break;
                 }
-                case 'ice-candidate': {
-                    if (peerRef.current && msg.data.candidate) {
-                        await peerRef.current.addIceCandidate(new RTCIceCandidate(msg.data.candidate));
-                    }
+                case 'transport-created': {
+                    const { transport } = msg.data;
+                    await createRecvTransport(transport, currentStreamIdRef.current);
+                    await consumeTracks(currentStreamIdRef.current);
+                    break;
+                }
+                case 'transport-connected': {
+                    console.log('Transport connected');
+                    break;
+                }
+                case 'consumed': {
+                    const { consumer } = msg.data;
+                    await handleConsumer(consumer);
                     break;
                 }
                 case 'stream-ended': {
@@ -95,39 +117,351 @@ const ViewerPage = () => {
                     }
                     break;
                 }
+                case 'error': {
+                    console.error('Server error:', msg.data.message);
+                    break;
+                }
                 default: break;
             }
         };
 
         return () => {
             socket.close();
-            if (peerRef.current) peerRef.current.close();
+            if (recvTransportRef.current) {
+                recvTransportRef.current.close();
+            }
+            consumersRef.current.forEach(consumer => consumer.close());
+            consumersRef.current.clear();
         };
     }, []);
 
-    const handleConnectToStream = (streamId) => {
-        if (peerRef.current) {
-            peerRef.current.close();
+    const createRecvTransport = async (transportOptions, streamId) => {
+        try {
+            const device = new mediasoupClient.Device();
+            deviceRef.current = device;
+
+            // Load device with router RTP capabilities
+            const rtpCapabilities = await getRtpCapabilities(streamId);
+            await device.load({ routerRtpCapabilities: rtpCapabilities });
+
+            const recvTransport = device.createRecvTransport(transportOptions);
+            recvTransportRef.current = recvTransport;
+
+            console.log('Created receive transport with options:', transportOptions);
+            console.log('Transport ICE candidates:', transportOptions.iceCandidates);
+            console.log('Transport ICE parameters:', transportOptions.iceParameters);
+
+            // Add transport event listeners
+            recvTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+                console.log('Transport connect event triggered');
+                console.log('DTLS Parameters:', dtlsParameters);
+                try {
+                    await connectTransport(dtlsParameters, streamId);
+                    callback();
+                    console.log('Transport connected successfully');
+                } catch (error) {
+                    console.error('Transport connect failed:', error);
+                    errback(error);
+                }
+            });
+
+            recvTransport.on('consume', async ({ producerId, rtpCapabilities }, callback, errback) => {
+                console.log('Transport consume event triggered for producerId:', producerId);
+                try {
+                    const consumer = await consume(producerId, rtpCapabilities, streamId);
+                    callback({ id: consumer.id });
+                    console.log('Transport consume successful');
+                } catch (error) {
+                    console.error('Transport consume failed:', error);
+                    errback(error);
+                }
+            });
+
+            recvTransport.on('connectionstatechange', (connectionState) => {
+                console.log('Transport connection state changed:', connectionState);
+                if (connectionState === 'failed') {
+                    console.error('Transport connection failed - this indicates ICE connectivity issues');
+                    console.log('Transport ICE state:', recvTransport.iceState);
+                    console.log('Transport DTLS state:', recvTransport.dtlsState);
+                }
+            });
+
+            recvTransport.on('dtlsstatechange', (dtlsState) => {
+                console.log('Transport DTLS state changed:', dtlsState);
+            });
+
+            recvTransport.on('icestatechange', (iceState) => {
+                console.log('Transport ICE state changed:', iceState);
+            });
+
+            recvTransport.on('icegatheringstatechange', (iceGatheringState) => {
+                console.log('Transport ICE gathering state changed:', iceGatheringState);
+            });
+
+            return recvTransport;
+        } catch (error) {
+            console.error('Error creating recv transport:', error);
+            throw error;
         }
-        setCurrentStreamId(streamId);
-        // Send preferred video constraints to backend (optional, for future use)
+    };
+
+    const getRtpCapabilities = async (streamId) => {
+        console.log('Getting RTP capabilities with streamId:', streamId);
         socketRef.current.send(JSON.stringify({
-            event: 'register',
-            data: { id: viewerId, clientType: 'viewer', streamId, video: VIDEO_CONSTRAINTS }
+            event: 'get-rtp-capabilities',
+            data: { streamId }
         }));
-        setIsStreamListOpen(false); // Close mobile list on selection
+
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Timeout getting RTP capabilities')), 5000);
+            
+            const originalOnMessage = socketRef.current.onmessage;
+            socketRef.current.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.event === 'rtp-capabilities') {
+                    clearTimeout(timeout);
+                    socketRef.current.onmessage = originalOnMessage;
+                    resolve(msg.data.rtpCapabilities);
+                }
+            };
+        });
+    };
+
+    const connectTransport = async (dtlsParameters, streamId) => {
+        console.log('connectTransport called with:', { streamId, transportId: recvTransportRef.current.id, dtlsParameters });
+        
+        socketRef.current.send(JSON.stringify({
+            event: 'connect-transport',
+            data: {
+                streamId,
+                transportId: recvTransportRef.current.id,
+                dtlsParameters,
+                isStreamer: false
+            }
+        }));
+
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                console.error('Transport connection timeout');
+                reject(new Error('Timeout connecting transport'));
+            }, 5000);
+            
+            const originalOnMessage = socketRef.current.onmessage;
+            socketRef.current.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                console.log('connectTransport received message:', msg);
+                if (msg.event === 'transport-connected') {
+                    clearTimeout(timeout);
+                    socketRef.current.onmessage = originalOnMessage;
+                    console.log('Transport connection resolved successfully');
+                    resolve();
+                } else if (msg.event === 'error') {
+                    clearTimeout(timeout);
+                    socketRef.current.onmessage = originalOnMessage;
+                    console.error('Transport connection error:', msg.data.message);
+                    reject(new Error(msg.data.message));
+                }
+            };
+        });
+    };
+
+    const consume = async (producerId, rtpCapabilities, streamId) => {
+        socketRef.current.send(JSON.stringify({
+            event: 'consume',
+            data: {
+                streamId,
+                transportId: recvTransportRef.current.id,
+                rtpCapabilities
+            }
+        }));
+
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Timeout consuming')), 5000);
+            
+            const originalOnMessage = socketRef.current.onmessage;
+            socketRef.current.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.event === 'consumed') {
+                    clearTimeout(timeout);
+                    socketRef.current.onmessage = originalOnMessage;
+                    resolve(msg.data.consumer);
+                } else if (msg.event === 'error') {
+                    clearTimeout(timeout);
+                    socketRef.current.onmessage = originalOnMessage;
+                    reject(new Error(msg.data.message));
+                }
+            };
+        });
+    };
+
+    const handleConsumer = async (consumersData) => {
+        try {
+            console.log('Handling consumer data:', consumersData);
+            // Handle array of consumers (audio and video)
+            const consumers = Array.isArray(consumersData) ? consumersData : [consumersData];
+            
+            for (const consumerData of consumers) {
+                console.log('Creating consumer for:', consumerData);
+                const consumer = await recvTransportRef.current.consume({
+                    id: consumerData.id,
+                    producerId: consumerData.producerId,
+                    kind: consumerData.kind,
+                    rtpParameters: consumerData.rtpParameters,
+                });
+
+                consumersRef.current.set(consumer.id, consumer);
+
+                // Add event listeners to the consumer
+                consumer.on('trackended', () => {
+                    console.log(`Consumer ${consumer.id} track ended`);
+                });
+
+                consumer.on('transportclose', () => {
+                    console.log(`Consumer ${consumer.id} transport closed`);
+                });
+
+                // Add event listeners to the track
+                consumer.track.onended = () => {
+                    console.log(`Track ${consumer.track.id} ended`);
+                };
+
+                consumer.track.onmute = () => {
+                    console.log(`Track ${consumer.track.id} muted`);
+                };
+
+                consumer.track.onunmute = () => {
+                    console.log(`Track ${consumer.track.id} unmuted`);
+                };
+
+                console.log('Consumer created:', {
+                    id: consumer.id,
+                    kind: consumer.kind,
+                    track: {
+                        id: consumer.track.id,
+                        kind: consumer.track.kind,
+                        enabled: consumer.track.enabled,
+                        muted: consumer.track.muted,
+                        readyState: consumer.track.readyState,
+                        label: consumer.track.label
+                    }
+                });
+
+                if (consumer.kind === 'video') {
+                    const stream = new MediaStream([consumer.track]);
+                    if (remoteVideoRef.current) {
+                        remoteVideoRef.current.srcObject = stream;
+                        console.log('Set remote video stream', stream, 'with track:', consumer.track);
+                        console.log('Video element srcObject:', remoteVideoRef.current.srcObject);
+                        console.log('Video element readyState:', remoteVideoRef.current.readyState);
+                        console.log('Video element paused:', remoteVideoRef.current.paused);
+                        console.log('Video element currentTime:', remoteVideoRef.current.currentTime);
+                        console.log('Video track enabled:', consumer.track.enabled);
+                        console.log('Video track readyState:', consumer.track.readyState);
+                        console.log('Video track muted:', consumer.track.muted);
+                        
+                        // Force play the video
+                        remoteVideoRef.current.play().then(() => {
+                            console.log('Video play() resolved successfully');
+                        }).catch((error) => {
+                            console.error('Video play() failed:', error);
+                        });
+
+                        // Add a timeout to check if video loads
+                        setTimeout(() => {
+                            if (remoteVideoRef.current) {
+                                console.log('After 2 seconds - Video readyState:', remoteVideoRef.current.readyState);
+                                console.log('After 2 seconds - Video paused:', remoteVideoRef.current.paused);
+                                console.log('After 2 seconds - Video currentTime:', remoteVideoRef.current.currentTime);
+                                console.log('After 2 seconds - Video duration:', remoteVideoRef.current.duration);
+                                console.log('After 2 seconds - Video srcObject:', remoteVideoRef.current.srcObject);
+                                
+                                // Check track state again
+                                console.log('After 2 seconds - Track enabled:', consumer.track.enabled);
+                                console.log('After 2 seconds - Track muted:', consumer.track.muted);
+                                console.log('After 2 seconds - Track readyState:', consumer.track.readyState);
+                                
+                                // Try to play again if not playing
+                                if (remoteVideoRef.current.paused) {
+                                    console.log('Video is still paused, trying to play again...');
+                                    remoteVideoRef.current.play().then(() => {
+                                        console.log('Second play() attempt successful');
+                                    }).catch((error) => {
+                                        console.error('Second play() attempt failed:', error);
+                                    });
+                                }
+                            }
+                        }, 2000);
+
+                        // Add a longer timeout to check if track becomes unmuted
+                        setTimeout(() => {
+                            console.log('After 5 seconds - Track muted:', consumer.track.muted);
+                            console.log('After 5 seconds - Track readyState:', consumer.track.readyState);
+                            console.log('After 5 seconds - Video readyState:', remoteVideoRef.current?.readyState);
+                            
+                            if (consumer.track.muted) {
+                                console.log('Track is still muted after 5 seconds - this indicates no video data is being received');
+                            }
+                        }, 5000);
+                    }
+                }
+
+                // Resume consumer
+                await consumer.resume();
+                console.log(`Consumer ${consumer.id} (${consumer.kind}) resumed`);
+            }
+        } catch (error) {
+            console.error('Error handling consumer:', error);
+        }
+    };
+
+    const handleConnectToStream = async (streamId) => {
+        console.log('Connecting to stream:', streamId);
+        
+        // Clean up any existing connections
+        if (recvTransportRef.current) {
+            recvTransportRef.current.close();
+        }
+        consumersRef.current.forEach(consumer => consumer.close());
+        consumersRef.current.clear();
+
+        // Set the current stream ID in both state and ref
+        setCurrentStreamId(streamId);
+        currentStreamIdRef.current = streamId;
+        console.log('Current stream ID after setting:', streamId);
+
+        try {
+            // Register as viewer
+            socketRef.current.send(JSON.stringify({
+                event: 'register',
+                data: { id: viewerId, clientType: 'viewer', streamId }
+            }));
+
+            // Create transport
+            socketRef.current.send(JSON.stringify({
+                event: 'create-transport',
+                data: { streamId, isStreamer: false }
+            }));
+
+            setIsStreamListOpen(false); // Close mobile list on selection
+        } catch (error) {
+            console.error('Error connecting to stream:', error);
+        }
     };
 
     const handleStopWatching = () => {
-        if (peerRef.current) {
-            peerRef.current.close();
-            peerRef.current = null;
+        console.log('Stopping watching');
+        if (recvTransportRef.current) {
+            recvTransportRef.current.close();
+            recvTransportRef.current = null;
         }
+        consumersRef.current.forEach(consumer => consumer.close());
+        consumersRef.current.clear();
+
         if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = null;
         }
         setCurrentStreamId(null);
-        // The backend's `handleDisconnect` will manage cleanup.
+        currentStreamIdRef.current = null;
     };
 
     const handleRefresh = () => {
@@ -136,17 +470,55 @@ const ViewerPage = () => {
         }
     };
 
+    const consumeTracks = async (streamId) => {
+        try {
+            console.log('Consuming tracks for stream:', streamId);
+            
+            // Get device RTP capabilities for consuming
+            const device = deviceRef.current;
+            
+            // Request to consume tracks
+            socketRef.current.send(JSON.stringify({
+                event: 'consume',
+                data: {
+                    streamId,
+                    transportId: recvTransportRef.current.id,
+                    rtpCapabilities: device.rtpCapabilities
+                }
+            }));
+
+        } catch (error) {
+            console.error('Error consuming tracks:', error);
+        }
+    };
+
     const StreamListPanel = () => (
         <div className="p-4 flex flex-col h-full">
             <div className="flex items-center justify-between mb-4 flex-shrink-0">
                 <h2 className="text-xl font-bold text-teal-400">Live Streams</h2>
-                <button onClick={handleRefresh} disabled={!isWsConnected} className="p-2 rounded-lg bg-neutral-700/50 hover:bg-neutral-600/50 disabled:opacity-50 transition-colors"><RefreshCw className="w-5 h-5" /></button>
+                <button 
+                    onClick={handleRefresh} 
+                    disabled={!isWsConnected} 
+                    className="p-2 rounded-lg bg-neutral-700/50 hover:bg-neutral-600/50 disabled:opacity-50 transition-colors"
+                >
+                    <RefreshCw className="w-5 h-5" />
+                </button>
             </div>
             <div className="flex-1 overflow-y-auto space-y-3 -mr-2 pr-2">
                 {streams.length > 0 ? streams.map((streamId) => (
-                    <div key={streamId} onClick={() => handleConnectToStream(streamId)} className={`p-3 rounded-2xl cursor-pointer transition-all duration-200 border-2 ${streamId === currentStreamId ? 'bg-teal-500/20 border-teal-400 ring-2 ring-teal-400' : 'bg-neutral-800/60 border-transparent hover:border-neutral-500'}`}>
+                    <div 
+                        key={streamId} 
+                        onClick={() => handleConnectToStream(streamId)} 
+                        className={`p-3 rounded-2xl cursor-pointer transition-all duration-200 border-2 ${
+                            streamId === currentStreamId 
+                                ? 'bg-teal-500/20 border-teal-400 ring-2 ring-teal-400' 
+                                : 'bg-neutral-800/60 border-transparent hover:border-neutral-500'
+                        }`}
+                    >
                         <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-800 rounded-full flex items-center justify-center flex-shrink-0"><Play className="w-5 h-5 text-white" /></div>
+                            <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-800 rounded-full flex items-center justify-center flex-shrink-0">
+                                <Play className="w-5 h-5 text-white" />
+                            </div>
                             <div>
                                 <h3 className="font-semibold text-sm truncate">Stream {streamId.slice(-8)}</h3>
                                 <p className="text-xs text-neutral-400">CodeMaster_Dev</p>
@@ -155,7 +527,9 @@ const ViewerPage = () => {
                     </div>
                 )) : (
                     <div className="text-center py-8 text-neutral-400">
-                        <div className="w-16 h-16 bg-neutral-800/50 rounded-full flex items-center justify-center mx-auto mb-4"><Play className="w-8 h-8 text-neutral-500" /></div>
+                        <div className="w-16 h-16 bg-neutral-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Play className="w-8 h-8 text-neutral-500" />
+                        </div>
                         <p className="text-sm">No streams available</p>
                     </div>
                 )}
@@ -165,7 +539,10 @@ const ViewerPage = () => {
 
     const ChatPanelContent = () => (
         <>
-            <h3 className="font-semibold mb-4 flex items-center text-lg flex-shrink-0"><MessageCircle className="w-5 h-5 mr-3 text-teal-400" />Live Chat</h3>
+            <h3 className="font-semibold mb-4 flex items-center text-lg flex-shrink-0">
+                <MessageCircle className="w-5 h-5 mr-3 text-teal-400" />
+                Live Chat
+            </h3>
             <div className="flex-1 space-y-4 pr-2 overflow-y-auto">
                 {mockChatMessages.map((msg, index) => (
                     <div key={index} className="flex flex-col items-start text-sm">
@@ -175,15 +552,34 @@ const ViewerPage = () => {
                 ))}
             </div>
             <div className="mt-4 flex items-center space-x-2 flex-shrink-0">
-                <input type="text" placeholder="Send a message..." className="flex-1 bg-neutral-800/60 border border-neutral-600 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all outline-none" />
-                <button className="p-2 bg-teal-500 hover:bg-teal-600 rounded-lg transition-colors"><Send className="w-5 h-5 text-neutral-900" /></button>
+                <input 
+                    type="text" 
+                    placeholder="Send a message..." 
+                    className="flex-1 bg-neutral-800/60 border border-neutral-600 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all outline-none" 
+                />
+                <button className="p-2 bg-teal-500 hover:bg-teal-600 rounded-lg transition-colors">
+                    <Send className="w-5 h-5 text-neutral-900" />
+                </button>
             </div>
         </>
     );
 
     return (
         <div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
-            <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full" />
+            <video 
+                ref={remoteVideoRef} 
+                autoPlay 
+                playsInline 
+                muted
+                className="absolute inset-0 w-full h-full "
+                onLoadedMetadata={() => console.log('Video metadata loaded')}
+                onCanPlay={() => console.log('Video can play')}
+                onPlay={() => console.log('Video started playing')}
+                onLoadedData={() => console.log('Video data loaded')}
+                onWaiting={() => console.log('Video waiting for data')}
+                onStalled={() => console.log('Video stalled')}
+                onError={(e) => console.error('Video error:', e)}
+            />
 
             {!currentStreamId && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl z-10">
@@ -195,11 +591,23 @@ const ViewerPage = () => {
             )}
 
             {/* Left Side: Mobile Button & Stream List */}
-            <button onClick={() => setIsStreamListOpen(true)} className="absolute top-4 left-4 z-30 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-full p-3 shadow-lg lg:hidden"><LayoutGrid className="w-6 h-6 text-neutral-100" /></button>
-            <div className="absolute top-4 left-4 max-h-[calc(100vh-2rem)] w-80 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl z-20 hidden lg:flex flex-col"><StreamListPanel /></div>
+            <button 
+                onClick={() => setIsStreamListOpen(true)} 
+                className="absolute top-4 left-4 z-30 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-full p-3 shadow-lg lg:hidden"
+            >
+                <LayoutGrid className="w-6 h-6 text-neutral-100" />
+            </button>
+            <div className="absolute top-4 left-4 max-h-[calc(100vh-2rem)] w-80 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl z-20 hidden lg:flex flex-col">
+                <StreamListPanel />
+            </div>
             {isStreamListOpen && (
                 <div className="absolute inset-0 z-40 bg-neutral-900/80 backdrop-blur-2xl lg:hidden">
-                    <button onClick={() => setIsStreamListOpen(false)} className="absolute top-4 right-4 z-50 p-2"><X className="w-6 h-6" /></button>
+                    <button 
+                        onClick={() => setIsStreamListOpen(false)} 
+                        className="absolute top-4 right-4 z-50 p-2"
+                    >
+                        <X className="w-6 h-6" />
+                    </button>
                     <StreamListPanel />
                 </div>
             )}
@@ -211,19 +619,35 @@ const ViewerPage = () => {
                         <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4">
                             <h2 className="text-lg font-bold mb-3">{streamInfo.title}</h2>
                             <div className="flex items-center space-x-3 mb-4">
-                                <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-800 rounded-full flex-shrink-0 flex items-center justify-center"><span className="text-xs font-bold">CM</span></div>
+                                <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-800 rounded-full flex-shrink-0 flex items-center justify-center">
+                                    <span className="text-xs font-bold">CM</span>
+                                </div>
                                 <div className="text-sm">
                                     <p className="font-semibold text-white">{streamInfo.streamerName}</p>
                                     <p className="text-neutral-400">{streamInfo.category}</p>
                                 </div>
                             </div>
                             <div className="text-xs text-neutral-300 space-y-2 border-t border-neutral-700 pt-3">
-                                <div className="flex items-center space-x-2"><Calendar className="w-4 h-4 text-teal-400" /><span>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</span></div>
-                                <div className="flex items-center space-x-2"><Users className="w-4 h-4 text-teal-400" /><span>{streamInfo.viewers} viewers</span></div>
+                                <div className="flex items-center space-x-2">
+                                    <Calendar className="w-4 h-4 text-teal-400" />
+                                    <span>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <Users className="w-4 h-4 text-teal-400" />
+                                    <span>{streamInfo.viewers} viewers</span>
+                                </div>
                             </div>
-                            <div className="flex flex-wrap gap-2 mt-4">{streamInfo.tags.map(tag => <span key={tag} className="bg-neutral-700/50 px-3 py-1 rounded-full text-xs">{tag}</span>)}</div>
+                            <div className="flex flex-wrap gap-2 mt-4">
+                                {streamInfo.tags.map(tag => (
+                                    <span key={tag} className="bg-neutral-700/50 px-3 py-1 rounded-full text-xs">
+                                        {tag}
+                                    </span>
+                                ))}
+                            </div>
                         </div>
-                        <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4 flex flex-col flex-1"><ChatPanelContent /></div>
+                        <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4 flex flex-col flex-1">
+                            <ChatPanelContent />
+                        </div>
                         <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-3">
                             <button
                                 onClick={handleStopWatching}
