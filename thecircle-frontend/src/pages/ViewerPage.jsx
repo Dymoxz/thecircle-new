@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {v4 as uuidv4} from 'uuid';
-import {Calendar, LayoutGrid, Play, RefreshCw, StopCircle, Users, X} from 'lucide-react';
+import {Calendar, LayoutGrid, Play, RefreshCw, StopCircle, Users, X, Pause, Volume2, VolumeX} from 'lucide-react';
 import * as mediasoupClient from 'mediasoup-client';
 import Chat from '../component/chat';
 
@@ -21,6 +21,8 @@ const ViewerPage = () => {
     const [isWsConnected, setIsWsConnected] = useState(false);
     const [isStreamListOpen, setIsStreamListOpen] = useState(false);
     const [showPauseOverlay, setShowPauseOverlay] = useState(false);
+    const [isPaused, setIsPaused] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
 
     const remoteVideoRef = useRef(null);
     const socketRef = useRef(null);
@@ -606,6 +608,82 @@ const ViewerPage = () => {
         />
     );
 
+    // --- Bottom Bar Controls ---
+    const handlePause = () => {
+        if (!remoteVideoRef.current) return;
+        
+        if (!isPaused) {
+            // Pause the video
+            remoteVideoRef.current.pause();
+            setIsPaused(true);
+            console.log('Stream paused by viewer');
+        } else {
+            // Resume and jump to live (end of buffer)
+            const video = remoteVideoRef.current;
+            
+            // First, try to seek to the end of the seekable range (live point)
+            if (video.seekable && video.seekable.length > 0) {
+                try {
+                    const liveTime = video.seekable.end(video.seekable.length - 1);
+                    video.currentTime = liveTime;
+                    console.log('Seeking to live point:', liveTime);
+                } catch (error) {
+                    console.warn('Could not seek to live point:', error);
+                    // Continue anyway, the play() will handle it
+                }
+            }
+            
+            // Then play the video
+            const playPromise = video.play();
+            if (playPromise && typeof playPromise.then === 'function') {
+                playPromise.then(() => {
+                    setIsPaused(false);
+                    console.log('Stream resumed by viewer');
+                }).catch((error) => {
+                    console.error('Failed to resume stream:', error);
+                    // Still set as not paused even if play fails
+                    setIsPaused(false);
+                });
+            } else {
+                setIsPaused(false);
+                console.log('Stream resumed by viewer (sync)');
+            }
+        }
+    };
+
+    const handleMute = () => {
+        if (!remoteVideoRef.current) return;
+        remoteVideoRef.current.muted = !isMuted;
+        setIsMuted(!isMuted);
+    };
+
+    // Keep isMuted state in sync with video element
+    useEffect(() => {
+        if (remoteVideoRef.current) {
+            remoteVideoRef.current.muted = isMuted;
+        }
+    }, [isMuted]);
+
+    // Keep isPaused state in sync with video element
+    useEffect(() => {
+        if (remoteVideoRef.current) {
+            if (isPaused && !remoteVideoRef.current.paused) {
+                remoteVideoRef.current.pause();
+            } else if (!isPaused && remoteVideoRef.current.paused) {
+                // Only auto-play if we're not in a paused state
+                remoteVideoRef.current.play().catch(error => {
+                    console.warn('Auto-play failed:', error);
+                });
+            }
+        }
+    }, [isPaused]);
+
+    // If stream changes, reset pause/mute state
+    useEffect(() => {
+        setIsPaused(false);
+        setIsMuted(false);
+    }, [currentStreamId]);
+
     return (
         <div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
             <video
@@ -615,7 +693,20 @@ const ViewerPage = () => {
                 className="absolute inset-0 w-full h-full "
                 onLoadedMetadata={() => console.log('Video metadata loaded')}
                 onCanPlay={() => console.log('Video can play')}
-                onPlay={() => console.log('Video started playing')}
+                onPlay={() => {
+                    console.log('Video started playing');
+                    // Update pause state if video starts playing externally
+                    if (isPaused) {
+                        setIsPaused(false);
+                    }
+                }}
+                onPause={() => {
+                    console.log('Video paused');
+                    // Update pause state if video is paused externally
+                    if (!isPaused) {
+                        setIsPaused(true);
+                    }
+                }}
                 onLoadedData={() => console.log('Video data loaded')}
                 onWaiting={() => console.log('Video waiting for data')}
                 onStalled={() => console.log('Video stalled')}
@@ -637,6 +728,23 @@ const ViewerPage = () => {
                             The streamer has paused the broadcast. Please wait...
                         </p>
                     </div>
+                </div>
+            )}
+
+            {/* Viewer Paused Overlay */}
+            {currentStreamId && isPaused && !showPauseOverlay && (
+                <div
+                    className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500 z-20">
+                    {/* <div className="text-center p-8">
+                        <div
+                            className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                            <Play className="w-12 h-12 text-teal-400"/>
+                        </div>
+                        <h3 className="text-2xl font-bold mb-2">Paused</h3>
+                        <p className="text-neutral-300 max-w-sm">
+                            You have paused the stream. Click the play button to resume.
+                        </p>
+                    </div> */}
                 </div>
             )}
 
@@ -750,6 +858,26 @@ const ViewerPage = () => {
                     </>
                 )}
             </div>
+
+            {/* --- BOTTOM BAR CONTROLS --- */}
+            {currentStreamId && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center z-20">
+                    <div className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg">
+                        <button
+                            onClick={handlePause}
+                            className={`p-3 rounded-2xl transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 ${isPaused ? 'bg-teal-500/80 hover:bg-teal-500 text-white' : 'bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900'}`}
+                        >
+                            {isPaused ? <Play className="w-6 h-6"/> : <Pause className="w-6 h-6"/>}
+                        </button>
+                        <button
+                            onClick={handleMute}
+                            className={`p-3 rounded-2xl transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 ${isMuted ? 'bg-red-500/80 hover:bg-red-500 text-white' : 'bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200'}`}
+                        >
+                            {isMuted ? <VolumeX className="w-6 h-6"/> : <Volume2 className="w-6 h-6"/>}
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
