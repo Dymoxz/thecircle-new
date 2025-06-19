@@ -116,7 +116,6 @@ const ProfilePage = () => {
     fetchProfileData();
   }, [viewedProfileId, currentUser, navigate]);
 
-
   const handleSubscribe = async () => {
     setActionLoading(true);
     try {
@@ -140,6 +139,31 @@ const ProfilePage = () => {
           ...prev,
           subscriberCount: (prev?.subscriberCount || 0) + 1,
         }));
+        
+        // Add the new subscription to the subscriptions list
+        const newSubscription = {
+          _id: Date.now().toString(), // temporary ID
+          streamer: {
+            _id: viewedProfileId,
+            userName: profile?.userName || 'New Sub'
+          },
+          createdAt: new Date().toISOString()
+        };
+        
+        setSubscriptions(prev => [...prev, newSubscription]);
+
+        // If viewing your own profile, add to subscribers list
+        if (currentUser === viewedProfileId) {
+          const newSubscriber = {
+            _id: Date.now().toString(), // temporary ID
+            subscriber: {
+              _id: currentUser,
+              userName: "Current User" // You might want to get this from profile data
+            },
+            createdAt: new Date().toISOString()
+          };
+          setSubscribers(prev => [...prev, newSubscriber]);
+        }
       } else {
         const errorData = await res.json();
         console.error('Subscribe error:', errorData.message || 'Failed to subscribe');
@@ -177,6 +201,18 @@ const ProfilePage = () => {
           ...prev,
           subscriberCount: (prev?.subscriberCount || 0) - 1,
         }));
+        
+        // Remove the subscription from the subscriptions list
+        setSubscriptions(prev => 
+          prev.filter(sub => sub.streamer?._id !== viewedProfileId)
+        );
+
+        // If viewing your own profile, remove from subscribers list
+        if (currentUser === viewedProfileId) {
+          setSubscribers(prev => 
+            prev.filter(sub => sub.subscriber?._id !== currentUser)
+          );
+        }
       } else {
         const errorData = await res.json();
         console.error('Unsubscribe error:', errorData.message || 'Failed to unsubscribe');
@@ -189,7 +225,6 @@ const ProfilePage = () => {
       setActionLoading(false);
     }
   };
-
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Unknown';
@@ -204,213 +239,212 @@ const ProfilePage = () => {
   const isMyProfile = currentUser && viewedProfileId && currentUser === viewedProfileId;
   const showSubscribeButton = currentUser && viewedProfileId && currentUser !== viewedProfileId;
 
-
   if (loading) return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] text-white font-oswald">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
-      </div>
+    <div className="flex items-center justify-center h-screen bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] text-white font-oswald">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+    </div>
   );
 
   if (error) return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] text-white font-oswald">
-        <div className="text-center p-6 bg-white/80 rounded-lg max-w-md shadow-xl shadow-black/30">
-          <h2 className="text-xl font-semibold text-[#a83246] mb-2">Error</h2>
-          <p className="text-gray-800">{error}</p>
-          <button
-              onClick={() => navigate('/')}
-              className="mt-4 px-4 py-2 bg-[#a83246] text-white rounded-full hover:bg-[#c04d65] transition-colors shadow-lg shadow-[#a83246]/40"
-          >
-            Go Home
-          </button>
-        </div>
+    <div className="flex items-center justify-center h-screen bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] text-white font-oswald">
+      <div className="text-center p-6 bg-white/80 rounded-lg max-w-md shadow-xl shadow-black/30">
+        <h2 className="text-xl font-semibold text-[#a83246] mb-2">Error</h2>
+        <p className="text-gray-800">{error}</p>
+        <button
+          onClick={() => navigate('/')}
+          className="mt-4 px-4 py-2 bg-[#a83246] text-white rounded-full hover:bg-[#c04d65] transition-colors shadow-lg shadow-[#a83246]/40"
+        >
+          Go Home
+        </button>
       </div>
+    </div>
   );
 
   return (
-      <div className="min-h-screen text-white font-oswald">
-        {/* Profile Header */}
-        <div className="bg-white/10 py-16 px-4 sm:px-6 lg:px-8 relative shadow-xl bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] shadow-black/30"> {/* Retained full width header */}
-          {/* Back Button */}
-          <button
-              onClick={() => navigate(-1)}
-              className="absolute top-4 left-4 p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-white"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
+    <div className="min-h-screen text-white font-oswald">
+      {/* Profile Header */}
+      <div className="bg-white/10 py-16 px-4 sm:px-6 lg:px-8 relative shadow-xl bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] shadow-black/30">
+        {/* Back Button */}
+        <button
+          onClick={() => navigate(-1)}
+          className="absolute top-4 left-4 p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-white"
+        >
+          <ArrowLeft className="w-6 h-6" />
+        </button>
 
-          <div className="max-w-4xl mx-auto  ">
-            <div className="flex flex-col md:flex-row items-center gap-8">
-              <div className="w-32 h-32 rounded-full bg-white/20 border-2 border-[#a83246] flex items-center justify-center shadow-lg">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            <div className="w-32 h-32 rounded-full bg-white/20 border-2 border-[#a83246] flex items-center justify-center shadow-lg">
               <span className="text-4xl font-bold text-white">
                 {profile?.userName?.charAt(0).toUpperCase() || 'U'}
               </span>
-              </div>
+            </div>
 
-              <div className="flex-1 text-white">
-                <h1 className="text-3xl font-bold mb-2">{profile?.userName}</h1>
+            <div className="flex-1 text-white">
+              <h1 className="text-3xl font-bold mb-2">{profile?.userName}</h1>
 
-                <div className="flex flex-wrap gap-4 mb-4">
-                  <div className="flex items-center">
-                    <Users className="w-5 h-5 mr-2" />
-                    <span>{profile?.subscriberCount || 0} subscribers</span>
+              <div className="flex flex-wrap gap-4 mb-4">
+                <div className="flex items-center">
+                  <Users className="w-5 h-5 mr-2" />
+                  <span>{profile?.subscriberCount || 0} subscribers</span>
+                </div>
+
+                {profile?.isLive && (
+                  <div className="flex items-center bg-red-600 px-3 py-1 rounded-full text-sm font-semibold">
+                    <div className="w-2 h-2 bg-white rounded-full animate-ping mr-2"></div>
+                    <span>Live Now</span>
                   </div>
-
-                  {profile?.isLive && (
-                      <div className="flex items-center bg-red-600 px-3 py-1 rounded-full text-sm font-semibold">
-                        <div className="w-2 h-2 bg-white rounded-full animate-ping mr-2"></div>
-                        <span>Live Now</span>
-                      </div>
-                  )}
-                </div>
-
-                {/* Conditional Rendering for Buttons */}
-                <div className="flex gap-4 mt-4">
-                  {isMyProfile && (
-                      <button
-                          onClick={() => navigate('/settings')}
-                          className="flex items-center px-6 py-2 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-colors shadow-md"
-                      >
-                        <SettingsIcon className="w-5 h-5 mr-2" />
-                        Settings
-                      </button>
-                  )}
-
-                  {showSubscribeButton && (
-                      <button
-                          onClick={isSubscribed ? handleUnsubscribe : handleSubscribe}
-                          className={`flex items-center px-6 py-2 rounded-full font-semibold transition-colors shadow-md ${isSubscribed
-                              ? 'bg-white/10 border border-white/20 text-white hover:bg-white/20'
-                              : 'bg-[#a83246] text-white hover:bg-[#c04d65] shadow-lg shadow-[#a83246]/40'} ${actionLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
-                          disabled={actionLoading}
-                      >
-                        {actionLoading ? (
-                            <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
-                        ) : (
-                            <Heart className="w-5 h-5 mr-2" />
-                        )
-                        }
-                        {actionLoading ? (isSubscribed ? 'Unsubscribing...' : 'Subscribing...') : (isSubscribed ? 'Subscribed' : 'Subscribe')}
-                      </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Profile Content Areas - Keep original grid layout */}
-        <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Main Profile Info */}
-            <div className="md:col-span-2 bg-white/80 backdrop-blur-sm rounded-lg shadow-xl shadow-black/30 p-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                <User className="w-5 h-5 mr-2 text-[#a83246]" />
-                About
-              </h2>
-
-              <div className="space-y-4 text-gray-800">
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-600">Username</h3>
-                  <p className="mt-1 text-lg font-semibold">{profile?.userName}</p>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-600">Email</h3>
-                  <p className="mt-1 flex items-center">
-                    <Mail className="w-4 h-4 mr-2 text-neutral-500" />
-                    {profile?.email}
-                  </p>
-                </div>
-
-                {profile?.birthdate && (
-                    <div>
-                      <h3 className="text-sm font-medium text-neutral-600">Birthdate</h3>
-                      <p className="mt-1 flex items-center">
-                        <Calendar className="w-4 h-4 mr-2 text-neutral-500" />
-                        {formatDate(profile.birthdate)}
-                      </p>
-                    </div>
-                )}
-              </div>
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Subscribers */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-xl shadow-black/30 p-8">
-                <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                  <Users className="w-5 h-5 mr-2 text-[#a83246]" />
-                  Subscribers
-                </h3>
-
-                {subscribers.length > 0 ? (
-                    <ul className="space-y-3">
-                      {subscribers.slice(0, 5).map(sub => (
-                          sub?.subscriber && (
-                              <li
-                                  key={sub._id}
-                                  className="flex items-center p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"
-                                  onClick={() => navigate(`/profile/${sub.subscriber._id}`)}
-                              >
-                                <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
-                                  {sub.subscriber.userName?.charAt(0).toUpperCase() || 'U'}
-                                </div>
-                                <span className="font-semibold text-gray-800 flex-grow truncate">{sub.subscriber.userName}</span>
-                              </li>
-                          )
-                      ))}
-                      {subscribers.length > 5 && (
-                          <p className="text-sm text-gray-600 mt-2">
-                            +{subscribers.length - 5} more
-                          </p>
-                      )}
-                    </ul>
-                ) : (
-                    <p className="text-gray-600 text-sm">No subscribers yet.</p>
                 )}
               </div>
 
-              {/* Subscriptions */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-xl shadow-black/30 p-8">
-                <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                  <Heart className="w-5 h-5 mr-2 text-[#a83246]" />
-                  Subscriptions
-                </h3>
+              {/* Conditional Rendering for Buttons */}
+              <div className="flex gap-4 mt-4">
+                {isMyProfile && (
+                  <button
+                    onClick={() => navigate('/settings')}
+                    className="flex items-center px-6 py-2 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-colors shadow-md"
+                  >
+                    <SettingsIcon className="w-5 h-5 mr-2" />
+                    Settings
+                  </button>
+                )}
 
-                {subscriptions.length > 0 ? (
-                    <ul className="space-y-3">
-                      {subscriptions.map(sub => (
-                          sub?.streamer && (
-                              <li
-                                  key={sub._id}
-                                  className="flex items-center p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"
-                                  onClick={() => navigate(`/profile/${sub.streamer._id}`)}
-                              >
-                                <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
-                                  {sub.streamer.userName?.charAt(0).toUpperCase() || 'U'}
-                                </div>
-                                <span className="font-semibold text-gray-800 flex-grow truncate">{sub.streamer.userName}</span>
-                              </li>
-                          )
-                      ))}
-                    </ul>
-                ) : (
-                    <p className="text-gray-600 text-sm">Not subscribed to anyone.</p>
+                {showSubscribeButton && (
+                  <button
+                    onClick={isSubscribed ? handleUnsubscribe : handleSubscribe}
+                    className={`flex items-center px-6 py-2 rounded-full font-semibold transition-colors shadow-md ${isSubscribed
+                      ? 'bg-white/10 border border-white/20 text-white hover:bg-white/20'
+                      : 'bg-[#a83246] text-white hover:bg-[#c04d65] shadow-lg shadow-[#a83246]/40'} ${actionLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    disabled={actionLoading}
+                  >
+                    {actionLoading ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
+                    ) : (
+                      <Heart className="w-5 h-5 mr-2" />
+                    )
+                    }
+                    {actionLoading ? (isSubscribed ? 'Unsubscribing...' : 'Subscribing...') : (isSubscribed ? 'Subscribed' : 'Subscribe')}
+                  </button>
                 )}
               </div>
             </div>
-          </div>
-
-          {/* Recent Activity (placeholder) */}
-          <div className="mt-8 bg-white/80 backdrop-blur-sm rounded-lg shadow-xl shadow-black/30 p-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-              <MessageSquare className="w-5 h-5 mr-2 text-[#a83246]" />
-              Recent Activity
-            </h2>
-            <p className="text-gray-600">Coming soon...</p>
           </div>
         </div>
       </div>
+
+      {/* Profile Content Areas */}
+      <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Main Profile Info */}
+          <div className="md:col-span-2 bg-white/80 backdrop-blur-sm rounded-lg shadow-xl shadow-black/30 p-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+              <User className="w-5 h-5 mr-2 text-[#a83246]" />
+              About
+            </h2>
+
+            <div className="space-y-4 text-gray-800">
+              <div>
+                <h3 className="text-sm font-medium text-neutral-600">Username</h3>
+                <p className="mt-1 text-lg font-semibold">{profile?.userName}</p>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium text-neutral-600">Email</h3>
+                <p className="mt-1 flex items-center">
+                  <Mail className="w-4 h-4 mr-2 text-neutral-500" />
+                  {profile?.email}
+                </p>
+              </div>
+
+              {profile?.birthdate && (
+                <div>
+                  <h3 className="text-sm font-medium text-neutral-600">Birthdate</h3>
+                  <p className="mt-1 flex items-center">
+                    <Calendar className="w-4 h-4 mr-2 text-neutral-500" />
+                    {formatDate(profile.birthdate)}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Subscribers */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-xl shadow-black/30 p-8">
+              <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                <Users className="w-5 h-5 mr-2 text-[#a83246]" />
+                Subscribers
+              </h3>
+
+              {subscribers.length > 0 ? (
+                <ul className="space-y-3">
+                  {subscribers.slice(0, 5).map(sub => (
+                    sub?.subscriber && (
+                      <li
+                        key={sub._id}
+                        className="flex items-center p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/profile/${sub.subscriber._id}`)}
+                      >
+                        <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
+                          {sub.subscriber.userName?.charAt(0).toUpperCase() || 'U'}
+                        </div>
+                        <span className="font-semibold text-gray-800 flex-grow truncate">{sub.subscriber.userName}</span>
+                      </li>
+                    )
+                  ))}
+                  {subscribers.length > 5 && (
+                    <p className="text-sm text-gray-600 mt-2">
+                      +{subscribers.length - 5} more
+                    </p>
+                  )}
+                </ul>
+              ) : (
+                <p className="text-gray-600 text-sm">No subscribers yet.</p>
+              )}
+            </div>
+
+            {/* Subscriptions */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-xl shadow-black/30 p-8">
+              <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                <Heart className="w-5 h-5 mr-2 text-[#a83246]" />
+                Subscriptions
+              </h3>
+
+              {subscriptions.length > 0 ? (
+                <ul className="space-y-3">
+                  {subscriptions.map(sub => (
+                    sub?.streamer && (
+                      <li
+                        key={sub._id}
+                        className="flex items-center p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/profile/${sub.streamer._id}`)}
+                      >
+                        <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
+                          {sub.streamer.userName?.charAt(0).toUpperCase() || 'U'}
+                        </div>
+                        <span className="font-semibold text-gray-800 flex-grow truncate">{sub.streamer.userName}</span>
+                      </li>
+                    )
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-600 text-sm">Not subscribed to anyone.</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Activity (placeholder) */}
+        <div className="mt-8 bg-white/80 backdrop-blur-sm rounded-lg shadow-xl shadow-black/30 p-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+            <MessageSquare className="w-5 h-5 mr-2 text-[#a83246]" />
+            Recent Activity
+          </h2>
+          <p className="text-gray-600">Coming soon...</p>
+        </div>
+      </div>
+    </div>
   );
 };
 
