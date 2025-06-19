@@ -242,9 +242,11 @@ export class MediasoupService implements OnModuleDestroy {
   async createWebRtcTransport(
     streamId: string,
     isStreamer: boolean,
+    streamerId: string,
     clientId?: string,
   ): Promise<any> {
-    const stream = this.streams.get(streamId);
+    console.log (this.streams)
+    const stream = this.streams.get(streamerId);
     if (!stream) {
       throw new Error(`Stream ${streamId} not found`);
     }
@@ -449,6 +451,7 @@ export class MediasoupService implements OnModuleDestroy {
     viewerId: string,
     viewerSocket: any,
   ): Promise<ViewerInfo> {
+    console.log(this.streams)
     const stream = this.streams.get(streamId);
     if (!stream) {
       throw new Error(`Stream ${streamId} not found`);

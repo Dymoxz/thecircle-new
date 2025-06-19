@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import * as mediasoupClient from 'mediasoup-client';
 import Chat from '../component/chat';
+import { jwtDecode } from 'jwt-decode';
 
 // WebSocket URL configuration
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -43,9 +44,9 @@ const VIDEO_CONSTRAINTS = {
     frameRate: {ideal: 30, max: 60}
 };
 const AUDIO_CONSTRAINTS = {
-	echoCancellation: true,
-	noiseSuppression: true,
-	sampleRate: 48000,
+    echoCancellation: true,
+    noiseSuppression: true,
+    sampleRate: 48000,
 };
 
 const StreamerPage = () => {
@@ -71,15 +72,19 @@ const StreamerPage = () => {
     const audioProducerRef = useRef(null);
     const videoProducerRef = useRef(null);
 
-    const streamerId = useRef(uuidv4()).current;
-    const streamId = `stream-${streamerId}`;
 
-	useEffect(() => {
-		document.title = "StreamHub - Stream";
-		return () => {
-			document.title = "StreamHub";
-		};
-	}, []);
+    const token = localStorage.getItem('jwt_token');
+    const user = jwtDecode(token);
+    const streamerId = user._id
+    const streamId = streamerId;
+    const username = user.username || `Streamer-${streamerId.substring(0, 6)}`;
+
+    useEffect(() => {
+        document.title = "StreamHub - Stream";
+        return () => {
+            document.title = "StreamHub";
+        };
+    }, []);
 
     const formatDuration = (seconds) => {
         const hours = Math.floor(seconds / 3600);
@@ -254,10 +259,9 @@ const StreamerPage = () => {
     };
 
     const getRtpCapabilities = async () => {
-        const streamId = `stream-${streamerId}`;
         socketRef.current.send(JSON.stringify({
             event: 'get-rtp-capabilities',
-            data: {streamId}
+            data: {streamId: streamerId}
         }));
 
         return new Promise((resolve, reject) => {
@@ -276,11 +280,10 @@ const StreamerPage = () => {
     };
 
     const connectTransport = async (dtlsParameters) => {
-        const streamId = `stream-${streamerId}`;
         socketRef.current.send(JSON.stringify({
             event: 'connect-transport',
             data: {
-                streamId,
+                streamId: streamerId,
                 transportId: sendTransportRef.current.id,
                 dtlsParameters,
                 isStreamer: true
@@ -311,7 +314,7 @@ const StreamerPage = () => {
         socketRef.current.send(JSON.stringify({
             event: 'produce',
             data: {
-                streamId,
+                streamId: streamerId,
                 transportId: sendTransportRef.current.id,
                 kind,
                 rtpParameters
@@ -347,15 +350,38 @@ const StreamerPage = () => {
             if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
             const streamId = `stream-${streamerId}`;
+            // Send register event
             socketRef.current.send(JSON.stringify({
                 event: 'register',
-                data: {id: streamerId, clientType: 'streamer', streamId}
+                data: {id: streamerId, clientType: 'streamer', streamId, streamerId: streamerId}
             }));
 
-            // Create transport
+            // Wait for 'registered' confirmation before creating transport
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('Timeout waiting for registration confirmation')), 5000);
+                const originalOnMessage = socketRef.current.onmessage;
+                socketRef.current.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.event === 'registered' && msg.data?.clientType === 'streamer') {
+                            clearTimeout(timeout);
+                            socketRef.current.onmessage = originalOnMessage;
+                            resolve();
+                        } else if (msg.event === 'error') {
+                            clearTimeout(timeout);
+                            socketRef.current.onmessage = originalOnMessage;
+                            reject(new Error(msg.data.message));
+                        }
+                    } catch (err) {
+                        // Ignore parse errors
+                    }
+                };
+            });
+
+            // Now create transport
             socketRef.current.send(JSON.stringify({
                 event: 'create-transport',
-                data: {streamId, isStreamer: true}
+                data: {streamId, isStreamer: true, streamerId}
             }));
 
             setIsStreaming(true);
@@ -370,7 +396,7 @@ const StreamerPage = () => {
         if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
             socketRef.current.send(JSON.stringify({
                 event: 'end-stream',
-                data: {streamId: `stream-${streamerId}`}
+                data: {streamId:streamerId}
             }));
         }
 
@@ -420,12 +446,12 @@ const StreamerPage = () => {
             if (nextPausedState) {
                 socketRef.current.send(JSON.stringify({
                     event: 'pause-stream',
-                    data: { streamId }
+                    data: { streamId:streamerId }
                 }));
             } else {
                 socketRef.current.send(JSON.stringify({
                     event: 'resume-stream',
-                    data: { streamId }
+                    data: { streamId:streamerId }
                 }));
             }
         }
@@ -457,14 +483,14 @@ const StreamerPage = () => {
             if (currentVideoTrack) localStreamRef.current.addTrack(currentVideoTrack);
         }
     };
-    	const toggleMute = () => {
-		if (!localStreamRef.current) return;
-		const audioTrack = localStreamRef.current.getAudioTracks()[0];
-		if (audioTrack) {
-			audioTrack.enabled = isMuted;
-			setIsMuted(!isMuted);
-		}
-	};
+        const toggleMute = () => {
+        if (!localStreamRef.current) return;
+        const audioTrack = localStreamRef.current.getAudioTracks()[0];
+        if (audioTrack) {
+            audioTrack.enabled = isMuted;
+            setIsMuted(!isMuted);
+        }
+    };
 
         const toggleVideo = () => {
         if (!localStreamRef.current) return;
@@ -620,7 +646,7 @@ const StreamerPage = () => {
                 {/* --- CHAT PANEL --- */}
                 <Chat
                 streamId = {streamId}
-                username={streamerId}
+                username={username}
                 socket = {socketRef.current}
                 myStream={true}
                 />

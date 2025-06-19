@@ -103,12 +103,11 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 	const wsRef = useRef(null);
 	const messagesEndRef = useRef(null);
 	const keyPairRef = useRef(null);
-	const streamerId = streamId.split("-")[1]; // Extract streamerId from streamId
+	const streamerId = streamId.substring(streamId.indexOf('-') + 1); // Everything after 'stream-'
 	const INCOMING_BUFFER_KEY = `incoming_chat_buffer_${streamId}`;
 	const timerRef = useRef(null);
 	const incomingTimerRef = useRef(null);
-
-	// Buffering logic for all incoming messages
+		// Buffering logic for all incoming messages
 	function saveIncomingBuffer(buffer) {
 		if (myStream === true) {
 			localStorage.setItem(INCOMING_BUFFER_KEY, JSON.stringify(buffer));
@@ -141,10 +140,10 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 			.then((res) => res.json())
 			.then((data) => {
 				const mapped = data.map((chat) => ({
-					user: chat.sender,
-					text: chat.message,
+					sender: chat.sender,
+					message: chat.message,
 					timestamp: chat.timestamp,
-					verified: true,
+					verified: chat.verified || true,
 				}));
 				setMessages(mapped);
 			})
