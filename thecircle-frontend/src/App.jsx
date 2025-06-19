@@ -263,7 +263,7 @@ const HomePage = () => {
   };
 
   const handleStreamClick = (streamId) => {
-    navigate(`/viewer?streamId=${streamId}`);
+    navigate(`/viewer/${streamId}`);
   };
 
   return (
@@ -406,12 +406,12 @@ const HomePage = () => {
                 className="bg-white/80 backdrop-blur-sm rounded-lg overflow-hidden shadow-xl shadow-black/30 transition-all duration-300 ease-in-out hover:scale-[1.02] cursor-pointer"
                 onClick={() => handleStreamClick(stream.streamId)}
               >
-                <img src={stream.thumbnail || "https://placehold.co/320x180/7B1FA2/FFFFFF?text=Live+Stream"} alt={stream.title || 'Live Stream'} className="w-full h-40 object-cover" />
+                <img src={ "https://placehold.co/320x180/7B1FA2/FFFFFF?text=Live+Stream"} alt={stream.streamId} className="w-full h-40 object-cover" />
                 <div className="p-4">
-                  <h3 className="text-xl font-bold text-gray-900 mb-1 truncate">{stream.title || 'Untitled Stream'}</h3>
-                  <p className="text-gray-800 text-sm mb-2 truncate">{stream.streamerName || 'Unknown Streamer'}</p>
+                  <h3 className="text-xl font-bold text-gray-900 mb-1 truncate">{stream.streamerName}</h3>
+                  <p className="text-gray-800 text-sm mb-2 truncate">{stream.tags}</p>
                   <div className="flex items-center text-sm text-neutral-600">
-                    <Eye className="w-4 h-4 mr-1" /> {stream.viewerCount || 0} viewers
+                    <Eye className="w-4 h-4 mr-1" /> {stream.viewers || 0} viewers
                   </div>
                   {stream.tags && stream.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
@@ -514,7 +514,7 @@ function App() {
           }
         />
         <Route
-          path="/viewer"
+          path="/viewer/:streamId"
           element={
             <RequireAuth>
               <ViewerPage />

@@ -1,28 +1,28 @@
-import React, {useEffect, useRef, useState} from 'react';
-import {v4 as uuidv4} from 'uuid';
+import React, {useEffect, useRef, useState} from "react";
 import {
     Eye,
+    FlipHorizontal,
     Mic,
     MicOff,
     Monitor,
     Pause,
-    FlipHorizontal,
     Play,
     RotateCcw,
-    Settings,
     Square,
+    SwitchCamera,
     Video,
     VideoOff,
-    SwitchCamera,
-} from 'lucide-react';
-import * as mediasoupClient from 'mediasoup-client';
-import Chat from '../component/chat';
+} from "lucide-react";
+import * as mediasoupClient from "mediasoup-client";
+import Chat from "../component/chat";
+import {jwtDecode} from "jwt-decode";
+import {TagDialog} from "../component/tagDialog.jsx";
 // WebSocket URL configuration
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const WS_URL = `${wsProtocol}//${window.location.hostname}:3001`;
 
 // --- Helper Component for Styled Buttons ---
-const ControlButton = ({onClick, children, className = '', ...props}) => (
+const ControlButton = ({onClick, children, className = "", ...props}) => (
     <button
         onClick={onClick}
         className={`p-3 rounded-2xl backdrop-blur-lg transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 ${className}`}
@@ -35,7 +35,7 @@ const ControlButton = ({onClick, children, className = '', ...props}) => (
 const VIDEO_CONSTRAINTS = {
     width: {ideal: 1280},
     height: {ideal: 720},
-    frameRate: {ideal: 30, max: 60}
+    frameRate: {ideal: 30, max: 60},
 };
 const AUDIO_CONSTRAINTS = {
     echoCancellation: true,
@@ -48,11 +48,12 @@ const StreamerPage = () => {
     const [isPaused, setIsPaused] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
-    const [currentCamera, setCurrentCamera] = useState('user');
+    const [currentCamera, setCurrentCamera] = useState("user");
     const [viewerCount, setViewerCount] = useState(0);
     const [streamDuration, setStreamDuration] = useState(0);
     const [showPauseOverlay, setShowPauseOverlay] = useState(false);
     const [videoRotation, setVideoRotation] = useState(0);
+    const [user, setUser] = useState({});
 
     const [isMirrored, setIsMirrored] = useState(false);
     const localVideoRef = useRef(null);
@@ -68,8 +69,37 @@ const StreamerPage = () => {
     const audioProducerRef = useRef(null);
     const videoProducerRef = useRef(null);
 
-    const streamerId = useRef(uuidv4()).current;
-    const streamId = `stream-${streamerId}`;
+    const token = localStorage.getItem("jwt_token");
+    const userfromjwt = jwtDecode(token);
+    const streamerId = userfromjwt.sub;
+    const streamId = streamerId;
+    const [username, setUsername] = useState("streamer");
+    const [streamTags, setStreamTags] = useState([]);
+    const [showTagDialog, setShowTagDialog] = useState(false);
+
+
+    useEffect(() => {
+        // Fetch user data from localStorage or API
+        fetch(`https://localhost:3002/api/user/${streamerId}`, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+            },
+        })
+            .then(response => response.json())
+            .then((data) => {
+                console.log("Fetched user data:", data);
+                if (data && data.userName) {
+                    setUser(data);
+                    setUsername(data.userName);
+                } else {
+                    setUser({});
+                    setUsername("streamer");
+                    console.error("User data missing or malformed:", data);
+                }
+            });
+    }, [streamerId]);
 
     useEffect(() => {
         document.title = "StreamHub - Stream";
@@ -83,9 +113,11 @@ const StreamerPage = () => {
         const minutes = Math.floor((seconds % 3600) / 60);
         const secs = seconds % 60;
         if (hours > 0) {
-            return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            return `${hours}:${minutes.toString().padStart(2, "0")}:${secs
+                .toString()
+                .padStart(2, "0")}`;
         }
-        return `${minutes}:${secs.toString().padStart(2, '0')}`;
+        return `${minutes}:${secs.toString().padStart(2, "0")}`;
     };
 
     useEffect(() => {
@@ -94,47 +126,49 @@ const StreamerPage = () => {
 
         socket.onopen = () => setIsWsConnected(true);
         socket.onclose = () => setIsWsConnected(false);
-        socket.onerror = (err) => console.error('[WS] Error:', err);
+        socket.onerror = (err) => console.error("[WS] Error:", err);
 
         socket.onmessage = async (event) => {
             try {
                 const msg = JSON.parse(event.data);
                 switch (msg.event) {
-                    case 'viewer-joined': {
+                    case "viewer-joined": {
                         const {viewerId} = msg.data;
                         if (viewerId) {
-                            setViewerCount(prev => prev + 1);
+                            setViewerCount((prev) => prev + 1);
                         }
                         break;
                     }
-                    case 'rtp-capabilities': {
+                    case "rtp-capabilities": {
                         const {rtpCapabilities} = msg.data;
                         if (deviceRef.current) {
-                            deviceRef.current.load({routerRtpCapabilities: rtpCapabilities});
+                            deviceRef.current.load({
+                                routerRtpCapabilities: rtpCapabilities,
+                            });
                         }
                         break;
                     }
-                    case 'transport-created': {
+                    case "transport-created": {
                         const {transport} = msg.data;
                         await createSendTransport(transport);
                         // After transport is created, produce the tracks
                         await produceTracks();
                         break;
                     }
-                    case 'transport-connected': {
-                        console.log('Transport connected');
+                    case "transport-connected": {
+                        console.log("Transport connected");
                         break;
                     }
-                    case 'produced': {
+                    case "produced": {
                         const {producer} = msg.data;
-                        console.log('Producer created:', producer);
+                        console.log("Producer created:", producer);
                         break;
                     }
-                    case 'error': {
-                        console.error('Server error:', msg.data.message);
+                    case "error": {
+                        console.error("Server error:", msg.data.message);
                         break;
                     }
-                    case 'stream-paused': {
+                    case "stream-paused": {
                         setShowPauseOverlay(true);
                         setIsPaused(true);
                         if (localVideoRef.current) {
@@ -142,7 +176,7 @@ const StreamerPage = () => {
                         }
                         break;
                     }
-                    case 'stream-resumed': {
+                    case "stream-resumed": {
                         setShowPauseOverlay(false);
                         setIsPaused(false);
                         if (localVideoRef.current) {
@@ -154,14 +188,16 @@ const StreamerPage = () => {
                         break;
                 }
             } catch (err) {
-                console.error('WebSocket message handling error:', err);
+                console.error("WebSocket message handling error:", err);
             }
         };
 
         return () => {
             socket.close();
             if (localStreamRef.current) {
-                localStreamRef.current.getTracks().forEach(track => track.stop());
+                localStreamRef.current
+                    .getTracks()
+                    .forEach((track) => track.stop());
             }
             clearInterval(durationInterval.current);
         };
@@ -171,7 +207,11 @@ const StreamerPage = () => {
         if (isStreaming && !isPaused) {
             durationInterval.current = setInterval(() => {
                 if (streamStartTime.current) {
-                    setStreamDuration(Math.floor((Date.now() - streamStartTime.current) / 1000));
+                    setStreamDuration(
+                        Math.floor(
+                            (Date.now() - streamStartTime.current) / 1000
+                        )
+                    );
                 }
             }, 1000);
         } else {
@@ -183,7 +223,7 @@ const StreamerPage = () => {
     const produceTracks = async () => {
         try {
             if (!localStreamRef.current || !sendTransportRef.current) {
-                console.error('No local stream or transport available');
+                console.error("No local stream or transport available");
                 return;
             }
 
@@ -193,23 +233,26 @@ const StreamerPage = () => {
             // Produce video track
             const videoTrack = stream.getVideoTracks()[0];
             if (videoTrack) {
-                console.log('Producing video track');
-                const videoProducer = await sendTransport.produce({track: videoTrack});
+                console.log("Producing video track");
+                const videoProducer = await sendTransport.produce({
+                    track: videoTrack,
+                });
                 videoProducerRef.current = videoProducer;
-                console.log('Video producer created:', videoProducer.id);
+                console.log("Video producer created:", videoProducer.id);
             }
 
             // Produce audio track
             const audioTrack = stream.getAudioTracks()[0];
             if (audioTrack) {
-                console.log('Producing audio track');
-                const audioProducer = await sendTransport.produce({track: audioTrack});
+                console.log("Producing audio track");
+                const audioProducer = await sendTransport.produce({
+                    track: audioTrack,
+                });
                 audioProducerRef.current = audioProducer;
-                console.log('Audio producer created:', audioProducer.id);
+                console.log("Audio producer created:", audioProducer.id);
             }
-
         } catch (error) {
-            console.error('Error producing tracks:', error);
+            console.error("Error producing tracks:", error);
         }
     };
 
@@ -225,45 +268,55 @@ const StreamerPage = () => {
             const sendTransport = device.createSendTransport(transportOptions);
             sendTransportRef.current = sendTransport;
 
-            sendTransport.on('connect', async ({dtlsParameters}, callback, errback) => {
-                try {
-                    await connectTransport(dtlsParameters);
-                    callback();
-                } catch (error) {
-                    errback(error);
+            sendTransport.on(
+                "connect",
+                async ({dtlsParameters}, callback, errback) => {
+                    try {
+                        await connectTransport(dtlsParameters);
+                        callback();
+                    } catch (error) {
+                        errback(error);
+                    }
                 }
-            });
+            );
 
-            sendTransport.on('produce', async ({kind, rtpParameters}, callback, errback) => {
-                try {
-                    const producer = await produce(kind, rtpParameters);
-                    callback({id: producer.id});
-                } catch (error) {
-                    errback(error);
+            sendTransport.on(
+                "produce",
+                async ({kind, rtpParameters}, callback, errback) => {
+                    try {
+                        const producer = await produce(kind, rtpParameters);
+                        callback({id: producer.id});
+                    } catch (error) {
+                        errback(error);
+                    }
                 }
-            });
+            );
 
             return sendTransport;
         } catch (error) {
-            console.error('Error creating send transport:', error);
+            console.error("Error creating send transport:", error);
             throw error;
         }
     };
 
     const getRtpCapabilities = async () => {
-        const streamId = `stream-${streamerId}`;
-        socketRef.current.send(JSON.stringify({
-            event: 'get-rtp-capabilities',
-            data: {streamId}
-        }));
+        socketRef.current.send(
+            JSON.stringify({
+                event: "get-rtp-capabilities",
+                data: {streamId: streamerId},
+            })
+        );
 
         return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Timeout getting RTP capabilities')), 5000);
+            const timeout = setTimeout(
+                () => reject(new Error("Timeout getting RTP capabilities")),
+                5000
+            );
 
             const originalOnMessage = socketRef.current.onmessage;
             socketRef.current.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
-                if (msg.event === 'rtp-capabilities') {
+                if (msg.event === "rtp-capabilities") {
                     clearTimeout(timeout);
                     socketRef.current.onmessage = originalOnMessage;
                     resolve(msg.data.rtpCapabilities);
@@ -273,28 +326,32 @@ const StreamerPage = () => {
     };
 
     const connectTransport = async (dtlsParameters) => {
-        const streamId = `stream-${streamerId}`;
-        socketRef.current.send(JSON.stringify({
-            event: 'connect-transport',
-            data: {
-                streamId,
-                transportId: sendTransportRef.current.id,
-                dtlsParameters,
-                isStreamer: true
-            }
-        }));
+        socketRef.current.send(
+            JSON.stringify({
+                event: "connect-transport",
+                data: {
+                    streamId: streamerId,
+                    transportId: sendTransportRef.current.id,
+                    dtlsParameters,
+                    isStreamer: true,
+                },
+            })
+        );
 
         return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Timeout connecting transport')), 5000);
+            const timeout = setTimeout(
+                () => reject(new Error("Timeout connecting transport")),
+                5000
+            );
 
             const originalOnMessage = socketRef.current.onmessage;
             socketRef.current.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
-                if (msg.event === 'transport-connected') {
+                if (msg.event === "transport-connected") {
                     clearTimeout(timeout);
                     socketRef.current.onmessage = originalOnMessage;
                     resolve();
-                } else if (msg.event === 'error') {
+                } else if (msg.event === "error") {
                     clearTimeout(timeout);
                     socketRef.current.onmessage = originalOnMessage;
                     reject(new Error(msg.data.message));
@@ -305,27 +362,32 @@ const StreamerPage = () => {
 
     const produce = async (kind, rtpParameters) => {
         const streamId = `stream-${streamerId}`;
-        socketRef.current.send(JSON.stringify({
-            event: 'produce',
-            data: {
-                streamId,
-                transportId: sendTransportRef.current.id,
-                kind,
-                rtpParameters
-            }
-        }));
+        socketRef.current.send(
+            JSON.stringify({
+                event: "produce",
+                data: {
+                    streamId: streamerId,
+                    transportId: sendTransportRef.current.id,
+                    kind,
+                    rtpParameters,
+                },
+            })
+        );
 
         return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Timeout producing')), 5000);
+            const timeout = setTimeout(
+                () => reject(new Error("Timeout producing")),
+                5000
+            );
 
             const originalOnMessage = socketRef.current.onmessage;
             socketRef.current.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
-                if (msg.event === 'produced') {
+                if (msg.event === "produced") {
                     clearTimeout(timeout);
                     socketRef.current.onmessage = originalOnMessage;
                     resolve(msg.data.producer);
-                } else if (msg.event === 'error') {
+                } else if (msg.event === "error") {
                     clearTimeout(timeout);
                     socketRef.current.onmessage = originalOnMessage;
                     reject(new Error(msg.data.message));
@@ -334,26 +396,78 @@ const StreamerPage = () => {
         });
     };
 
-    const handleStartStream = async () => {
+    const handleStartStream = async (tags) => {
         try {
+            const tagArr = Array.isArray(tags)
+                ? tags.filter(Boolean)
+                : tags.split(",").map(t => t.trim()).filter(Boolean);
+
+            setStreamTags(tagArr);
+
+
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: {...VIDEO_CONSTRAINTS, facingMode: currentCamera},
-                audio: AUDIO_CONSTRAINTS
+                audio: AUDIO_CONSTRAINTS,
             });
             localStreamRef.current = stream;
             if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
             const streamId = `stream-${streamerId}`;
-            socketRef.current.send(JSON.stringify({
-                event: 'register',
-                data: {id: streamerId, clientType: 'streamer', streamId}
-            }));
+            // Send register event
+            socketRef.current.send(
+                JSON.stringify({
+                    event: "register",
+                    data: {
+                        id: streamerId,
+                        clientType: "streamer",
+                        streamId,
+                        streamerId: streamerId,
+                        username: username || "streamer",
+                        tags: tagArr,
+                    },
+                })
+            );
 
-            // Create transport
-            socketRef.current.send(JSON.stringify({
-                event: 'create-transport',
-                data: {streamId, isStreamer: true}
-            }));
+            // Wait for 'registered' confirmation before creating transport
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(
+                    () =>
+                        reject(
+                            new Error(
+                                "Timeout waiting for registration confirmation"
+                            )
+                        ),
+                    5000
+                );
+                const originalOnMessage = socketRef.current.onmessage;
+                socketRef.current.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (
+                            msg.event === "registered" &&
+                            msg.data?.clientType === "streamer"
+                        ) {
+                            clearTimeout(timeout);
+                            socketRef.current.onmessage = originalOnMessage;
+                            resolve();
+                        } else if (msg.event === "error") {
+                            clearTimeout(timeout);
+                            socketRef.current.onmessage = originalOnMessage;
+                            reject(new Error(msg.data.message));
+                        }
+                    } catch (err) {
+                        // Ignore parse errors
+                    }
+                };
+            });
+
+            // Now create transport
+            socketRef.current.send(
+                JSON.stringify({
+                    event: "create-transport",
+                    data: {streamId, isStreamer: true, streamerId},
+                })
+            );
 
             setIsStreaming(true);
             streamStartTime.current = Date.now();
@@ -364,15 +478,20 @@ const StreamerPage = () => {
     };
 
     const handleStopStream = () => {
-        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-            socketRef.current.send(JSON.stringify({
-                event: 'end-stream',
-                data: {streamId: `stream-${streamerId}`}
-            }));
+        if (
+            socketRef.current &&
+            socketRef.current.readyState === WebSocket.OPEN
+        ) {
+            socketRef.current.send(
+                JSON.stringify({
+                    event: "end-stream",
+                    data: {streamId: streamerId},
+                })
+            );
         }
 
         if (localStreamRef.current) {
-            localStreamRef.current.getTracks().forEach(track => track.stop());
+            localStreamRef.current.getTracks().forEach((track) => track.stop());
         }
         localStreamRef.current = null;
 
@@ -408,22 +527,29 @@ const StreamerPage = () => {
         const nextPausedState = !isPaused;
         const tracks = localStreamRef.current.getTracks();
 
-        tracks.forEach(track => {
+        tracks.forEach((track) => {
             track.enabled = !nextPausedState;
         });
 
-        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        if (
+            socketRef.current &&
+            socketRef.current.readyState === WebSocket.OPEN
+        ) {
             const streamId = `stream-${streamerId}`;
             if (nextPausedState) {
-                socketRef.current.send(JSON.stringify({
-                    event: 'pause-stream',
-                    data: {streamId}
-                }));
+                socketRef.current.send(
+                    JSON.stringify({
+                        event: "pause-stream",
+                        data: {streamId: streamerId},
+                    })
+                );
             } else {
-                socketRef.current.send(JSON.stringify({
-                    event: 'resume-stream',
-                    data: {streamId}
-                }));
+                socketRef.current.send(
+                    JSON.stringify({
+                        event: "resume-stream",
+                        data: {streamId: streamerId},
+                    })
+                );
             }
         }
     };
@@ -434,14 +560,17 @@ const StreamerPage = () => {
         const currentVideoTrack = localStreamRef.current.getVideoTracks()[0];
         if (currentVideoTrack) currentVideoTrack.stop();
 
-        const newFacingMode = currentCamera === 'user' ? 'environment' : 'user';
+        const newFacingMode = currentCamera === "user" ? "environment" : "user";
         try {
             const newStream = await navigator.mediaDevices.getUserMedia({
-                video: {...VIDEO_CONSTRAINTS, facingMode: newFacingMode}
+                video: {...VIDEO_CONSTRAINTS, facingMode: newFacingMode},
             });
             const newVideoTrack = newStream.getVideoTracks()[0];
             const audioTrack = localStreamRef.current.getAudioTracks()[0];
-            localStreamRef.current = new MediaStream([newVideoTrack, audioTrack]);
+            localStreamRef.current = new MediaStream([
+                newVideoTrack,
+                audioTrack,
+            ]);
 
             // Replace video producer if it exists
             if (videoProducerRef.current && sendTransportRef.current) {
@@ -451,7 +580,8 @@ const StreamerPage = () => {
             setCurrentCamera(newFacingMode);
         } catch (err) {
             console.error("Could not flip camera:", err);
-            if (currentVideoTrack) localStreamRef.current.addTrack(currentVideoTrack);
+            if (currentVideoTrack)
+                localStreamRef.current.addTrack(currentVideoTrack);
         }
     };
     const toggleMute = () => {
@@ -483,7 +613,9 @@ const StreamerPage = () => {
                     muted
                     className="w-full h-full"
                     style={{
-                        transform: `${isMirrored ? 'scaleX(-1) ' : ''}rotate(${videoRotation}deg)`
+                        transform: `${
+                            isMirrored ? "scaleX(-1) " : ""
+                        }rotate(${videoRotation}deg)`,
                     }}
                 />
                 {isStreaming && showPauseOverlay && (
@@ -494,14 +626,25 @@ const StreamerPage = () => {
                                 className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
                                 <Pause className="w-12 h-12 text-neutral-400"/>
                             </div>
-                            <h3 className="text-2xl font-bold mb-2">Stream Paused</h3>
+                            <h3 className="text-2xl font-bold mb-2">
+                                Stream Paused
+                            </h3>
                             <p className="text-neutral-300 max-w-sm">
-                                Your stream is currently paused for viewers. We'll be back soon!
+                                Your stream is currently paused for viewers.
+                                We'll be back soon!
                             </p>
                         </div>
                     </div>
                 )}
             </div>
+
+            <TagDialog
+                open={showTagDialog}
+                onClose={() => setShowTagDialog(false)}
+                onSave={(tags) => handleStartStream(tags)}
+            />
+
+
             {/* --- CONTROLS AND INFO --- */}
             {/* All UI controls and overlays below should have z-10 or higher to be above the video/blur */}
             {isStreaming && (
@@ -510,7 +653,9 @@ const StreamerPage = () => {
                     <div className="flex items-center space-x-2 bg-red-500/90 px-3 py-1 rounded-full">
                         <div className="w-2 h-2 bg-white rounded-full animate-ping absolute opacity-75"></div>
                         <div className="w-2 h-2 bg-white rounded-full"></div>
-                        <span className="font-semibold uppercase tracking-wider text-xs">Live</span>
+                        <span className="font-semibold uppercase tracking-wider text-xs">
+							Live
+						</span>
                     </div>
                     <div className="flex items-center space-x-2 text-neutral-200 pr-2">
                         <Eye className="w-5 h-5"/>
@@ -522,31 +667,49 @@ const StreamerPage = () => {
                 </div>
             )}
 
-            <div
-                className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center">
+
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center">
                 {!isStreaming ? (
                     <button
-                        onClick={handleStartStream}
-                        disabled={!isWsConnected}
+onClick={() => setShowTagDialog(true)}
+disabled={!isWsConnected}
                         className="bg-teal-500 mb-4 hover:bg-teal-600 disabled:bg-neutral-600 disabled:cursor-not-allowed text-neutral-900 py-3 px-8 rounded-2xl font-semibold transition-all duration-300 ease-in-out flex items-center justify-center space-x-2 transform hover:scale-105 active:scale-100 shadow-lg z-10"
                     >
                         <Play className="w-6 h-6 "/>
-                        <span>{isWsConnected ? 'Start Stream' : 'Connecting...'}</span>
+                        <span>
+							{isWsConnected ? "Start Stream" : "Connecting..."}
+						</span>
                     </button>
                 ) : (
                     <div
                         className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg z-10">
                         <ControlButton
                             onClick={toggleMute}
-                            className={isMuted ? 'bg-red-500/80 hover:bg-red-500 text-white' : 'bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200'}
+                            className={
+                                isMuted
+                                    ? "bg-red-500/80 hover:bg-red-500 text-white"
+                                    : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
+                            }
                         >
-                            {isMuted ? <MicOff className="w-6 h-6"/> : <Mic className="w-6 h-6"/>}
+                            {isMuted ? (
+                                <MicOff className="w-6 h-6"/>
+                            ) : (
+                                <Mic className="w-6 h-6"/>
+                            )}
                         </ControlButton>
                         <ControlButton
                             onClick={toggleVideo}
-                            className={isVideoOff ? 'bg-red-500/80 hover:bg-red-500 text-white' : 'bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200'}
+                            className={
+                                isVideoOff
+                                    ? "bg-red-500/80 hover:bg-red-500 text-white"
+                                    : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
+                            }
                         >
-                            {isVideoOff ? <VideoOff className="w-6 h-6"/> : <Video className="w-6 h-6"/>}
+                            {isVideoOff ? (
+                                <VideoOff className="w-6 h-6"/>
+                            ) : (
+                                <Video className="w-6 h-6"/>
+                            )}
                         </ControlButton>
                         <ControlButton
                             onClick={handleFlipCamera}
@@ -555,23 +718,41 @@ const StreamerPage = () => {
                             <SwitchCamera className="w-6 h-6"/>
                         </ControlButton>
                         <ControlButton
-                            onClick={() => setIsMirrored(m => !m)}
-                            className={isMirrored ? 'bg-teal-500/80 hover:bg-teal-500 text-white' : 'bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200'}
+                            onClick={() => setIsMirrored((m) => !m)}
+                            className={
+                                isMirrored
+                                    ? "bg-teal-500/80 hover:bg-teal-500 text-white"
+                                    : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
+                            }
                         >
                             <FlipHorizontal className="w-6 h-6"/>
                         </ControlButton>
                         <ControlButton
-                            onClick={() => setVideoRotation(r => (r + 90) % 360)}
-                            className={videoRotation !== 0 ? 'bg-teal-500/80 hover:bg-teal-500 text-white' : 'bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200'}
+                            onClick={() =>
+                                setVideoRotation((r) => (r + 90) % 360)
+                            }
+                            className={
+                                videoRotation !== 0
+                                    ? "bg-teal-500/80 hover:bg-teal-500 text-white"
+                                    : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
+                            }
                         >
                             <RotateCcw className="w-6 h-6"/>
                         </ControlButton>
                         <div className="w-px h-8 bg-neutral-100/10 mx-2"></div>
                         <ControlButton
                             onClick={handlePauseStream}
-                            className={isPaused ? 'bg-teal-500/80 hover:bg-teal-500 text-white' : 'bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900'}
+                            className={
+                                isPaused
+                                    ? "bg-teal-500/80 hover:bg-teal-500 text-white"
+                                    : "bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900"
+                            }
                         >
-                            {isPaused ? <Play className="w-6 h-6"/> : <Pause className="w-6 h-6"/>}
+                            {isPaused ? (
+                                <Play className="w-6 h-6"/>
+                            ) : (
+                                <Pause className="w-6 h-6"/>
+                            )}
                         </ControlButton>
                         <ControlButton
                             onClick={handleStopStream}
@@ -593,15 +774,44 @@ const StreamerPage = () => {
                     <div className="space-y-3 text-sm">
                         <div className="flex justify-between items-center">
                             <span className="text-neutral-400">Status</span>
-                            <span className={`font-semibold px-2 py-0.5 rounded-md text-xs ${
-                                isStreaming ? (isPaused ? 'bg-yellow-500/20 text-yellow-300' : 'bg-teal-500/20 text-teal-300') : 'bg-neutral-700 text-neutral-300'
-                            }`}>
-                                {isStreaming ? (isPaused ? 'Paused' : 'Online') : 'Offline'}
-                            </span>
+                            <span
+                                className={`font-semibold px-2 py-0.5 rounded-md text-xs ${
+                                    isStreaming
+                                        ? isPaused
+                                            ? "bg-yellow-500/20 text-yellow-300"
+                                            : "bg-teal-500/20 text-teal-300"
+                                        : "bg-neutral-700 text-neutral-300"
+                                }`}
+                            >
+								{isStreaming
+                                    ? isPaused
+                                        ? "Paused"
+                                        : "Online"
+                                    : "Offline"}
+							</span>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="text-neutral-400">Camera</span>
-                            <span className="capitalize">{currentCamera === 'user' ? 'Front' : 'Back'}</span>
+                            <span className="capitalize">
+								{currentCamera === "user" ? "Front" : "Back"}
+							</span>
+                        </div>
+                        <div>
+                            <span className="text-neutral-400">Tags</span>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                                {streamTags?.length ? (                       // <-- safe check
+                                    streamTags.map((tag, i) => (
+                                        <span
+                                            key={i}
+                                            className="bg-teal-700/30 text-teal-200 px-2 py-0.5 rounded-full text-xs"
+                                        >
+        {tag}
+      </span>
+                                    ))
+                                ) : (
+                                    <span className="text-neutral-500 text-xs">No tags</span>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -609,7 +819,7 @@ const StreamerPage = () => {
                 {/* --- CHAT PANEL --- */}
                 <Chat
                     streamId={streamId}
-                    username={streamerId}
+                    username={username}
                     socket={socketRef.current}
                     myStream={true}
                 />
