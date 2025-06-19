@@ -211,6 +211,7 @@ export class MediasoupService implements OnModuleDestroy {
     streamerId: string,
     streamerSocket: any,
     username: string,
+    tags?: string[],
   ): Promise<StreamInfo> {
     const worker = this.getNextWorker();
     const router = worker.router;
@@ -237,6 +238,7 @@ export class MediasoupService implements OnModuleDestroy {
         this.getConfig().recordingOptions.outputPath,
         `${streamId}.${this.getConfig().recordingOptions.format}`,
       ),
+      tags: tags || [],
     };
 
     this.streams.set(streamId, streamInfo);
@@ -543,11 +545,12 @@ export class MediasoupService implements OnModuleDestroy {
     }
   }
 
-async getActiveStreams(): Promise<{ streamId: string; streamerName: string | undefined }[]> {
+async getActiveStreams(): Promise<{ streamId: string; streamerName: string | undefined; tags: string[] | undefined }[]> {
     // Return an array of objects with streamId and streamerName
     return Array.from(this.streams.values()).map(stream => ({
       streamId: stream.streamId,
       streamerName: stream.streamer.username,
+      tags: stream.tags,
     }));
   }
 
