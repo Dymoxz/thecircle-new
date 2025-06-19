@@ -110,10 +110,11 @@ export class MediasoupGateway
       clientType: string;
       streamId: string;
       streamerId?: string;
+      username: string;
     },
     @ConnectedSocket() socket: WebSocket,
   ) {
-    const { id, clientType, streamId, streamerId } = data;
+    const { id, clientType, streamId, streamerId, username } = data;
 
     // If streamerId is provided (for viewers), use it as the stream owner reference
     const effectiveStreamId = streamerId || streamId;
@@ -132,7 +133,7 @@ export class MediasoupGateway
 
     if (clientType === 'streamer' && effectiveStreamId) {
       try {
-        await this.mediasoupService.createStream(id, effectiveStreamId, socket);
+        await this.mediasoupService.createStream(id, effectiveStreamId, socket, username);
         this.logger.log(
           `[STREAMS] Streamer registered streamId=${effectiveStreamId}`,
         );
@@ -204,6 +205,7 @@ export class MediasoupGateway
   @SubscribeMessage('get-streams')
   async handleGetStreams(@ConnectedSocket() socket: WebSocket) {
     this.logger.log('[STREAMS] get-streams requested');
+
     try {
       const activeStreams = await this.mediasoupService.getActiveStreams();
       socket.send(
