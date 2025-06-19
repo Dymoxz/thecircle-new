@@ -7,7 +7,8 @@ import LoginPage from "./pages/LoginPage.jsx"; // Assuming this page exists
 import RequireAuth from "./component/RequireAuth.jsx"; // Assuming this component exists
 
 // Importing new icons for the homepage layout
-import { Camera, Eye, Lock, Search, SlidersHorizontal, ArrowDownWideNarrow, User } from "lucide-react"; // Removed Settings icon
+import { Camera, Eye, Lock, Search, SlidersHorizontal, ArrowDownWideNarrow, User } from "lucide-react";
+import ProfilePage from "./pages/ProfilePage.jsx"; // Removed Settings icon
 
 // --- The Circle Logo SVG ---
 // Updated to remove auto-margins, size, and margin-bottom, as its placement is now controlled by the parent flex container.
@@ -98,7 +99,7 @@ const HomePage = () => {
 
   // Function to handle profile click
   const handleProfileClick = () => {
-    navigate("/login"); // Navigate to the login page (or a dedicated profile page)
+    navigate("/profile"); // Navigate to the login page (or a dedicated profile page)
   };
 
   return (
@@ -166,7 +167,7 @@ const HomePage = () => {
           <div
               className="bg-white/80 border-white/10 rounded-3xl p-4 shadow-md shadow-black/30 flex flex-col items-center cursor-pointer
                          transition-all duration-200 ease-in-out hover:bg-white/90 hover:shadow-2xl hover:shadow-black/40"
-              onClick={handleProfileClick} // Make the entire div clickable
+              onClick={handleProfileClick}
           >
             <div className="flex items-center justify-start w-full mb-2">
               <div className="w-10 h-10 rounded-full bg-neutral-700 flex items-center justify-center mr-2 border-2 border-[#a83246] overflow-hidden">
@@ -232,6 +233,24 @@ function App() {
                   <ViewerPage />
                 </RequireAuth>
               }
+          />
+          <Route
+              path="/profile"
+              element={
+                <RequireAuth>
+                  <ProfilePage />
+                </RequireAuth>
+              }
+
+          />
+          <Route
+              path="/profile/:userId"
+              element={
+                <RequireAuth>
+                  <ProfilePage />
+                </RequireAuth>
+              }
+
           />
           {/* Login Page route */}
           <Route path="/login" element={<LoginPage />} />

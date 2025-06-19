@@ -34,6 +34,7 @@ async getUserProfile(userId: string) {
 }
 
   async subscribe(subscriberId: string, streamerId: string) {
+    console.log("TRYING TO SUBSCRIBE :" + streamerId +  " wfor user" + subscriberId );
     const existing = await this.subscriptionModel.findOne({
       subscriber: subscriberId,
       streamer: streamerId,

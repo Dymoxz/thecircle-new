@@ -6,6 +6,7 @@ import { ProfileService } from './profile.service';
 import { Subscription, SubscriptionSchema } from './Schemas/subscription.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Chat, ChatSchema } from '../chats/schemas/chat.schema';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { Chat, ChatSchema } from '../chats/schemas/chat.schema';
       { name: User.name, schema: UserSchema },
       { name: Chat.name, schema: ChatSchema },
     ]),
+    JwtModule
   ],
   controllers: [ProfileController],
   providers: [ProfileService],
