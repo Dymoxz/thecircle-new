@@ -137,7 +137,7 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 
 	useEffect(() => {
 		// Fetch old messages from backend (localhost:3002)
-		fetch(`http://localhost:3002/api/chat/stream/${streamerId}`)
+		fetch(`https://localhost:3002/api/chat/stream/${streamerId}`)
 			.then((res) => res.json())
 			.then((data) => {
 				const mapped = data.map((chat) => ({

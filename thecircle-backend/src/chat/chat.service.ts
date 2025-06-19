@@ -15,7 +15,7 @@ export class ChatService {
   async findByStreamer(streamerId: string): Promise<Chat[]> {
     console.log('Finding chats for streamer:', streamerId);
     return this.chatModel
-      .find({ streamer: new Types.ObjectId(streamerId) })
+      .find({ streamer: streamerId })
       .populate('sender streamer')
       .exec();
   }

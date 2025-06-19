@@ -43,7 +43,6 @@ const ViewerPage = () => {
 	const remoteVideoRef = useRef(null);
 	const socketRef = useRef(null);
 	const user = jwtDecode(localStorage.getItem("jwt_token") || "{}");
-	console.log("User data:", user);
 	const viewerId = user._id;
 	const currentStreamIdRef = useRef(null);
 	const username = useRef("Viewer_" + viewerId.slice(0, 8)).current; // Simple username based on viewer ID
