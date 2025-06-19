@@ -738,12 +738,14 @@ const ViewerPage = () => {
 		}
 		consumersRef.current.forEach((consumer) => consumer.close());
 		consumersRef.current.clear();
+    
 
 		if (remoteVideoRef.current) {
 			remoteVideoRef.current.srcObject = null;
 		}
 		setCurrentStreamId(null);
 		currentStreamIdRef.current = null;
+            navigate('/');
 	};
 
 	const handleRefresh = () => {
@@ -839,28 +841,212 @@ const ViewerPage = () => {
 		/>
 	);
 
-	return (
-		<div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
-			<video
-				ref={remoteVideoRef}
-				autoPlay
-				playsInline
-				className="absolute inset-0 w-full h-full "
-				onLoadedMetadata={() => console.log("Video metadata loaded")}
-				onCanPlay={() => console.log("Video can play")}
-				onPlay={() => console.log("Video started playing")}
-				onLoadedData={() => console.log("Video data loaded")}
-				onWaiting={() => console.log("Video waiting for data")}
-				onStalled={() => console.log("Video stalled")}
-				onError={(e) => console.error("Video error:", e)}
-				onVolumeChange={() =>
-					console.log(
-						"Volume changed:",
-						remoteVideoRef.current?.volume
-					)
-				}
-				onAudioProcess={() => console.log("Audio processing")}
-			/>
+    // --- Bottom Bar Controls ---
+    const handlePause = () => {
+        if (!remoteVideoRef.current) return;
+        
+        if (!isPaused) {
+            // Pause the video
+            remoteVideoRef.current.pause();
+            setIsPaused(true);
+            console.log('Stream paused by viewer');
+        } else {
+            // Resume and jump to live (end of buffer)
+            const video = remoteVideoRef.current;
+            
+            // First, try to seek to the end of the seekable range (live point)
+            if (video.seekable && video.seekable.length > 0) {
+                try {
+                    const liveTime = video.seekable.end(video.seekable.length - 1);
+                    video.currentTime = liveTime;
+                    console.log('Seeking to live point:', liveTime);
+                } catch (error) {
+                    console.warn('Could not seek to live point:', error);
+                    // Continue anyway, the play() will handle it
+                }
+            }
+            
+            // Then play the video
+            const playPromise = video.play();
+            if (playPromise && typeof playPromise.then === 'function') {
+                playPromise.then(() => {
+                    setIsPaused(false);
+                    console.log('Stream resumed by viewer');
+                }).catch((error) => {
+                    console.error('Failed to resume stream:', error);
+                    // Still set as not paused even if play fails
+                    setIsPaused(false);
+                });
+            } else {
+                setIsPaused(false);
+                console.log('Stream resumed by viewer (sync)');
+            }
+        }
+    };
+
+    const handleMute = () => {
+        if (!remoteVideoRef.current) return;
+        
+        if (!isMuted) {
+            // Muting - save current volume and set to 0
+            setPreviousVolume(volume);
+            setVolume(0);
+            remoteVideoRef.current.volume = 0;
+            setIsMuted(true);
+        } else {
+            // Unmuting - restore previous volume
+            setVolume(previousVolume);
+            remoteVideoRef.current.volume = previousVolume;
+            setIsMuted(false);
+        }
+    };
+
+    const handleVolumeChange = (newVolume) => {
+        if (!remoteVideoRef.current) return;
+        
+        setVolume(newVolume);
+        remoteVideoRef.current.volume = newVolume;
+        
+        // Update mute state based on volume
+        if (newVolume === 0) {
+            setIsMuted(true);
+        } else {
+            setIsMuted(false);
+        }
+    };
+
+    const handleVolumeSliderShow = () => {
+        if (volumeSliderTimeoutRef.current) {
+            clearTimeout(volumeSliderTimeoutRef.current);
+        }
+        setShowVolumeSlider(true);
+    };
+
+    const handleVolumeSliderHide = () => {
+        volumeSliderTimeoutRef.current = setTimeout(() => {
+            setShowVolumeSlider(false);
+        }, 300);
+    };
+
+    // Keep isMuted state in sync with video element
+    useEffect(() => {
+        if (remoteVideoRef.current) {
+            remoteVideoRef.current.volume = volume;
+        }
+    }, [volume]);
+
+    // Keep isPaused state in sync with video element
+    useEffect(() => {
+        if (remoteVideoRef.current) {
+            if (isPaused && !remoteVideoRef.current.paused) {
+                remoteVideoRef.current.pause();
+            } else if (!isPaused && remoteVideoRef.current.paused) {
+                // Only auto-play if we're not in a paused state
+                remoteVideoRef.current.play().catch(error => {
+                    console.warn('Auto-play failed:', error);
+                });
+            }
+        }
+    }, [isPaused]);
+
+    // If stream changes, reset pause/mute state
+    useEffect(() => {
+        setIsPaused(false);
+        setIsMuted(false);
+        setVolume(1.0);
+        setPreviousVolume(1.0);
+    }, [currentStreamId]);
+
+    // Add CSS for horizontal slider
+    useEffect(() => {
+        const style = document.createElement('style');
+        style.textContent = `
+            .slider-horizontal {
+                -webkit-appearance: none;
+                appearance: none;
+                background: transparent;
+                cursor: pointer;
+                pointer-events: auto;
+            }
+            .slider-horizontal::-webkit-slider-track {
+                -webkit-appearance: none;
+                appearance: none;
+                background: #374151;
+                border-radius: 4px;
+                height: 8px;
+            }
+            .slider-horizontal::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 16px;
+                height: 16px;
+                background: #14b8a6;
+                border-radius: 50%;
+                cursor: pointer;
+                border: 2px solid #ffffff;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                pointer-events: auto;
+            }
+            .slider-horizontal::-moz-range-track {
+                background: #374151;
+                border-radius: 4px;
+                height: 8px;
+                border: none;
+            }
+            .slider-horizontal::-moz-range-thumb {
+                width: 16px;
+                height: 16px;
+                background: #14b8a6;
+                border-radius: 50%;
+                cursor: pointer;
+                border: 2px solid #ffffff;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                pointer-events: auto;
+            }
+            .slider-horizontal:focus {
+                outline: none;
+            }
+            .slider-horizontal:hover {
+                cursor: pointer;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        return () => {
+            document.head.removeChild(style);
+        };
+    }, []);
+
+    return (
+        <div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
+            <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="absolute inset-0 w-full h-full "
+                onLoadedMetadata={() => console.log('Video metadata loaded')}
+                onCanPlay={() => console.log('Video can play')}
+                onPlay={() => {
+                    console.log('Video started playing');
+                    // Update pause state if video starts playing externally
+                    if (isPaused) {
+                        setIsPaused(false);
+                    }
+                }}
+                onPause={() => {
+                    console.log('Video paused');
+                    // Update pause state if video is paused externally
+                    if (!isPaused) {
+                        setIsPaused(true);
+                    }
+                }}
+                onLoadedData={() => console.log('Video data loaded')}
+                onWaiting={() => console.log('Video waiting for data')}
+                onStalled={() => console.log('Video stalled')}
+                onError={(e) => console.error('Video error:', e)}
+                onVolumeChange={() => console.log('Volume changed:', remoteVideoRef.current?.volume)}
+                onAudioProcess={() => console.log('Audio processing')}
+            />
 
 			{currentStreamId && showPauseOverlay && (
 				<div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500 z-20">
@@ -879,164 +1065,180 @@ const ViewerPage = () => {
 				</div>
 			)}
 
-			{!currentStreamId && (
-				<div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl z-10">
-					<div className="text-center p-8">
-						<h3 className="text-2xl font-bold mb-2">
-							Select a Stream
-						</h3>
-						<p className="text-neutral-300">
-							Choose a live stream to start watching
-						</p>
-					</div>
-				</div>
-			)}
+            {/* Viewer Paused Overlay */}
+            {currentStreamId && isPaused && !showPauseOverlay && (
+                <div
+                    className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500 z-20">
+                    {/* <div className="text-center p-8">
+                        <div
+                            className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                            <Play className="w-12 h-12 text-teal-400"/>
+                        </div>
+                        <h3 className="text-2xl font-bold mb-2">Paused</h3>
+                        <p className="text-neutral-300 max-w-sm">
+                            You have paused the stream. Click the play button to resume.
+                        </p>
+                    </div> */}
+                </div>
+            )}
 
-			{/* Audio Test Button - Only show when stream is active */}
-			{currentStreamId && remoteVideoRef.current?.srcObject && (
-				<div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-30">
-					<button
-						onClick={() => {
-							if (remoteVideoRef.current) {
-								remoteVideoRef.current.muted = false;
-								remoteVideoRef.current.volume = 1.0;
-								console.log("Audio manually enabled");
-								console.log(
-									"Video muted state:",
-									remoteVideoRef.current.muted
-								);
-								console.log(
-									"Video volume:",
-									remoteVideoRef.current.volume
-								);
-								console.log(
-									"Video srcObject tracks:",
-									remoteVideoRef.current.srcObject
-										.getTracks()
-										.map((t) => ({
-											kind: t.kind,
-											muted: t.muted,
-											enabled: t.enabled,
-										}))
-								);
-							}
-						}}
-						className="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-					>
-						Enable Audio
-					</button>
-				</div>
-			)}
+            {!currentStreamId && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl z-10">
+                    <div className="text-center p-8">
+                        <h3 className="text-2xl font-bold mb-2">Select a Stream</h3>
+                        <p className="text-neutral-300">Choose a live stream to start watching</p>
+                    </div>
+                </div>
+            )}
 
-			{/* Left Side: Mobile Button & Stream List */}
-			<button
-				onClick={() => setIsStreamListOpen(true)}
-				className="absolute top-4 left-4 z-30 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-full p-3 shadow-lg lg:hidden"
-			>
-				<LayoutGrid className="w-6 h-6 text-neutral-100" />
-			</button>
-			<div className="absolute top-4 left-4 max-h-[calc(100vh-2rem)] w-80 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl z-20 hidden lg:flex flex-col">
-				<StreamListPanel />
-			</div>
-			{isStreamListOpen && (
-				<div className="absolute inset-0 z-40 bg-neutral-900/80 backdrop-blur-2xl lg:hidden">
-					<button
-						onClick={() => setIsStreamListOpen(false)}
-						className="absolute top-4 right-4 z-50 p-2"
-					>
-						<X className="w-6 h-6" />
-					</button>
-					<StreamListPanel />
-				</div>
-			)}
+            {/*/!* Audio Test Button - Only show when stream is active *!/*/}
+            {/*{currentStreamId && remoteVideoRef.current?.srcObject && (*/}
+            {/*    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-30">*/}
+            {/*        <button*/}
+            {/*            onClick={() => {*/}
+            {/*                if (remoteVideoRef.current) {*/}
+            {/*                    remoteVideoRef.current.muted = false;*/}
+            {/*                    remoteVideoRef.current.volume = 1.0;*/}
+            {/*                    console.log('Audio manually enabled');*/}
+            {/*                    console.log('Video muted state:', remoteVideoRef.current.muted);*/}
+            {/*                    console.log('Video volume:', remoteVideoRef.current.volume);*/}
+            {/*                    console.log('Video srcObject tracks:', remoteVideoRef.current.srcObject.getTracks().map(t => ({*/}
+            {/*                        kind: t.kind,*/}
+            {/*                        muted: t.muted,*/}
+            {/*                        enabled: t.enabled*/}
+            {/*                    })));*/}
+            {/*                }*/}
+            {/*            }}*/}
+            {/*            className="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"*/}
+            {/*        >*/}
+            {/*            Enable Audio*/}
+            {/*        </button>*/}
+            {/*    </div>*/}
+            {/*)}*/}
 
-			{/* Right Side Panels (Desktop) */}
-			<div className="absolute top-4 right-4 max-h-[calc(100vh-2rem)] w-80 space-y-4 hidden lg:flex flex-col z-20">
-				{currentStreamId && (
-					<>
-						<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4">
-							<h2 className="text-lg font-bold mb-3">
-								{streamInfo.title}
-							</h2>
-							<div className="flex items-center space-x-3 mb-4">
-								<div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-800 rounded-full flex-shrink-0 flex items-center justify-center">
-									<span className="text-xs font-bold">
-										CM
-									</span>
-								</div>
-								<div className="text-sm">
-									<p className="font-semibold text-white">
-										{streamInfo.streamerName}
-									</p>
-									<p className="text-neutral-400">
-										{streamInfo.category}
-									</p>
-								</div>
-							</div>
-							<div className="text-xs text-neutral-300 space-y-2 border-t border-neutral-700 pt-3">
-								<div className="flex items-center space-x-2">
-									<Calendar className="w-4 h-4 text-teal-400" />
-									<span>
-										{new Date().toLocaleDateString(
-											"en-US",
-											{
-												month: "long",
-												day: "numeric",
-											}
-										)}
-									</span>
-								</div>
-								<div className="flex items-center space-x-2">
-									<Users className="w-4 h-4 text-teal-400" />
-									<span>{streamInfo.viewers} viewers</span>
-								</div>
-							</div>
-							<div className="flex flex-wrap gap-2 mt-4">
-								{streamInfo.tags.map((tag) => (
-									<span
-										key={tag}
-										className="bg-neutral-700/50 px-3 py-1 rounded-full text-xs"
-									>
-										{tag}
-									</span>
-								))}
-							</div>
-						</div>
-						<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4 flex flex-col flex-1">
-							<ChatPanelContent />
-						</div>
-						<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-3">
-							<button
-								onClick={handleStopWatching}
-								className="flex items-center justify-center w-full px-4 py-3 bg-red-500/80 hover:bg-red-500 backdrop-blur-sm rounded-xl text-white font-semibold transition-colors"
-							>
-								<StopCircle className="w-5 h-5 mr-2" />
-								Stop Watching
-							</button>
-						</div>
-					</>
-				)}
-			</div>
+            {/* Left Side: Mobile Button & Stream List */}
+            <button
+                onClick={() => setIsStreamListOpen(true)}
+                className="absolute top-4 left-16 z-30 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-full p-3 shadow-lg lg:hidden"
+            >
+                <LayoutGrid className="w-6 h-6 text-neutral-100"/>
+            </button>
+            
+            {/* Back Button - Top Left */}
+            {currentStreamId && (
+                <button
+                    onClick={handleStopWatching}
+                    className="absolute top-4 left-4 z-30 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-full p-3 shadow-lg text-neutral-100 hover:bg-neutral-800/50 transition-colors"
+                >
+                    <ArrowLeft className="w-6 h-6"/>
+                </button>
+            )}
+            
+            <div
+                className="absolute top-20 left-4 max-h-[calc(100vh-5rem)] w-80 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl z-20 hidden lg:flex flex-col">
+                <StreamListPanel/>
+            </div>
+            {isStreamListOpen && (
+                <div className="absolute inset-0 z-40 bg-neutral-900/80 backdrop-blur-2xl lg:hidden">
+                    <button
+                        onClick={() => setIsStreamListOpen(false)}
+                        className="absolute top-4 right-4 z-50 p-2"
+                    >
+                        <X className="w-6 h-6"/>
+                    </button>
+                    <StreamListPanel/>
+                </div>
+            )}
 
-			{/* --- Persistent Mobile UI --- */}
-			{currentStreamId && (
-				<div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col z-30 lg:hidden">
-					<div className="mb-4">
-						<button
-							onClick={handleStopWatching}
-							className="flex items-center justify-center w-full px-4 py-3 bg-red-600/80 hover:bg-red-700/80 backdrop-blur-sm rounded-xl text-white font-semibold transition-colors"
-						>
-							<StopCircle className="w-5 h-5 mr-2" />
-							Stop Watching
-						</button>
-					</div>
-					<div className="h-[40dvh] bg-neutral-900/80 backdrop-blur-2xl rounded-2xl p-4 flex flex-col">
-						<ChatPanelContent />
-					</div>
-				</div>
-			)}
-		</div>
-	);
+            {/* Right Side Panels (Desktop) */}
+            <div
+                className="absolute top-4 right-4 max-h-[calc(100vh-2rem)] w-80 space-y-4 flex flex-col z-20">
+                {currentStreamId && (
+                    <>
+                        <div
+                            className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4">
+                            <h2 className="text-lg font-bold mb-3">{streamInfo.title}</h2>
+                            <div className="flex items-center space-x-3 mb-4">
+                                <div
+                                    className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-800 rounded-full flex-shrink-0 flex items-center justify-center">
+                                    <span className="text-xs font-bold">CM</span>
+                                </div>
+                                <div className="text-sm">
+                                    <p className="font-semibold text-white">{streamInfo.streamerName}</p>
+                                    <p className="text-neutral-400">{streamInfo.category}</p>
+                                </div>
+                            </div>
+                            <div className="text-xs text-neutral-300 space-y-2 border-t border-neutral-700 pt-3">
+                                <div className="flex items-center space-x-2">
+                                    <Calendar className="w-4 h-4 text-teal-400"/>
+                                    <span>{new Date().toLocaleDateString('en-US', {
+                                        month: 'long',
+                                        day: 'numeric'
+                                    })}</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <Users className="w-4 h-4 text-teal-400"/>
+                                    <span>{streamInfo.viewers} viewers</span>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2 mt-4">
+                                {streamInfo.tags.map(tag => (
+                                    <span key={tag} className="bg-neutral-700/50 px-3 py-1 rounded-full text-xs">
+                                        {tag}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                        <ChatPanelContent/>
+                    </>
+                )}
+            </div>
+
+            {/* --- BOTTOM BAR CONTROLS --- */}
+            {currentStreamId && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
+                    <div className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg min-w-[160px] justify-center">
+                        <button
+                            onClick={handlePause}
+                            className={`p-3 rounded-2xl transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 ${isPaused ? 'bg-teal-500/80 hover:bg-teal-500 text-white' : 'bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900'}`}
+                        >
+                            {isPaused ? <Play className="w-6 h-6"/> : <Pause className="w-6 h-6"/>}
+                        </button>
+                        {/* Volume Control - Button and Slider */}
+                        <div 
+                            className="relative flex items-center bg-neutral-800/70 rounded-2xl px-2 py-2"
+                            onMouseEnter={handleVolumeSliderShow}
+                            onMouseLeave={handleVolumeSliderHide}
+                        >
+                            <button
+                                onClick={handleMute}
+                                className={`p-3 rounded-xl transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 ${isMuted ? 'bg-red-500/80 hover:bg-red-500 text-white' : 'bg-neutral-700/50 hover:bg-neutral-600/50 text-neutral-200'}`}
+                            >
+                                {isMuted ? <VolumeX className="w-5 h-5"/> : <Volume2 className="w-5 h-5"/>}
+                            </button>
+                            {/* Volume Slider - Absolutely positioned to the right of the button */}
+                            {showVolumeSlider && (
+                                <div className="absolute left-full top-1/2 -translate-y-1/2 flex items-center space-x-2 bg-neutral-800/90 rounded-xl px-3 py-2 ml-2 shadow-lg z-50 min-w-[180px]">
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.01"
+                                        value={volume}
+                                        onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                                        className="flex-1 h-2 bg-neutral-600 rounded-full appearance-none cursor-pointer slider-horizontal"
+                                    />
+                                    <div className="text-xs text-neutral-300 min-w-[2.5rem] text-center">
+                                        {Math.round(volume * 100)}%
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 };
 
 export default ViewerPage;

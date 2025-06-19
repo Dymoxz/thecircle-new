@@ -16,7 +16,7 @@ async function bootstrap() {
   };
 
   const app = await NestFactory.create(AppModule, { httpsOptions });
-
+  app.setGlobalPrefix('api'); // <-- Deze regel toevoegen
   app.useWebSocketAdapter(new WsAdapter(app));
   app.enableCors(); // Enable CORS for HTTP requests
 
@@ -31,11 +31,7 @@ async function bootstrap() {
   });
   const globalPrefix = 'api';
   apiApp.setGlobalPrefix(globalPrefix);
-  apiApp.enableCors({
-    origin: 'https://localhost:8080', // Replace with your frontend URL
-    credentials: true, // If you're using cookies or auth headers
-    allowedHeaders: ['content-type', 'Authorization'],
-  });
+  apiApp.enableCors();
   await apiApp.listen(3002);
   console.log(`API server running at https://localhost:3002/${globalPrefix}`);
 }
