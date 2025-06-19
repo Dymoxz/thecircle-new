@@ -6,6 +6,7 @@ import ViewerPage from "./pages/ViewerPage";
 import LoginPage from "./pages/LoginPage.jsx";
 import { Camera, Eye, Lock } from "lucide-react";
 import RequireAuth from "./component/RequireAuth.jsx";
+import { jwtDecode } from "jwt-decode";
 
 // --- The Circle Logo SVG ---
 // No changes were needed here, but it's included for completeness.
@@ -57,8 +58,124 @@ const TheCircleLogo = () => (
 );
 
 const HomePage = () => {
+  const DB_NAME = "TheCircleKeysDB";
+  const DB_VERSION = 1;
+  const STORE_NAME = "device";
+
+  function openDb() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
+          // You can add indexes here if needed, e.g. store.createIndex('createdAt', 'createdAt');
+        }
+      };
+
+      request.onsuccess = (event) => resolve(event.target.result);
+      request.onerror = (event) => reject(event.target.error);
+    });
+  }
+
+  // Save device data
+  async function saveDevice(device) {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.put(device);
+      req.onsuccess = () => resolve(true);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  // Get device by ID
+  async function getDevice(id) {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.get(id);
+      req.onsuccess = (e) => resolve(e.target.result);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async function setupDeviceKey() {
+    //get deviceId
+    let deviceId = localStorage.getItem("deviceId");
+    if (!deviceId) {
+      //gen deviceId
+      deviceId = crypto.randomUUID();
+      localStorage.setItem("deviceId", deviceId);
+    }
+
+    //get device with privkey info
+    let device = await getDevice(deviceId);
+
+    if (!device) {
+      // No device found — generate new key pair
+      const keyPair = await crypto.subtle.generateKey(
+        {
+          name: "RSASSA-PKCS1-v1_5",
+          modulusLength: 2048,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash: "SHA-256",
+        },
+        true,
+        ["sign", "verify"]
+      );
+
+      device = {
+        id: deviceId,
+        privateKey: keyPair.privateKey,
+        createdAt: new Date(),
+      };
+
+      await saveDevice(device);
+
+      const token = localStorage.getItem("jwt_token");
+
+      const pubKey = await exportPublicKey(keyPair.publicKey);
+
+      const pubKeyBody = {
+        publicKey: pubKey,
+        deviceName: deviceId,
+      };
+
+      //send public key and deviceName to db
+      await fetch(`https://localhost:3002/api/user/registerPubKey`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token,
+        },
+        body: JSON.stringify(pubKeyBody),
+      });
+    }
+
+    return device;
+  }
+
+  async function exportPublicKey(key) {
+    const spki = await window.crypto.subtle.exportKey("spki", key);
+    return btoa(String.fromCharCode(...new Uint8Array(spki)));
+  }
+
   useEffect(() => {
     document.title = "The Circle - Home";
+
+    const token = localStorage.getItem("jwt_token");
+
+    if (token) {
+      const { exp } = jwtDecode(token);
+
+      if (Date.now() < exp * 1000) {
+        setupDeviceKey();
+      }
+    }
   }, []);
 
   return (

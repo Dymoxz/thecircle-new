@@ -52,7 +52,7 @@ export class AuthService {
         throw new UnauthorizedException('Email not found or password invalid');
       }
 
-      const payload = { user_email: user.email };
+      const payload = { user_email: user.email, _id: user._id };
 
       return {
         _id: user._id,

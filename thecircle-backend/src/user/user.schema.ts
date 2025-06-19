@@ -38,6 +38,13 @@ export class User implements IUser {
     type: Number,
   })
   followerCount!: Number;
+
+  @Prop({
+    required:false,
+    type: []
+  })
+  publicKeys: Object[]
+
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
