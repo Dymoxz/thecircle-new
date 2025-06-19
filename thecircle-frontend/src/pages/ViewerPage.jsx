@@ -47,7 +47,7 @@ const ViewerPage = () => {
 	const socketRef = useRef(null);
 	const token = localStorage.getItem("jwt_token");
 	const userfromjwt = jwtDecode(localStorage.getItem("jwt_token") || "{}");
-	const viewerId = userfromjwt._id;
+	const viewerId = userfromjwt.sub;
 	const currentStreamIdRef = useRef(null);
 	const [username, setUsername] = useState("viewer_" + viewerId.slice(0, 6));
 	// Mediasoup refs

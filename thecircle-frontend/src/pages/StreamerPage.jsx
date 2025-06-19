@@ -72,7 +72,7 @@ const StreamerPage = () => {
 
 	const token = localStorage.getItem("jwt_token");
 	const userfromjwt = jwtDecode(token);
-	const streamerId = userfromjwt._id;
+	const streamerId = userfromjwt.sub;
 	const streamId = streamerId;
 	const [username, setUsername] = useState("streamer");
 
