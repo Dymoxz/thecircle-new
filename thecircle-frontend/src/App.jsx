@@ -1,23 +1,21 @@
 import React, { useEffect, useState } from "react";
-import { BrowserRouter as Router, Route, Routes, Link, useNavigate } from "react-router-dom"; // Import useNavigate
-// Make sure to import your other pages if they are in different files
-import StreamerPage from "./pages/StreamerPage"; // Assuming these pages exist
-import ViewerPage from "./pages/ViewerPage"; // Assuming these pages exist
-import LoginPage from "./pages/LoginPage.jsx"; // Assuming this page exists
-import RequireAuth from "./component/RequireAuth.jsx"; // Assuming this component exists
+import { BrowserRouter as Router, Route, Routes, Link, useNavigate } from "react-router-dom";
+import StreamerPage from "./pages/StreamerPage";
+import ViewerPage from "./pages/ViewerPage";
+import LoginPage from "./pages/LoginPage.jsx";
+import RequireAuth from "./component/RequireAuth.jsx";
 
-// Importing new icons for the homepage layout
 import { Camera, Eye, Lock, Search, SlidersHorizontal, ArrowDownWideNarrow, User } from "lucide-react";
-import ProfilePage from "./pages/ProfilePage.jsx"; // Removed Settings icon
+import ProfilePage from "./pages/ProfilePage.jsx";
 
-// --- The Circle Logo SVG ---
-// Updated to remove auto-margins, size, and margin-bottom, as its placement is now controlled by the parent flex container.
-const TheCircleLogo = ({ className }) => ( // Add className prop for external styling
+const API_URL = "https://localhost:3001/api";
+
+const TheCircleLogo = ({ className }) => (
     <svg
-        width="120" // Base width
-        height="120" // Base height
+        width="120"
+        height="120"
         viewBox="0 0 120 120"
-        className={`drop-shadow-[0_4px_32px_rgba(80,0,20,0.5)] ${className}`} // Apply external className
+        className={`drop-shadow-[0_4px_32px_rgba(80,0,20,0.5)] ${className}`}
     >
       <defs>
         <radialGradient id="circle-maroon" cx="50%" cy="50%" r="70%">
@@ -60,13 +58,17 @@ const TheCircleLogo = ({ className }) => ( // Add className prop for external st
 );
 
 const HomePage = () => {
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate();
+  const [subscriptions, setSubscriptions] = useState([]); // Initialize as an empty array
+  const [loadingSubscriptions, setLoadingSubscriptions] = useState(true); // New loading state for subscriptions
+  const [subscriptionError, setSubscriptionError] = useState(null); // New error state for subscriptions
+
+
   useEffect(() => {
     document.title = "The Circle - Home";
   }, []);
 
   // --- Hardcoded Data for Streams and Followed Users ---
-  // Using useState to manage this data, allowing for potential future dynamic updates
   const [streams, setStreams] = useState([
     { id: 1, title: "Building a React App", streamer: "DevSage", viewers: "2.5K", thumbnail: "https://placehold.co/320x180/7B1FA2/FFFFFF?text=React+Build" },
     { id: 2, title: "Exploring New Worlds", streamer: "ExplorerGaming", viewers: "1.2K", thumbnail: "https://placehold.co/320x180/C2185B/FFFFFF?text=Gaming+Adventure" },
@@ -78,6 +80,50 @@ const HomePage = () => {
     { id: 8, title: "Science Explained", streamer: "KnowledgeHub", viewers: "1.1K", thumbnail: "https://placehold.co/320x180/4CAF50/FFFFFF?text=Science+Talk" },
     { id: 9, title: "Book Club Discussion", streamer: "LiteraryLane", viewers: "200", thumbnail: "https://placehold.co/320x180/795548/FFFFFF?text=Book+Club" },
   ]);
+
+  // FIX: This useEffect dependency array was causing an infinite loop.
+  // It should depend on values that trigger a *re-fetch*, not the state being updated.
+  // We'll also add `Maps` to ensure it's available if used for redirect.
+  useEffect(() => {
+    const fetchMySubscriptions = async () => {
+      setLoadingSubscriptions(true); // Start loading
+      setSubscriptionError(null); // Clear previous errors
+
+      try {
+        const token = localStorage.getItem("jwt_token"); // Use 'jwt_token' as per ProfilePage
+        if (!token) {
+          navigate('/login'); // Redirect if no token
+          return;
+        }
+
+        const response = await fetch(`${API_URL}/profile/getMySubscriptions`, { // Assuming you create this backend endpoint
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to fetch subscriptions');
+        }
+
+        const data = await response.json();
+        // Ensure data is an array before setting state
+        setSubscriptions(Array.isArray(data) ? data : []);
+
+      } catch (error) {
+        console.error('Error fetching subscriptions:', error);
+        setSubscriptionError(error.message || 'Failed to load subscriptions.');
+        setSubscriptions([]); // Ensure it's an array even on error
+      } finally {
+        setLoadingSubscriptions(false); // End loading
+      }
+    };
+
+    fetchMySubscriptions();
+  }, [navigate]); // Only re-run if navigate object changes (rare), or if you need a refresh mechanism
 
   const [followedUsers, setFollowedUsers] = useState([
     { id: 1, name: "DevSage", isOnline: true, avatar: "https://placehold.co/40x40/7B1FA2/FFFFFF?text=DS" },
@@ -99,7 +145,7 @@ const HomePage = () => {
 
   // Function to handle profile click
   const handleProfileClick = () => {
-    navigate("/profile"); // Navigate to the login page (or a dedicated profile page)
+    navigate("/profile");
   };
 
   return (
@@ -107,9 +153,7 @@ const HomePage = () => {
         <div className="flex-grow flex flex-col p-4">
           <div className="flex flex-col md:flex-row items-center justify-between mb-8">
             <div className="flex items-center mb-4 md:mb-0">
-              {/* Adjusted TheCircleLogo size */}
               <TheCircleLogo className="w-10 h-10 mr-2" />
-              {/* Adjusted heading size to match the desired profile height */}
               <h1 className="text-3xl font-bold uppercase tracking-wider text-white">
                 The Circle
               </h1>
@@ -142,7 +186,7 @@ const HomePage = () => {
                     <div
                         key={stream.id}
                         className="bg-white/80  backdrop-blur-sm rounded-lg overflow-hidden shadow-xl shadow-black/30 transition-all duration-300 ease-in-out hover:scale-[1.02] cursor-pointer"
-                        onClick={() => alert(`Navigating to ${stream.streamer}'s stream: ${stream.title}`)} // Placeholder for navigation
+                        onClick={() => alert(`Navigating to ${stream.streamer}'s stream: ${stream.title}`)}
                     >
                       <img src={stream.thumbnail} alt={stream.title} className="w-full h-40 object-cover" />
                       <div className="p-4">
@@ -163,7 +207,6 @@ const HomePage = () => {
         </div>
 
         <div className="w-full md:w-80 flex-shrink-0 ml-0 md:ml-6 mt-6 md:mt-0 flex flex-col space-y-6">
-          {/* My Profile section: Now clickable and with hover effects for intuition */}
           <div
               className="bg-white/80 border-white/10 rounded-3xl p-4 shadow-md shadow-black/30 flex flex-col items-center cursor-pointer
                          transition-all duration-200 ease-in-out hover:bg-white/90 hover:shadow-2xl hover:shadow-black/40"
@@ -180,26 +223,41 @@ const HomePage = () => {
                 <Camera className="w-4 h-4 mr-1" /> Go Live
               </button>
             </Link>
-            {/* Settings button removed */}
           </div>
 
           <div className="flex-grow bg-white/80 border-white/10 rounded-3xl p-8 shadow-md shadow-black/30 overflow-y-auto">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Following</h3>
-            <ul>
-              {followedUsers.map(user => (
-                  <li key={user.id} className="flex items-center mb-3 p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer">
-                    <div className="w-6 h-6 rounded-full mr-3 flex-shrink-0  overflow-hidden">
-                      <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
-                    </div>
-                    <span className="text-gray-800 font-semibold flex-grow truncate">{user.name}</span>
-                    {user.isOnline && (
-                        <div className="relative inline-flex">
-                          <div className="rounded-full bg-red-500 h-[8px] w-[8px] inline-block mr-2"></div>
-                          <div className="absolute animate-ping rounded-full bg-red-500 h-[8px] w-[8px] mr-2"></div>
-                        </div>                  )}
-                  </li>
-              ))}
-            </ul>
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Subscriptions</h3>
+            {loadingSubscriptions ? (
+                <div className="flex justify-center items-center h-20">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-teal-500"></div>
+                </div>
+            ) : subscriptionError ? (
+                <p className="text-red-500 text-sm">{subscriptionError}</p>
+            ) : subscriptions.length > 0 ? (
+                <ul>
+                  {subscriptions.map(sub => ( // Changed 'user' to 'sub' for clarity as it's a subscription object
+                      <li
+                          key={sub._id} // Use _id from the subscription object
+                          className="flex items-center mb-3 p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"
+                          onClick={() => navigate(`/profile/${sub.streamer._id}`)} // Navigate to the streamer's profile
+                      >
+                        <div className="w-6 h-6 rounded-full mr-3 flex-shrink-0 overflow-hidden bg-neutral-700 flex items-center justify-center text-white text-xs font-bold">
+                          {sub.streamer?.userName?.charAt(0).toUpperCase() || 'U'}
+                        </div>
+                        <span className="text-gray-800 font-semibold flex-grow truncate">{sub.streamer?.userName}</span>
+                        {/* You can add online status logic here if your backend provides it */}
+                        {/* {sub.streamer?.isOnline && (
+                            <div className="relative inline-flex">
+                              <div className="rounded-full bg-red-500 h-[8px] w-[8px] inline-block mr-2"></div>
+                              <div className="absolute animate-ping rounded-full bg-red-500 h-[8px] w-[8px] mr-2"></div>
+                            </div>
+                        )} */}
+                      </li>
+                  ))}
+                </ul>
+            ) : (
+                <p className="text-gray-600 text-sm">You have no active subscriptions.</p>
+            )}
           </div>
         </div>
       </div>
@@ -213,10 +271,9 @@ function App() {
         <Routes>
           <Route path="/" element={
             <RequireAuth>
-            <HomePage />
-              </RequireAuth>
+              <HomePage />
+            </RequireAuth>
           } />
-          {/* Protected route for StreamerPage */}
           <Route
               path="/streamer"
               element={
@@ -225,7 +282,6 @@ function App() {
                 </RequireAuth>
               }
           />
-          {/* Protected route for ViewerPage (Note: original code had /streamer here, corrected to /viewer) */}
           <Route
               path="/viewer"
               element={
@@ -241,7 +297,6 @@ function App() {
                   <ProfilePage />
                 </RequireAuth>
               }
-
           />
           <Route
               path="/profile/:userId"
@@ -250,9 +305,7 @@ function App() {
                   <ProfilePage />
                 </RequireAuth>
               }
-
           />
-          {/* Login Page route */}
           <Route path="/login" element={<LoginPage />} />
         </Routes>
       </Router>

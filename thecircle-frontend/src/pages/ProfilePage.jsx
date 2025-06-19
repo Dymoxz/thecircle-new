@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { User, Mail, Calendar, Users, Heart, MessageSquare, Settings as SettingsIcon } from 'lucide-react'; // Import SettingsIcon
+import { User, Mail, Calendar, Users, Heart, MessageSquare, Settings as SettingsIcon, ArrowLeft } from 'lucide-react';
 import { jwtDecode } from 'jwt-decode';
 
 const API_BASE_URL = "https://localhost:3001/api";
@@ -16,12 +16,13 @@ const ProfilePage = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscribers, setSubscribers] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
-  const [loading, setLoading] = useState(true);;
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [viewedProfileId, setViewedProfileId] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Effect to determine currentUser from JWT and which profile to view
   useEffect(() => {
     const token = localStorage.getItem('jwt_token');
     if (!token) {
@@ -31,7 +32,6 @@ const ProfilePage = () => {
 
     try {
       const decodedToken = jwtDecode(token);
-      console.log(decodedToken);
       const loggedInUserId = decodedToken.sub;
       setCurrentUser(loggedInUserId);
 
@@ -45,20 +45,21 @@ const ProfilePage = () => {
       localStorage.removeItem('jwt_token');
       navigate('/login');
     }
-    console.log("aaaaaaaaaaaa" + viewedProfileId)
   }, [paramUserId, navigate]);
 
+  // Effect to fetch profile data
   useEffect(() => {
     const fetchProfileData = async () => {
       if (!viewedProfileId || !currentUser) {
         setLoading(false);
+        console.warn('Profile ID or current user ID not available yet. Skipping fetch.');
         return;
       }
 
-      try {
-        setLoading(true);
-        setError(null);
+      setLoading(true);
+      setError(null);
 
+      try {
         const token = localStorage.getItem('jwt_token');
         if (!token) {
           throw new Error('Authentication token not found. Please log in.');
@@ -66,7 +67,15 @@ const ProfilePage = () => {
 
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        const profileRes = await fetch(`${API_BASE_URL}/profile/${viewedProfileId}`, { headers });
+        const [profileRes, subsRes, subscrRes, subCheckRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/profile/${viewedProfileId}`, { headers }),
+          fetch(`${API_BASE_URL}/profile/subscribers/${viewedProfileId}`, { headers }),
+          fetch(`${API_BASE_URL}/profile/subscriptions/${viewedProfileId}`, { headers }),
+          currentUser !== viewedProfileId ? fetch(`${API_BASE_URL}/profile/is-subscribed/${currentUser}/${viewedProfileId}`, { headers }) : Promise.resolve({ ok: true, json: () => ({ exists: false }) }),
+          new Promise(resolve => setTimeout(resolve, 500)) // 500ms minimum delay
+        ]);
+
+        // Process profile data
         if (!profileRes.ok) {
           const errorData = await profileRes.json();
           throw new Error(errorData.message || 'Profile not found');
@@ -74,21 +83,21 @@ const ProfilePage = () => {
         const profileData = await profileRes.json();
         setProfile(profileData);
 
+        // Process subscription status
         if (currentUser !== viewedProfileId) {
-          const subRes = await fetch(`${API_BASE_URL}/profile/is-subscribed/${currentUser}/${viewedProfileId}`, { headers });
-          if (!subRes.ok) throw new Error('Subscription check failed');
-          const subData = await subRes.json();
+          if (!subCheckRes.ok) throw new Error('Subscription check failed');
+          const subData = await subCheckRes.json();
           setIsSubscribed(subData?.exists || false);
         } else {
           setIsSubscribed(false);
         }
 
-        const subsRes = await fetch(`${API_BASE_URL}/profile/subscribers/${viewedProfileId}`, { headers });
+        // Process subscribers
         if (!subsRes.ok) throw new Error('Failed to fetch subscribers');
         const subsData = await subsRes.json();
         setSubscribers(Array.isArray(subsData) ? subsData : []);
 
-        const subscrRes = await fetch(`${API_BASE_URL}/profile/subscriptions/${viewedProfileId}`, { headers });
+        // Process subscriptions
         if (!subscrRes.ok) throw new Error('Failed to fetch subscriptions');
         const subscrData = await subscrRes.json();
         setSubscriptions(Array.isArray(subscrData) ? subscrData : []);
@@ -107,8 +116,9 @@ const ProfilePage = () => {
     fetchProfileData();
   }, [viewedProfileId, currentUser, navigate]);
 
+
   const handleSubscribe = async () => {
-    console.log("Subscribe");
+    setActionLoading(true);
     try {
       const token = localStorage.getItem('jwt_token');
       if (!token) { navigate('/login'); return; }
@@ -125,7 +135,6 @@ const ProfilePage = () => {
       });
 
       if (res.ok) {
-
         setIsSubscribed(true);
         setProfile(prev => ({
           ...prev,
@@ -139,11 +148,13 @@ const ProfilePage = () => {
     } catch (err) {
       console.error('Subscribe network error:', err);
       setError('Network error during subscription.');
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleUnsubscribe = async () => {
-    setActionLoading(true); // Start action loading
+    setActionLoading(true);
     try {
       const token = localStorage.getItem('jwt_token');
       if (!token) { navigate('/login'); return; }
@@ -174,11 +185,11 @@ const ProfilePage = () => {
     } catch (err) {
       console.error('Unsubscribe network error:', err);
       setError('Network error during unsubscription.');
-    }
-    finally {
+    } finally {
       setActionLoading(false);
     }
   };
+
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Unknown';
@@ -190,20 +201,24 @@ const ProfilePage = () => {
     });
   };
 
+  const isMyProfile = currentUser && viewedProfileId && currentUser === viewedProfileId;
+  const showSubscribeButton = currentUser && viewedProfileId && currentUser !== viewedProfileId;
+
+
   if (loading) return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500"></div>
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] text-white font-oswald">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
       </div>
   );
 
   if (error) return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center p-6 bg-red-100 rounded-lg max-w-md">
-          <h2 className="text-xl font-semibold text-red-800 mb-2">Error</h2>
-          <p className="text-red-600">{error}</p>
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] text-white font-oswald">
+        <div className="text-center p-6 bg-white/80 rounded-lg max-w-md shadow-xl shadow-black/30">
+          <h2 className="text-xl font-semibold text-[#a83246] mb-2">Error</h2>
+          <p className="text-gray-800">{error}</p>
           <button
               onClick={() => navigate('/')}
-              className="mt-4 px-4 py-2 bg-teal-500 text-white rounded hover:bg-teal-600 transition"
+              className="mt-4 px-4 py-2 bg-[#a83246] text-white rounded-full hover:bg-[#c04d65] transition-colors shadow-lg shadow-[#a83246]/40"
           >
             Go Home
           </button>
@@ -211,21 +226,22 @@ const ProfilePage = () => {
       </div>
   );
 
-
-  const isMyProfile = currentUser && viewedProfileId && currentUser === viewedProfileId;
-
-
-  const showSubscribeButton = currentUser && viewedProfileId && currentUser !== viewedProfileId;
-
-
   return (
-      <div className="min-h-screen bg-neutral-50 text-neutral-900">
+      <div className="min-h-screen text-white font-oswald">
         {/* Profile Header */}
-        <div className="bg-gradient-to-r from-teal-600 to-teal-400 py-16 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-4xl mx-auto">
+        <div className="bg-white/10 py-16 px-4 sm:px-6 lg:px-8 relative shadow-xl bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] shadow-black/30"> {/* Retained full width header */}
+          {/* Back Button */}
+          <button
+              onClick={() => navigate(-1)}
+              className="absolute top-4 left-4 p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-white"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+
+          <div className="max-w-4xl mx-auto  ">
             <div className="flex flex-col md:flex-row items-center gap-8">
-              <div className="w-32 h-32 rounded-full bg-white flex items-center justify-center shadow-lg">
-              <span className="text-4xl font-bold text-teal-600">
+              <div className="w-32 h-32 rounded-full bg-white/20 border-2 border-[#a83246] flex items-center justify-center shadow-lg">
+              <span className="text-4xl font-bold text-white">
                 {profile?.userName?.charAt(0).toUpperCase() || 'U'}
               </span>
               </div>
@@ -240,7 +256,7 @@ const ProfilePage = () => {
                   </div>
 
                   {profile?.isLive && (
-                      <div className="flex items-center bg-red-500 px-3 py-1 rounded-full">
+                      <div className="flex items-center bg-red-600 px-3 py-1 rounded-full text-sm font-semibold">
                         <div className="w-2 h-2 bg-white rounded-full animate-ping mr-2"></div>
                         <span>Live Now</span>
                       </div>
@@ -251,8 +267,8 @@ const ProfilePage = () => {
                 <div className="flex gap-4 mt-4">
                   {isMyProfile && (
                       <button
-                          onClick={() => navigate('/settings')} // Or whatever your settings route is
-                          className="px-6 py-2 rounded-full font-medium flex items-center bg-teal-800 text-white hover:bg-teal-900 transition-colors"
+                          onClick={() => navigate('/settings')}
+                          className="flex items-center px-6 py-2 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-colors shadow-md"
                       >
                         <SettingsIcon className="w-5 h-5 mr-2" />
                         Settings
@@ -262,14 +278,16 @@ const ProfilePage = () => {
                   {showSubscribeButton && (
                       <button
                           onClick={isSubscribed ? handleUnsubscribe : handleSubscribe}
-                          className={`px-6 py-2 rounded-full font-medium flex items-center ${isSubscribed
-                              ? 'bg-white text-teal-600 hover:bg-neutral-100'
-                              : 'bg-teal-800 text-white hover:bg-teal-900'}`}
+                          className={`flex items-center px-6 py-2 rounded-full font-semibold transition-colors shadow-md ${isSubscribed
+                              ? 'bg-white/10 border border-white/20 text-white hover:bg-white/20'
+                              : 'bg-[#a83246] text-white hover:bg-[#c04d65] shadow-lg shadow-[#a83246]/40'} ${actionLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                          disabled={actionLoading}
                       >
                         {actionLoading ? (
                             <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
                         ) : (
-                            <Heart className={`w-5 h-5 mr-2 ${isSubscribed ? 'fill-teal-600 text-teal-600' : ''}`} />                        )
+                            <Heart className="w-5 h-5 mr-2" />
+                        )
                         }
                         {actionLoading ? (isSubscribed ? 'Unsubscribing...' : 'Subscribing...') : (isSubscribed ? 'Subscribed' : 'Subscribe')}
                       </button>
@@ -280,35 +298,35 @@ const ProfilePage = () => {
           </div>
         </div>
 
-        {/* Profile Content (rest of your page remains the same) */}
+        {/* Profile Content Areas - Keep original grid layout */}
         <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Main Profile Info */}
-            <div className="md:col-span-2 bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center">
-                <User className="w-5 h-5 mr-2 text-teal-600" />
+            <div className="md:col-span-2 bg-white/80 backdrop-blur-sm rounded-lg shadow-xl shadow-black/30 p-8">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                <User className="w-5 h-5 mr-2 text-[#a83246]" />
                 About
               </h2>
 
-              <div className="space-y-4">
+              <div className="space-y-4 text-gray-800">
                 <div>
-                  <h3 className="text-sm font-medium text-neutral-500">Username</h3>
-                  <p className="mt-1">{profile?.userName}</p>
+                  <h3 className="text-sm font-medium text-neutral-600">Username</h3>
+                  <p className="mt-1 text-lg font-semibold">{profile?.userName}</p>
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-medium text-neutral-500">Email</h3>
+                  <h3 className="text-sm font-medium text-neutral-600">Email</h3>
                   <p className="mt-1 flex items-center">
-                    <Mail className="w-4 h-4 mr-2 text-neutral-400" />
+                    <Mail className="w-4 h-4 mr-2 text-neutral-500" />
                     {profile?.email}
                   </p>
                 </div>
 
                 {profile?.birthdate && (
                     <div>
-                      <h3 className="text-sm font-medium text-neutral-500">Birthdate</h3>
+                      <h3 className="text-sm font-medium text-neutral-600">Birthdate</h3>
                       <p className="mt-1 flex items-center">
-                        <Calendar className="w-4 h-4 mr-2 text-neutral-400" />
+                        <Calendar className="w-4 h-4 mr-2 text-neutral-500" />
                         {formatDate(profile.birthdate)}
                       </p>
                     </div>
@@ -319,86 +337,77 @@ const ProfilePage = () => {
             {/* Sidebar */}
             <div className="space-y-6">
               {/* Subscribers */}
-              <div className="bg-white rounded-xl shadow-sm p-6">
-                <h2 className="text-xl font-semibold mb-4 flex items-center">
-                  <Users className="w-5 h-5 mr-2 text-teal-600" />
+              <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-xl shadow-black/30 p-8">
+                <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                  <Users className="w-5 h-5 mr-2 text-[#a83246]" />
                   Subscribers
-                </h2>
+                </h3>
 
                 {subscribers.length > 0 ? (
-                    <div className="space-y-3">
+                    <ul className="space-y-3">
                       {subscribers.slice(0, 5).map(sub => (
                           sub?.subscriber && (
-                              <div
+                              <li
                                   key={sub._id}
-                                  className="flex items-center cursor-pointer hover:bg-neutral-50 p-2 rounded"
+                                  className="flex items-center p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"
                                   onClick={() => navigate(`/profile/${sub.subscriber._id}`)}
                               >
-                                <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center mr-3">
-                          <span className="text-sm font-medium text-teal-800">
-                            {sub.subscriber.userName?.charAt(0).toUpperCase()}
-                          </span>
+                                <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
+                                  {sub.subscriber.userName?.charAt(0).toUpperCase() || 'U'}
                                 </div>
-                                <span className="font-medium">{sub.subscriber.userName}</span>
-                              </div>
+                                <span className="font-semibold text-gray-800 flex-grow truncate">{sub.subscriber.userName}</span>
+                              </li>
                           )
                       ))}
                       {subscribers.length > 5 && (
-                          <p className="text-sm text-neutral-500 mt-2">
+                          <p className="text-sm text-gray-600 mt-2">
                             +{subscribers.length - 5} more
                           </p>
                       )}
-                    </div>
+                    </ul>
                 ) : (
-                    <p className="text-neutral-500">No subscribers yet</p>
+                    <p className="text-gray-600 text-sm">No subscribers yet.</p>
                 )}
               </div>
 
               {/* Subscriptions */}
-              <div className="bg-white rounded-xl shadow-sm p-6">
-                <h2 className="text-xl font-semibold mb-4 flex items-center">
-                  <Heart className="w-5 h-5 mr-2 text-teal-600" />
+              <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-xl shadow-black/30 p-8">
+                <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                  <Heart className="w-5 h-5 mr-2 text-[#a83246]" />
                   Subscriptions
-                </h2>
+                </h3>
 
                 {subscriptions.length > 0 ? (
-                    <div className="space-y-3">
-                      {subscriptions.slice(0, 5).map(sub => (
+                    <ul className="space-y-3">
+                      {subscriptions.map(sub => (
                           sub?.streamer && (
-                              <div
+                              <li
                                   key={sub._id}
-                                  className="flex items-center cursor-pointer hover:bg-neutral-50 p-2 rounded"
+                                  className="flex items-center p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"
                                   onClick={() => navigate(`/profile/${sub.streamer._id}`)}
                               >
-                                <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center mr-3">
-                          <span className="text-sm font-medium text-teal-800">
-                            {sub.streamer.userName?.charAt(0).toUpperCase()}
-                          </span>
+                                <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
+                                  {sub.streamer.userName?.charAt(0).toUpperCase() || 'U'}
                                 </div>
-                                <span className="font-medium">{sub.streamer.userName}</span>
-                              </div>
+                                <span className="font-semibold text-gray-800 flex-grow truncate">{sub.streamer.userName}</span>
+                              </li>
                           )
                       ))}
-                      {subscriptions.length > 5 && (
-                          <p className="text-sm text-neutral-500 mt-2">
-                            +{subscriptions.length - 5} more
-                          </p>
-                      )}
-                    </div>
+                    </ul>
                 ) : (
-                    <p className="text-neutral-500">Not subscribed to anyone</p>
+                    <p className="text-gray-600 text-sm">Not subscribed to anyone.</p>
                 )}
               </div>
             </div>
           </div>
 
           {/* Recent Activity (placeholder) */}
-          <div className="mt-8 bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-xl font-semibold mb-4 flex items-center">
-              <MessageSquare className="w-5 h-5 mr-2 text-teal-600" />
+          <div className="mt-8 bg-white/80 backdrop-blur-sm rounded-lg shadow-xl shadow-black/30 p-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+              <MessageSquare className="w-5 h-5 mr-2 text-[#a83246]" />
               Recent Activity
             </h2>
-            <p className="text-neutral-500">Coming soon...</p>
+            <p className="text-gray-600">Coming soon...</p>
           </div>
         </div>
       </div>
