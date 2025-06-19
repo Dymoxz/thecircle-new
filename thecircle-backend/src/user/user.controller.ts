@@ -21,4 +21,9 @@ export class UserController {
   async findOne(@Param('email') email: string): Promise<IUser | null> {
     return this.userService.getUser(email);
   }
+
+  @Get('/id/:id')
+  async findOneById(@Param('id') id: string): Promise<IUser | null> {
+    return this.userService.getUserById(id);
+  }
 }

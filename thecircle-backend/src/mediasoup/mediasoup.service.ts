@@ -1,9 +1,10 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import * as mediasoup from 'mediasoup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import * as os from 'os';
+import { UserService } from '../user/user.service';
 
 // Types for mediasoup
 type MediasoupWorker = {
@@ -44,14 +45,18 @@ type StreamInfo = {
   viewers: Map<string, ViewerInfo>;
   router: mediasoup.types.Router;
   recordingPath: string;
+  streamerName?: string;
+  tags?: string[];
 };
 
 @Injectable()
-export class MediasoupService implements OnModuleDestroy {
+export class MediasoupService implements OnModuleDestroy, OnModuleInit {
   private readonly logger = new Logger(MediasoupService.name);
   private workers: MediasoupWorker[] = [];
   private streams = new Map<string, StreamInfo>();
   private currentWorkerIndex = 0;
+
+  constructor(private readonly userService: UserService) {}
 
   private getLocalIpAddress(): string {
     const interfaces = os.networkInterfaces();
@@ -211,6 +216,17 @@ export class MediasoupService implements OnModuleDestroy {
     const worker = this.getNextWorker();
     const router = worker.router;
 
+    let streamerName: string = 'Unknown Streamer';
+    try {
+      const user = await this.userService.getUserById(streamerId);
+      if (user) {
+        streamerName = user.userName.toString();
+      }
+    } catch (error) {
+      this.logger.error(`Failed to retrieve streamer name for ${streamerId}: ${error.message}`);
+    }
+
+
     const streamInfo: StreamInfo = {
       streamId,
       streamer: {
@@ -232,10 +248,12 @@ export class MediasoupService implements OnModuleDestroy {
         this.getConfig().recordingOptions.outputPath,
         `${streamId}.${this.getConfig().recordingOptions.format}`,
       ),
+      streamerName: streamerName,
+      tags: []
     };
 
     this.streams.set(streamId, streamInfo);
-    this.logger.log(`Stream created: ${streamId}`);
+    this.logger.log(`Stream created: ${streamId} by ${streamerName}`);
     return streamInfo;
   }
 
@@ -356,18 +374,26 @@ export class MediasoupService implements OnModuleDestroy {
       rtpParameters,
     });
 
-    // Store producer by kind
     stream.streamer.producers.set(kind, producer);
-    stream.streamer.isStreaming = true;
 
-    // Start recording when first producer is created
-    if (stream.streamer.producers.size === 1) {
+
+    if (!stream.streamer.isStreaming) {
+      stream.streamer.isStreaming = true;
+      this.logger.log(`Stream ${streamId} is now live.`);
+
+    }
+
+
+    if (!stream.streamer.recordingProcess) {
       await this.startRecording(stream);
     }
+
 
     this.logger.log(
       `Producer created: ${producer.id} (${kind}) for stream: ${streamId}`,
     );
+
+
 
     return {
       id: producer.id,
@@ -502,7 +528,7 @@ export class MediasoupService implements OnModuleDestroy {
     }
 
     // Stop recording
-    await this.stopRecording(stream);
+   /* await this.stopRecording(stream);*/
 
     // Close all viewers
     for (const viewerId of stream.viewers.keys()) {
@@ -520,9 +546,12 @@ export class MediasoupService implements OnModuleDestroy {
       stream.streamer.transport.transport.close();
     }
 
+
     this.streams.delete(streamId);
     this.logger.log(`Stream ${streamId} closed`);
   }
+
+
 
   private async closeAllStreams(): Promise<void> {
     for (const streamId of this.streams.keys()) {
@@ -530,8 +559,30 @@ export class MediasoupService implements OnModuleDestroy {
     }
   }
 
-  async getActiveStreams(): Promise<string[]> {
-    return Array.from(this.streams.keys());
+  async getActiveStreams(): Promise<Array<{
+    streamId: string;
+    streamerId: string;
+    streamerName: string;
+    tags: string[]
+  }>> {
+    const activeStreamsList: Array<{
+      streamId: string;
+      streamerId: string;
+      streamerName: string;
+      tags: string[]
+    }> = [];
+
+    for (const [streamId, stream] of this.streams.entries()) {
+      if (stream.streamer.producers.size > 0) {
+        activeStreamsList.push({
+          streamId: stream.streamId,
+          streamerId: stream.streamer.id,
+          streamerName: stream.streamerName || 'Unknown Streamer',
+          tags: stream.tags || []
+        });
+      }
+    }
+    return activeStreamsList;
   }
 
   async getStreamInfo(streamId: string): Promise<StreamInfo | null> {
