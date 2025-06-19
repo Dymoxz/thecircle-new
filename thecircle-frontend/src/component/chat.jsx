@@ -104,7 +104,7 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 	const wsRef = useRef(null);
 	const messagesEndRef = useRef(null);
 	const keyPairRef = useRef(null);
-	const streamerId = streamId.substring(streamId.indexOf('-') + 1); // Everything after 'stream-'
+	const streamerId = username; // Everything after 'stream-'
 	const INCOMING_BUFFER_KEY = `incoming_chat_buffer_${streamId}`;
 	const timerRef = useRef(null);
 	const incomingTimerRef = useRef(null);
