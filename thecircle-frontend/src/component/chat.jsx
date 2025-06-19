@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
+import { useNavigate } from 'react-router-dom'; // Voeg deze import toe bovenaan
+
 
 // Helper functions for key management and signing/verifying
 const KEY_NAME = "chat_keypair";
@@ -98,6 +100,7 @@ async function verifyMessage(publicKey, dataObj, signatureB64) {
 
 // Props: streamId (room), username, wsUrl (e.g. wss://yourserver)
 const Chat = ({ streamId, username, wsUrl }) => {
+	const navigate = useNavigate(); 
 	const [messages, setMessages] = useState([]);
 	const [input, setInput] = useState("");
 	const wsRef = useRef(null);
@@ -254,9 +257,16 @@ const Chat = ({ streamId, username, wsUrl }) => {
 								msg.user === username ? "#23232b" : "#202024",
 						}}
 					>
-						<span style={{ fontWeight: "bold", color: "#7dd3fc" }}>
-							{msg.user}
-						</span>
+            <span 
+              style={{ 
+                fontWeight: 'bold', 
+                color: '#7dd3fc', 
+                cursor: 'pointer' 
+              }}
+              onClick={() => navigate(`/profile/${msg.user}`)}
+            >
+              {msg.user}
+            </span>
 						<span style={{ marginLeft: 8 }}>{msg.text}</span>
 						{msg.verified !== undefined && (
 							<span

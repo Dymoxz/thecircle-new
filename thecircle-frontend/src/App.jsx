@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
 import StreamerPage from './pages/StreamerPage';
 import ViewerPage from './pages/ViewerPage';
 import { Camera, Eye } from 'lucide-react';
+import ProfilePage from './pages/ProfilePage';
 
 const HomePage = () => {
     useEffect(() => {
@@ -59,15 +60,16 @@ const HomePage = () => {
 };
 
 function App() {
-    return (
-        <Router>
-            <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/streamer" element={<StreamerPage />} />
-                <Route path="/viewer" element={<ViewerPage />} />
-            </Routes>
-        </Router>
-    );
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/streamer" element={<StreamerPage />} />
+        <Route path="/viewer" element={<ViewerPage />} />
+        <Route path="/profile/:userId" element={<ProfilePage />} />
+      </Routes>
+    </Router>
+  );
 }
 
 export default App;
