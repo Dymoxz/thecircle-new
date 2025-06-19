@@ -85,18 +85,18 @@ const StreamerPage = () => {
 				"Content-Type": "application/json",
 			},
 		})
-        .then(response => response.json())
-        .then((data) => {
-            console.log("Fetched user data:", data);
-			if (data && data.userName) {
-				setUser(data);
-				setUsername(data.userName);
-			} else {
-				setUser({});
-				setUsername("streamer");
-				console.error("User data missing or malformed:", data);
-			}
-		});
+			.then((response) => response.json())
+			.then((data) => {
+				console.log("Fetched user data:", data);
+				if (data && data.userName) {
+					setUser(data);
+					setUsername(data.userName);
+				} else {
+					setUser({});
+					setUsername("streamer");
+					console.error("User data missing or malformed:", data);
+				}
+			});
 	}, [streamerId]);
 
 	useEffect(() => {
@@ -133,7 +133,21 @@ const StreamerPage = () => {
 					case "viewer-joined": {
 						const { viewerId } = msg.data;
 						if (viewerId) {
-							setViewerCount((prev) => prev + 1);
+							console.log("Viewer joined:", viewerId);
+							setViewerCount((prev) => {
+								const newCount = prev + 1;
+								console.log("Current viewer count:", prev);
+								console.log("viewercount! after set", newCount);
+								return newCount;
+							});
+						}
+						break;
+					}
+					case "viewer-left": {
+						const { viewerId } = msg.data;
+						if (viewerId) {
+							setViewerCount((prev) => Math.max(prev - 1, 0));
+							console.log(viewerCount);
 						}
 						break;
 					}
@@ -413,7 +427,7 @@ const StreamerPage = () => {
 						clientType: "streamer",
 						streamId,
 						streamerId: streamerId,
-                        username: username || "streamer",
+						username: username || "streamer",
 					},
 				})
 			);

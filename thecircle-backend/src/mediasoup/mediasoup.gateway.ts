@@ -51,6 +51,7 @@ export class MediasoupGateway
     if (clientInfo.type === 'streamer' && clientInfo.streamId) {
       this.handleStreamerDisconnect(clientInfo.streamId, clientId);
     } else if (clientInfo.type === 'viewer' && clientInfo.streamId) {
+
       this.handleViewerDisconnect(clientInfo.streamId, clientId);
     }
 
@@ -92,11 +93,25 @@ export class MediasoupGateway
   }
 
   private async handleViewerDisconnect(streamId: string, viewerId: string) {
+    // Remove viewer from the stream
+    const stream = await this.mediasoupService.getStreamInfo(streamId);
+    
+      if (stream) {
+        const streamer = stream.streamer
+          streamer.socket.send(
+            JSON.stringify({
+              event: 'viewer-left',
+              data: { viewerId },
+            }),
+          );
+      }
+
     try {
       await this.mediasoupService.removeViewer(streamId, viewerId);
       this.logger.log(
         `[CLEANUP] Viewer ${viewerId} disconnected from streamId=${streamId}`,
       );
+      
     } catch (error) {
       this.logger.error(`Error handling viewer disconnect: ${error.message}`);
     }
