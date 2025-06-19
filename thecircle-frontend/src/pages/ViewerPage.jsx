@@ -11,7 +11,9 @@ import {
 	Users,
 	X,
 	ArrowLeft,
-	Pause, Volume2, VolumeX,
+	Pause,
+	Volume2,
+	VolumeX,
 } from "lucide-react";
 import * as mediasoupClient from "mediasoup-client";
 import Chat from "../component/chat";
@@ -34,20 +36,20 @@ const ViewerPage = () => {
 	const [isStreamListOpen, setIsStreamListOpen] = useState(false);
 	const [showPauseOverlay, setShowPauseOverlay] = useState(false);
 	const [isPaused, setIsPaused] = useState(false);
-    const [isMuted, setIsMuted] = useState(false);
+	const [isMuted, setIsMuted] = useState(false);
 	const [volume, setVolume] = useState(1.0);
-    const [previousVolume, setPreviousVolume] = useState(1.0);
-    const [showVolumeSlider, setShowVolumeSlider] = useState(false);
-    const volumeSliderTimeoutRef = useRef(null);
+	const [previousVolume, setPreviousVolume] = useState(1.0);
+	const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+	const volumeSliderTimeoutRef = useRef(null);
+	const [user, setUser] = useState(null);
 
 	const remoteVideoRef = useRef(null);
 	const socketRef = useRef(null);
-	const user = jwtDecode(localStorage.getItem("jwt_token") || "{}");
-	console.log("User data:", user);
-	const viewerId = user._id;
+	const token = localStorage.getItem("jwt_token");
+	const userfromjwt = jwtDecode(localStorage.getItem("jwt_token") || "{}");
+	const viewerId = userfromjwt._id;
 	const currentStreamIdRef = useRef(null);
-	const username = useRef("Viewer_" + viewerId.slice(0, 8)).current; // Simple username based on viewer ID
-
+	const [username, setUsername] = useState("viewer_" + viewerId.slice(0, 6));
 	// Mediasoup refs
 	const deviceRef = useRef(null);
 	const recvTransportRef = useRef(null);
@@ -67,6 +69,28 @@ const ViewerPage = () => {
 			document.title = "StreamHub";
 		};
 	}, []);
+
+	useEffect(() => {
+		fetch(`https://localhost:3002/api/user/${viewerId}`, {
+			method: "GET",
+			headers: {
+				Authorization: `Bearer ${token}`,
+				"Content-Type": "application/json",
+			},
+		})
+			.then((response) => response.json())
+			.then((data) => {
+				console.log("Fetched user data:", data);
+				if (data && data.userName) {
+					setUser(data);
+					setUsername(data.userName);
+				} else {
+					setUser({});
+					setUsername("streamer");
+					console.error("User data missing or malformed:", data);
+				}
+			});
+	}, [viewerId]);
 
 	// Debug video element state when stream changes
 	useEffect(() => {
@@ -100,10 +124,11 @@ const ViewerPage = () => {
 		socket.onmessage = async (event) => {
 			const msg = JSON.parse(event.data);
 			// If a resolver is waiting for this event, resolve it
-			
+
 			switch (msg.event) {
 				case "streams":
 					setStreams(msg.data.streams);
+					console.log("Received streams:", msg.data.streams);
 					break;
 				case "rtp-capabilities": {
 					const { rtpCapabilities } = msg.data;
@@ -289,7 +314,7 @@ const ViewerPage = () => {
 				data: { streamId },
 			})
 		);
-	return new Promise((resolve, reject) => {
+		return new Promise((resolve, reject) => {
 			const timeout = setTimeout(
 				() => reject(new Error("Timeout getting RTP capabilities")),
 				5000
@@ -746,14 +771,13 @@ const ViewerPage = () => {
 		}
 		consumersRef.current.forEach((consumer) => consumer.close());
 		consumersRef.current.clear();
-    
 
 		if (remoteVideoRef.current) {
 			remoteVideoRef.current.srcObject = null;
 		}
 		setCurrentStreamId(null);
 		currentStreamIdRef.current = null;
-            navigate('/');
+		navigate("/");
 	};
 
 	const handleRefresh = () => {
@@ -803,12 +827,14 @@ const ViewerPage = () => {
 			</div>
 			<div className="flex-1 overflow-y-auto space-y-3 -mr-2 pr-2">
 				{streams.length > 0 ? (
-					streams.map((streamId) => (
+					streams.map((stream) => (
 						<div
-							key={streamId}
-							onClick={() => handleConnectToStream(streamId)}
+							key={stream.streamId}
+							onClick={() =>
+								handleConnectToStream(stream.streamId)
+							}
 							className={`p-3 rounded-2xl cursor-pointer transition-all duration-200 border-2 ${
-								streamId === currentStreamId
+								stream.streamId === currentStreamId
 									? "bg-teal-500/20 border-teal-400 ring-2 ring-teal-400"
 									: "bg-neutral-800/60 border-transparent hover:border-neutral-500"
 							}`}
@@ -819,10 +845,12 @@ const ViewerPage = () => {
 								</div>
 								<div>
 									<h3 className="font-semibold text-sm truncate">
-										Stream {streamId.slice(-8)}
+										{stream.streamerName
+											? stream.streamerName
+											: "Unknown Streamer"}
 									</h3>
 									<p className="text-xs text-neutral-400">
-										CodeMaster_Dev
+										Stream {stream.streamId}
 									</p>
 								</div>
 							</div>
@@ -849,126 +877,130 @@ const ViewerPage = () => {
 		/>
 	);
 
-    // --- Bottom Bar Controls ---
-    const handlePause = () => {
-        if (!remoteVideoRef.current) return;
-        
-        if (!isPaused) {
-            // Pause the video
-            remoteVideoRef.current.pause();
-            setIsPaused(true);
-            console.log('Stream paused by viewer');
-        } else {
-            // Resume and jump to live (end of buffer)
-            const video = remoteVideoRef.current;
-            
-            // First, try to seek to the end of the seekable range (live point)
-            if (video.seekable && video.seekable.length > 0) {
-                try {
-                    const liveTime = video.seekable.end(video.seekable.length - 1);
-                    video.currentTime = liveTime;
-                    console.log('Seeking to live point:', liveTime);
-                } catch (error) {
-                    console.warn('Could not seek to live point:', error);
-                    // Continue anyway, the play() will handle it
-                }
-            }
-            
-            // Then play the video
-            const playPromise = video.play();
-            if (playPromise && typeof playPromise.then === 'function') {
-                playPromise.then(() => {
-                    setIsPaused(false);
-                    console.log('Stream resumed by viewer');
-                }).catch((error) => {
-                    console.error('Failed to resume stream:', error);
-                    // Still set as not paused even if play fails
-                    setIsPaused(false);
-                });
-            } else {
-                setIsPaused(false);
-                console.log('Stream resumed by viewer (sync)');
-            }
-        }
-    };
+	// --- Bottom Bar Controls ---
+	const handlePause = () => {
+		if (!remoteVideoRef.current) return;
 
-    const handleMute = () => {
-        if (!remoteVideoRef.current) return;
-        
-        if (!isMuted) {
-            // Muting - save current volume and set to 0
-            setPreviousVolume(volume);
-            setVolume(0);
-            remoteVideoRef.current.volume = 0;
-            setIsMuted(true);
-        } else {
-            // Unmuting - restore previous volume
-            setVolume(previousVolume);
-            remoteVideoRef.current.volume = previousVolume;
-            setIsMuted(false);
-        }
-    };
+		if (!isPaused) {
+			// Pause the video
+			remoteVideoRef.current.pause();
+			setIsPaused(true);
+			console.log("Stream paused by viewer");
+		} else {
+			// Resume and jump to live (end of buffer)
+			const video = remoteVideoRef.current;
 
-    const handleVolumeChange = (newVolume) => {
-        if (!remoteVideoRef.current) return;
-        
-        setVolume(newVolume);
-        remoteVideoRef.current.volume = newVolume;
-        
-        // Update mute state based on volume
-        if (newVolume === 0) {
-            setIsMuted(true);
-        } else {
-            setIsMuted(false);
-        }
-    };
+			// First, try to seek to the end of the seekable range (live point)
+			if (video.seekable && video.seekable.length > 0) {
+				try {
+					const liveTime = video.seekable.end(
+						video.seekable.length - 1
+					);
+					video.currentTime = liveTime;
+					console.log("Seeking to live point:", liveTime);
+				} catch (error) {
+					console.warn("Could not seek to live point:", error);
+					// Continue anyway, the play() will handle it
+				}
+			}
 
-    const handleVolumeSliderShow = () => {
-        if (volumeSliderTimeoutRef.current) {
-            clearTimeout(volumeSliderTimeoutRef.current);
-        }
-        setShowVolumeSlider(true);
-    };
+			// Then play the video
+			const playPromise = video.play();
+			if (playPromise && typeof playPromise.then === "function") {
+				playPromise
+					.then(() => {
+						setIsPaused(false);
+						console.log("Stream resumed by viewer");
+					})
+					.catch((error) => {
+						console.error("Failed to resume stream:", error);
+						// Still set as not paused even if play fails
+						setIsPaused(false);
+					});
+			} else {
+				setIsPaused(false);
+				console.log("Stream resumed by viewer (sync)");
+			}
+		}
+	};
 
-    const handleVolumeSliderHide = () => {
-        volumeSliderTimeoutRef.current = setTimeout(() => {
-            setShowVolumeSlider(false);
-        }, 300);
-    };
+	const handleMute = () => {
+		if (!remoteVideoRef.current) return;
 
-    // Keep isMuted state in sync with video element
-    useEffect(() => {
-        if (remoteVideoRef.current) {
-            remoteVideoRef.current.volume = volume;
-        }
-    }, [volume]);
+		if (!isMuted) {
+			// Muting - save current volume and set to 0
+			setPreviousVolume(volume);
+			setVolume(0);
+			remoteVideoRef.current.volume = 0;
+			setIsMuted(true);
+		} else {
+			// Unmuting - restore previous volume
+			setVolume(previousVolume);
+			remoteVideoRef.current.volume = previousVolume;
+			setIsMuted(false);
+		}
+	};
 
-    // Keep isPaused state in sync with video element
-    useEffect(() => {
-        if (remoteVideoRef.current) {
-            if (isPaused && !remoteVideoRef.current.paused) {
-                remoteVideoRef.current.pause();
-            } else if (!isPaused && remoteVideoRef.current.paused) {
-                // Only auto-play if we're not in a paused state
-                remoteVideoRef.current.play().catch(error => {
-                    console.warn('Auto-play failed:', error);
-                });
-            }
-        }
-    }, [isPaused]);
+	const handleVolumeChange = (newVolume) => {
+		if (!remoteVideoRef.current) return;
 
-    // If stream changes, reset pause/mute state
-    useEffect(() => {
-        setIsPaused(false);
-        setIsMuted(false);
-        setVolume(1.0);
-        setPreviousVolume(1.0);
-    }, [currentStreamId]);
+		setVolume(newVolume);
+		remoteVideoRef.current.volume = newVolume;
 
-    // Add CSS for horizontal slider
-    useEffect(() => {
-        const style = document.createElement('style');
-        style.textContent = `
+		// Update mute state based on volume
+		if (newVolume === 0) {
+			setIsMuted(true);
+		} else {
+			setIsMuted(false);
+		}
+	};
+
+	const handleVolumeSliderShow = () => {
+		if (volumeSliderTimeoutRef.current) {
+			clearTimeout(volumeSliderTimeoutRef.current);
+		}
+		setShowVolumeSlider(true);
+	};
+
+	const handleVolumeSliderHide = () => {
+		volumeSliderTimeoutRef.current = setTimeout(() => {
+			setShowVolumeSlider(false);
+		}, 300);
+	};
+
+	// Keep isMuted state in sync with video element
+	useEffect(() => {
+		if (remoteVideoRef.current) {
+			remoteVideoRef.current.volume = volume;
+		}
+	}, [volume]);
+
+	// Keep isPaused state in sync with video element
+	useEffect(() => {
+		if (remoteVideoRef.current) {
+			if (isPaused && !remoteVideoRef.current.paused) {
+				remoteVideoRef.current.pause();
+			} else if (!isPaused && remoteVideoRef.current.paused) {
+				// Only auto-play if we're not in a paused state
+				remoteVideoRef.current.play().catch((error) => {
+					console.warn("Auto-play failed:", error);
+				});
+			}
+		}
+	}, [isPaused]);
+
+	// If stream changes, reset pause/mute state
+	useEffect(() => {
+		setIsPaused(false);
+		setIsMuted(false);
+		setVolume(1.0);
+		setPreviousVolume(1.0);
+	}, [currentStreamId]);
+
+	// Add CSS for horizontal slider
+	useEffect(() => {
+		const style = document.createElement("style");
+		style.textContent = `
             .slider-horizontal {
                 -webkit-appearance: none;
                 appearance: none;
@@ -1018,43 +1050,48 @@ const ViewerPage = () => {
                 cursor: pointer;
             }
         `;
-        document.head.appendChild(style);
-        
-        return () => {
-            document.head.removeChild(style);
-        };
-    }, []);
+		document.head.appendChild(style);
 
-    return (
-        <div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
-            <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                className="absolute inset-0 w-full h-full "
-                onLoadedMetadata={() => console.log('Video metadata loaded')}
-                onCanPlay={() => console.log('Video can play')}
-                onPlay={() => {
-                    console.log('Video started playing');
-                    // Update pause state if video starts playing externally
-                    if (isPaused) {
-                        setIsPaused(false);
-                    }
-                }}
-                onPause={() => {
-                    console.log('Video paused');
-                    // Update pause state if video is paused externally
-                    if (!isPaused) {
-                        setIsPaused(true);
-                    }
-                }}
-                onLoadedData={() => console.log('Video data loaded')}
-                onWaiting={() => console.log('Video waiting for data')}
-                onStalled={() => console.log('Video stalled')}
-                onError={(e) => console.error('Video error:', e)}
-                onVolumeChange={() => console.log('Volume changed:', remoteVideoRef.current?.volume)}
-                onAudioProcess={() => console.log('Audio processing')}
-            />
+		return () => {
+			document.head.removeChild(style);
+		};
+	}, []);
+
+	return (
+		<div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
+			<video
+				ref={remoteVideoRef}
+				autoPlay
+				playsInline
+				className="absolute inset-0 w-full h-full "
+				onLoadedMetadata={() => console.log("Video metadata loaded")}
+				onCanPlay={() => console.log("Video can play")}
+				onPlay={() => {
+					console.log("Video started playing");
+					// Update pause state if video starts playing externally
+					if (isPaused) {
+						setIsPaused(false);
+					}
+				}}
+				onPause={() => {
+					console.log("Video paused");
+					// Update pause state if video is paused externally
+					if (!isPaused) {
+						setIsPaused(true);
+					}
+				}}
+				onLoadedData={() => console.log("Video data loaded")}
+				onWaiting={() => console.log("Video waiting for data")}
+				onStalled={() => console.log("Video stalled")}
+				onError={(e) => console.error("Video error:", e)}
+				onVolumeChange={() =>
+					console.log(
+						"Volume changed:",
+						remoteVideoRef.current?.volume
+					)
+				}
+				onAudioProcess={() => console.log("Audio processing")}
+			/>
 
 			{currentStreamId && showPauseOverlay && (
 				<div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500 z-20">
@@ -1073,11 +1110,10 @@ const ViewerPage = () => {
 				</div>
 			)}
 
-            {/* Viewer Paused Overlay */}
-            {currentStreamId && isPaused && !showPauseOverlay && (
-                <div
-                    className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500 z-20">
-                    {/* <div className="text-center p-8">
+			{/* Viewer Paused Overlay */}
+			{currentStreamId && isPaused && !showPauseOverlay && (
+				<div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500 z-20">
+					{/* <div className="text-center p-8">
                         <div
                             className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
                             <Play className="w-12 h-12 text-teal-400"/>
@@ -1087,166 +1123,202 @@ const ViewerPage = () => {
                             You have paused the stream. Click the play button to resume.
                         </p>
                     </div> */}
-                </div>
-            )}
+				</div>
+			)}
 
-            {!currentStreamId && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl z-10">
-                    <div className="text-center p-8">
-                        <h3 className="text-2xl font-bold mb-2">Select a Stream</h3>
-                        <p className="text-neutral-300">Choose a live stream to start watching</p>
-                    </div>
-                </div>
-            )}
+			{!currentStreamId && (
+				<div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl z-10">
+					<div className="text-center p-8">
+						<h3 className="text-2xl font-bold mb-2">
+							Select a Stream
+						</h3>
+						<p className="text-neutral-300">
+							Choose a live stream to start watching
+						</p>
+					</div>
+				</div>
+			)}
 
-            {/*/!* Audio Test Button - Only show when stream is active *!/*/}
-            {/*{currentStreamId && remoteVideoRef.current?.srcObject && (*/}
-            {/*    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-30">*/}
-            {/*        <button*/}
-            {/*            onClick={() => {*/}
-            {/*                if (remoteVideoRef.current) {*/}
-            {/*                    remoteVideoRef.current.muted = false;*/}
-            {/*                    remoteVideoRef.current.volume = 1.0;*/}
-            {/*                    console.log('Audio manually enabled');*/}
-            {/*                    console.log('Video muted state:', remoteVideoRef.current.muted);*/}
-            {/*                    console.log('Video volume:', remoteVideoRef.current.volume);*/}
-            {/*                    console.log('Video srcObject tracks:', remoteVideoRef.current.srcObject.getTracks().map(t => ({*/}
-            {/*                        kind: t.kind,*/}
-            {/*                        muted: t.muted,*/}
-            {/*                        enabled: t.enabled*/}
-            {/*                    })));*/}
-            {/*                }*/}
-            {/*            }}*/}
-            {/*            className="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"*/}
-            {/*        >*/}
-            {/*            Enable Audio*/}
-            {/*        </button>*/}
-            {/*    </div>*/}
-            {/*)}*/}
+			{/*/!* Audio Test Button - Only show when stream is active *!/*/}
+			{/*{currentStreamId && remoteVideoRef.current?.srcObject && (*/}
+			{/*    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-30">*/}
+			{/*        <button*/}
+			{/*            onClick={() => {*/}
+			{/*                if (remoteVideoRef.current) {*/}
+			{/*                    remoteVideoRef.current.muted = false;*/}
+			{/*                    remoteVideoRef.current.volume = 1.0;*/}
+			{/*                    console.log('Audio manually enabled');*/}
+			{/*                    console.log('Video muted state:', remoteVideoRef.current.muted);*/}
+			{/*                    console.log('Video volume:', remoteVideoRef.current.volume);*/}
+			{/*                    console.log('Video srcObject tracks:', remoteVideoRef.current.srcObject.getTracks().map(t => ({*/}
+			{/*                        kind: t.kind,*/}
+			{/*                        muted: t.muted,*/}
+			{/*                        enabled: t.enabled*/}
+			{/*                    })));*/}
+			{/*                }*/}
+			{/*            }}*/}
+			{/*            className="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"*/}
+			{/*        >*/}
+			{/*            Enable Audio*/}
+			{/*        </button>*/}
+			{/*    </div>*/}
+			{/*)}*/}
 
-            {/* Left Side: Mobile Button & Stream List */}
-            <button
-                onClick={() => setIsStreamListOpen(true)}
-                className="absolute top-4 left-16 z-30 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-full p-3 shadow-lg lg:hidden"
-            >
-                <LayoutGrid className="w-6 h-6 text-neutral-100"/>
-            </button>
-            
-            {/* Back Button - Top Left */}
-            {currentStreamId && (
-                <button
-                    onClick={handleStopWatching}
-                    className="absolute top-4 left-4 z-30 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-full p-3 shadow-lg text-neutral-100 hover:bg-neutral-800/50 transition-colors"
-                >
-                    <ArrowLeft className="w-6 h-6"/>
-                </button>
-            )}
-            
-            <div
-                className="absolute top-20 left-4 max-h-[calc(100vh-5rem)] w-80 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl z-20 hidden lg:flex flex-col">
-                <StreamListPanel/>
-            </div>
-            {isStreamListOpen && (
-                <div className="absolute inset-0 z-40 bg-neutral-900/80 backdrop-blur-2xl lg:hidden">
-                    <button
-                        onClick={() => setIsStreamListOpen(false)}
-                        className="absolute top-4 right-4 z-50 p-2"
-                    >
-                        <X className="w-6 h-6"/>
-                    </button>
-                    <StreamListPanel/>
-                </div>
-            )}
+			{/* Left Side: Mobile Button & Stream List */}
+			<button
+				onClick={() => setIsStreamListOpen(true)}
+				className="absolute top-4 left-16 z-30 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-full p-3 shadow-lg lg:hidden"
+			>
+				<LayoutGrid className="w-6 h-6 text-neutral-100" />
+			</button>
 
-            {/* Right Side Panels (Desktop) */}
-            <div
-                className="absolute top-4 right-4 max-h-[calc(100vh-2rem)] w-80 space-y-4 flex flex-col z-20">
-                {currentStreamId && (
-                    <>
-                        <div
-                            className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4">
-                            <h2 className="text-lg font-bold mb-3">{streamInfo.title}</h2>
-                            <div className="flex items-center space-x-3 mb-4">
-                                <div
-                                    className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-800 rounded-full flex-shrink-0 flex items-center justify-center">
-                                    <span className="text-xs font-bold">CM</span>
-                                </div>
-                                <div className="text-sm">
-                                    <p className="font-semibold text-white">{streamInfo.streamerName}</p>
-                                    <p className="text-neutral-400">{streamInfo.category}</p>
-                                </div>
-                            </div>
-                            <div className="text-xs text-neutral-300 space-y-2 border-t border-neutral-700 pt-3">
-                                <div className="flex items-center space-x-2">
-                                    <Calendar className="w-4 h-4 text-teal-400"/>
-                                    <span>{new Date().toLocaleDateString('en-US', {
-                                        month: 'long',
-                                        day: 'numeric'
-                                    })}</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <Users className="w-4 h-4 text-teal-400"/>
-                                    <span>{streamInfo.viewers} viewers</span>
-                                </div>
-                            </div>
-                            <div className="flex flex-wrap gap-2 mt-4">
-                                {streamInfo.tags.map(tag => (
-                                    <span key={tag} className="bg-neutral-700/50 px-3 py-1 rounded-full text-xs">
-                                        {tag}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                        <ChatPanelContent/>
-                    </>
-                )}
-            </div>
+			{/* Back Button - Top Left */}
+			{currentStreamId && (
+				<button
+					onClick={handleStopWatching}
+					className="absolute top-4 left-4 z-30 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-full p-3 shadow-lg text-neutral-100 hover:bg-neutral-800/50 transition-colors"
+				>
+					<ArrowLeft className="w-6 h-6" />
+				</button>
+			)}
 
-            {/* --- BOTTOM BAR CONTROLS --- */}
-            {currentStreamId && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
-                    <div className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg min-w-[160px] justify-center">
-                        <button
-                            onClick={handlePause}
-                            className={`p-3 rounded-2xl transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 ${isPaused ? 'bg-teal-500/80 hover:bg-teal-500 text-white' : 'bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900'}`}
-                        >
-                            {isPaused ? <Play className="w-6 h-6"/> : <Pause className="w-6 h-6"/>}
-                        </button>
-                        {/* Volume Control - Button and Slider */}
-                        <div 
-                            className="relative flex items-center bg-neutral-800/70 rounded-2xl px-2 py-2"
-                            onMouseEnter={handleVolumeSliderShow}
-                            onMouseLeave={handleVolumeSliderHide}
-                        >
-                            <button
-                                onClick={handleMute}
-                                className={`p-3 rounded-xl transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 ${isMuted ? 'bg-red-500/80 hover:bg-red-500 text-white' : 'bg-neutral-700/50 hover:bg-neutral-600/50 text-neutral-200'}`}
-                            >
-                                {isMuted ? <VolumeX className="w-5 h-5"/> : <Volume2 className="w-5 h-5"/>}
-                            </button>
-                            {/* Volume Slider - Absolutely positioned to the right of the button */}
-                            {showVolumeSlider && (
-                                <div className="absolute left-full top-1/2 -translate-y-1/2 flex items-center space-x-2 bg-neutral-800/90 rounded-xl px-3 py-2 ml-2 shadow-lg z-50 min-w-[180px]">
-                                    <input
-                                        type="range"
-                                        min="0"
-                                        max="1"
-                                        step="0.01"
-                                        value={volume}
-                                        onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                                        className="flex-1 h-2 bg-neutral-600 rounded-full appearance-none cursor-pointer slider-horizontal"
-                                    />
-                                    <div className="text-xs text-neutral-300 min-w-[2.5rem] text-center">
-                                        {Math.round(volume * 100)}%
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
+			<div className="absolute top-20 left-4 max-h-[calc(100vh-5rem)] w-80 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl z-20 hidden lg:flex flex-col">
+				<StreamListPanel />
+			</div>
+			{isStreamListOpen && (
+				<div className="absolute inset-0 z-40 bg-neutral-900/80 backdrop-blur-2xl lg:hidden">
+					<button
+						onClick={() => setIsStreamListOpen(false)}
+						className="absolute top-4 right-4 z-50 p-2"
+					>
+						<X className="w-6 h-6" />
+					</button>
+					<StreamListPanel />
+				</div>
+			)}
+
+			{/* Right Side Panels (Desktop) */}
+			<div className="absolute top-4 right-4 max-h-[calc(100vh-2rem)] w-80 space-y-4 flex flex-col z-20">
+				{currentStreamId && (
+					<>
+						<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4">
+							<h2 className="text-lg font-bold mb-3">
+								{streamInfo.title}
+							</h2>
+							<div className="flex items-center space-x-3 mb-4">
+								<div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-800 rounded-full flex-shrink-0 flex items-center justify-center">
+									<span className="text-xs font-bold">
+										CM
+									</span>
+								</div>
+								<div className="text-sm">
+									<p className="font-semibold text-white">
+										{streamInfo.streamerName}
+									</p>
+									<p className="text-neutral-400">
+										{streamInfo.category}
+									</p>
+								</div>
+							</div>
+							<div className="text-xs text-neutral-300 space-y-2 border-t border-neutral-700 pt-3">
+								<div className="flex items-center space-x-2">
+									<Calendar className="w-4 h-4 text-teal-400" />
+									<span>
+										{new Date().toLocaleDateString(
+											"en-US",
+											{
+												month: "long",
+												day: "numeric",
+											}
+										)}
+									</span>
+								</div>
+								<div className="flex items-center space-x-2">
+									<Users className="w-4 h-4 text-teal-400" />
+									<span>{streamInfo.viewers} viewers</span>
+								</div>
+							</div>
+							<div className="flex flex-wrap gap-2 mt-4">
+								{streamInfo.tags.map((tag) => (
+									<span
+										key={tag}
+										className="bg-neutral-700/50 px-3 py-1 rounded-full text-xs"
+									>
+										{tag}
+									</span>
+								))}
+							</div>
+						</div>
+						<ChatPanelContent />
+					</>
+				)}
+			</div>
+
+			{/* --- BOTTOM BAR CONTROLS --- */}
+			{currentStreamId && (
+				<div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
+					<div className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg min-w-[160px] justify-center">
+						<button
+							onClick={handlePause}
+							className={`p-3 rounded-2xl transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 ${
+								isPaused
+									? "bg-teal-500/80 hover:bg-teal-500 text-white"
+									: "bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900"
+							}`}
+						>
+							{isPaused ? (
+								<Play className="w-6 h-6" />
+							) : (
+								<Pause className="w-6 h-6" />
+							)}
+						</button>
+						{/* Volume Control - Button and Slider */}
+						<div
+							className="relative flex items-center bg-neutral-800/70 rounded-2xl px-2 py-2"
+							onMouseEnter={handleVolumeSliderShow}
+							onMouseLeave={handleVolumeSliderHide}
+						>
+							<button
+								onClick={handleMute}
+								className={`p-3 rounded-xl transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 ${
+									isMuted
+										? "bg-red-500/80 hover:bg-red-500 text-white"
+										: "bg-neutral-700/50 hover:bg-neutral-600/50 text-neutral-200"
+								}`}
+							>
+								{isMuted ? (
+									<VolumeX className="w-5 h-5" />
+								) : (
+									<Volume2 className="w-5 h-5" />
+								)}
+							</button>
+							{/* Volume Slider - Absolutely positioned to the right of the button */}
+							{showVolumeSlider && (
+								<div className="absolute left-full top-1/2 -translate-y-1/2 flex items-center space-x-2 bg-neutral-800/90 rounded-xl px-3 py-2 ml-2 shadow-lg z-50 min-w-[180px]">
+									<input
+										type="range"
+										min="0"
+										max="1"
+										step="0.01"
+										value={volume}
+										onChange={(e) =>
+											handleVolumeChange(
+												parseFloat(e.target.value)
+											)
+										}
+										className="flex-1 h-2 bg-neutral-600 rounded-full appearance-none cursor-pointer slider-horizontal"
+									/>
+									<div className="text-xs text-neutral-300 min-w-[2.5rem] text-center">
+										{Math.round(volume * 100)}%
+									</div>
+								</div>
+							)}
+						</div>
+					</div>
+				</div>
+			)}
+		</div>
+	);
 };
 
 export default ViewerPage;

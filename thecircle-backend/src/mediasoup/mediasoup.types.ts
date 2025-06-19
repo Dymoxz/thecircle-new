@@ -23,6 +23,7 @@ export interface StreamerInfo {
   isStreaming: boolean;
   recordingProcess?: any; // FFmpeg process
   recordingPath?: string;
+  username: string;
 }
 
 export interface ViewerInfo {
@@ -96,4 +97,3 @@ export interface MediasoupConfig {
   };
   recordingOptions: RecordingConfig;
 }
-

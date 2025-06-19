@@ -23,6 +23,7 @@ type TransportInfo = {
 type StreamerInfo = {
   id: string;
   socket: any;
+  username: string;
   transport: TransportInfo;
   streamId: string;
   isStreaming: boolean;
@@ -207,6 +208,7 @@ export class MediasoupService implements OnModuleDestroy {
     streamId: string,
     streamerId: string,
     streamerSocket: any,
+    username: string,
   ): Promise<StreamInfo> {
     const worker = this.getNextWorker();
     const router = worker.router;
@@ -216,6 +218,7 @@ export class MediasoupService implements OnModuleDestroy {
       streamer: {
         id: streamerId,
         socket: streamerSocket,
+        username,
         transport: {
           id: '',
           type: 'webrtc',
@@ -533,8 +536,12 @@ export class MediasoupService implements OnModuleDestroy {
     }
   }
 
-  async getActiveStreams(): Promise<string[]> {
-    return Array.from(this.streams.keys());
+async getActiveStreams(): Promise<{ streamId: string; streamerName: string | undefined }[]> {
+    // Return an array of objects with streamId and streamerName
+    return Array.from(this.streams.values()).map(stream => ({
+      streamId: stream.streamId,
+      streamerName: stream.streamer.username,
+    }));
   }
 
   async getStreamInfo(streamId: string): Promise<StreamInfo | null> {
