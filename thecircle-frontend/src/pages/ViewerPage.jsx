@@ -10,6 +10,8 @@ import {
 	StopCircle,
 	Users,
 	X,
+	ArrowLeft,
+	Pause, Volume2, VolumeX,
 } from "lucide-react";
 import * as mediasoupClient from "mediasoup-client";
 import Chat from "../component/chat";
@@ -31,6 +33,12 @@ const ViewerPage = () => {
 	const [isWsConnected, setIsWsConnected] = useState(false);
 	const [isStreamListOpen, setIsStreamListOpen] = useState(false);
 	const [showPauseOverlay, setShowPauseOverlay] = useState(false);
+	const [isPaused, setIsPaused] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
+	const [volume, setVolume] = useState(1.0);
+    const [previousVolume, setPreviousVolume] = useState(1.0);
+    const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+    const volumeSliderTimeoutRef = useRef(null);
 
 	const remoteVideoRef = useRef(null);
 	const socketRef = useRef(null);
