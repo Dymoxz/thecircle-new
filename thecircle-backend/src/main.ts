@@ -13,7 +13,7 @@ async function bootstrap() {
   };
 
   const app = await NestFactory.create(AppModule, { httpsOptions });
-
+  app.setGlobalPrefix('api'); // <-- Deze regel toevoegen
   app.useWebSocketAdapter(new WsAdapter(app));
   app.enableCors(); // Enable CORS for HTTP requests
 
