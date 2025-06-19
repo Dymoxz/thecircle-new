@@ -24,6 +24,7 @@ type TransportInfo = {
 type StreamerInfo = {
   id: string;
   socket: any;
+  username: string;
   transport: TransportInfo;
   streamId: string;
   isStreaming: boolean;
@@ -45,18 +46,15 @@ type StreamInfo = {
   viewers: Map<string, ViewerInfo>;
   router: mediasoup.types.Router;
   recordingPath: string;
-  streamerName?: string;
   tags?: string[];
 };
 
 @Injectable()
-export class MediasoupService implements OnModuleDestroy, OnModuleInit {
+export class MediasoupService implements OnModuleDestroy {
   private readonly logger = new Logger(MediasoupService.name);
   private workers: MediasoupWorker[] = [];
   private streams = new Map<string, StreamInfo>();
   private currentWorkerIndex = 0;
-
-  constructor(private readonly userService: UserService) {}
 
   private getLocalIpAddress(): string {
     const interfaces = os.networkInterfaces();
@@ -212,26 +210,17 @@ export class MediasoupService implements OnModuleDestroy, OnModuleInit {
     streamId: string,
     streamerId: string,
     streamerSocket: any,
+    username: string,
   ): Promise<StreamInfo> {
     const worker = this.getNextWorker();
     const router = worker.router;
-
-    let streamerName: string = 'Unknown Streamer';
-    try {
-      const user = await this.userService.getUserById(streamerId);
-      if (user) {
-        streamerName = user.userName.toString();
-      }
-    } catch (error) {
-      this.logger.error(`Failed to retrieve streamer name for ${streamerId}: ${error.message}`);
-    }
-
 
     const streamInfo: StreamInfo = {
       streamId,
       streamer: {
         id: streamerId,
         socket: streamerSocket,
+        username,
         transport: {
           id: '',
           type: 'webrtc',
@@ -248,21 +237,21 @@ export class MediasoupService implements OnModuleDestroy, OnModuleInit {
         this.getConfig().recordingOptions.outputPath,
         `${streamId}.${this.getConfig().recordingOptions.format}`,
       ),
-      streamerName: streamerName,
-      tags: []
     };
 
     this.streams.set(streamId, streamInfo);
-    this.logger.log(`Stream created: ${streamId} by ${streamerName}`);
+    this.logger.log(`Stream created: ${streamId}`);
     return streamInfo;
   }
 
   async createWebRtcTransport(
     streamId: string,
     isStreamer: boolean,
+    streamerId: string,
     clientId?: string,
   ): Promise<any> {
-    const stream = this.streams.get(streamId);
+    console.log (this.streams)
+    const stream = this.streams.get(streamerId);
     if (!stream) {
       throw new Error(`Stream ${streamId} not found`);
     }
@@ -388,12 +377,9 @@ export class MediasoupService implements OnModuleDestroy, OnModuleInit {
       await this.startRecording(stream);
     }
 
-
     this.logger.log(
       `Producer created: ${producer.id} (${kind}) for stream: ${streamId}`,
     );
-
-
 
     return {
       id: producer.id,
@@ -475,6 +461,7 @@ export class MediasoupService implements OnModuleDestroy, OnModuleInit {
     viewerId: string,
     viewerSocket: any,
   ): Promise<ViewerInfo> {
+    console.log(this.streams)
     const stream = this.streams.get(streamId);
     if (!stream) {
       throw new Error(`Stream ${streamId} not found`);
@@ -528,7 +515,7 @@ export class MediasoupService implements OnModuleDestroy, OnModuleInit {
     }
 
     // Stop recording
-   /* await this.stopRecording(stream);*/
+    await this.stopRecording(stream);
 
     // Close all viewers
     for (const viewerId of stream.viewers.keys()) {
@@ -546,12 +533,9 @@ export class MediasoupService implements OnModuleDestroy, OnModuleInit {
       stream.streamer.transport.transport.close();
     }
 
-
     this.streams.delete(streamId);
     this.logger.log(`Stream ${streamId} closed`);
   }
-
-
 
   private async closeAllStreams(): Promise<void> {
     for (const streamId of this.streams.keys()) {
@@ -559,30 +543,12 @@ export class MediasoupService implements OnModuleDestroy, OnModuleInit {
     }
   }
 
-  async getActiveStreams(): Promise<Array<{
-    streamId: string;
-    streamerId: string;
-    streamerName: string;
-    tags: string[]
-  }>> {
-    const activeStreamsList: Array<{
-      streamId: string;
-      streamerId: string;
-      streamerName: string;
-      tags: string[]
-    }> = [];
-
-    for (const [streamId, stream] of this.streams.entries()) {
-      if (stream.streamer.producers.size > 0) {
-        activeStreamsList.push({
-          streamId: stream.streamId,
-          streamerId: stream.streamer.id,
-          streamerName: stream.streamerName || 'Unknown Streamer',
-          tags: stream.tags || []
-        });
-      }
-    }
-    return activeStreamsList;
+async getActiveStreams(): Promise<{ streamId: string; streamerName: string | undefined }[]> {
+    // Return an array of objects with streamId and streamerName
+    return Array.from(this.streams.values()).map(stream => ({
+      streamId: stream.streamId,
+      streamerName: stream.streamer.username,
+    }));
   }
 
   async getStreamInfo(streamId: string): Promise<StreamInfo | null> {

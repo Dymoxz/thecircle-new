@@ -10,8 +10,8 @@ export class UserService {
     @InjectModel(UserModel.name) private userModel: Model<UserDocument>,
   ) {}
 
-  async getUser(email: string): Promise<IUser | null> {
-    const user = await this.userModel.findOne({ email }).exec();
+  async getUser(_id: string): Promise<IUser | null> {
+    const user = await this.userModel.findOne({ _id }).exec();
     if (!user) {
       console.log('Item not found');
     }
