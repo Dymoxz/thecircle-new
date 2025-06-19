@@ -18,6 +18,7 @@ import {
 import * as mediasoupClient from "mediasoup-client";
 import Chat from "../component/chat";
 import { jwtDecode } from "jwt-decode";
+import {useParams} from "react-router-dom";
 
 // WebSocket URL configuration
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -32,6 +33,7 @@ const VIDEO_CONSTRAINTS = {
 const ViewerPage = () => {
 	const [streams, setStreams] = useState([]);
 	const [currentStreamId, setCurrentStreamId] = useState(null);
+	const { streamId: paramStreamId} = useParams();
 	const [isWsConnected, setIsWsConnected] = useState(false);
 	const [isStreamListOpen, setIsStreamListOpen] = useState(false);
 	const [showPauseOverlay, setShowPauseOverlay] = useState(false);
@@ -69,6 +71,9 @@ const ViewerPage = () => {
 			document.title = "StreamHub";
 		};
 	}, []);
+
+
+
 
 	useEffect(() => {
 		fetch(`https://localhost:3002/api/user/${viewerId}`, {
@@ -109,22 +114,31 @@ const ViewerPage = () => {
 	}, [currentStreamId]);
 
 	useEffect(() => {
+		// Initialize WebSocket connection
 		socketRef.current = new WebSocket(WS_URL);
 		const socket = socketRef.current;
 
-		socket.onopen = () => {
+		socket.onopen = async () => { // Make onopen an async function
 			setIsWsConnected(true);
 			socket.send(JSON.stringify({ event: "get-streams", data: {} }));
+
+			// Connect to stream if paramStreamId exists after WebSocket is open
+			if (paramStreamId) {
+				try {
+					// Set currentStreamId here before connecting to ensure it's available
+					setCurrentStreamId(paramStreamId);
+					currentStreamIdRef.current = paramStreamId;
+					await handleConnectToStream(paramStreamId);
+				} catch (err) {
+					console.error("Failed to connect to stream:", err);
+				}
+			}
 		};
 		socket.onclose = () => setIsWsConnected(false);
 		socket.onerror = (err) => console.error("[WS] Error:", err);
 
-		// Persistent resolver map for awaiting specific events
-
 		socket.onmessage = async (event) => {
 			const msg = JSON.parse(event.data);
-			// If a resolver is waiting for this event, resolve it
-
 			switch (msg.event) {
 				case "streams":
 					setStreams(msg.data.streams);
@@ -141,11 +155,16 @@ const ViewerPage = () => {
 				}
 				case "transport-created": {
 					const { transport } = msg.data;
-					await createRecvTransport(
-						transport,
-						currentStreamIdRef.current
-					);
-					await consumeTracks(currentStreamIdRef.current);
+					// Ensure currentStreamIdRef.current is set before calling createRecvTransport and consumeTracks
+					if (currentStreamIdRef.current) {
+						await createRecvTransport(
+							transport,
+							currentStreamIdRef.current
+						);
+						await consumeTracks(currentStreamIdRef.current);
+					} else {
+						console.error("currentStreamIdRef is null when transport-created");
+					}
 					break;
 				}
 				case "transport-connected": {
@@ -162,7 +181,6 @@ const ViewerPage = () => {
 						handleStopWatching();
 						alert(`Stream ${msg.data.streamId} has ended.`);
 					}
-					// Always refresh stream list on stream-ended
 					if (socketRef.current?.readyState === WebSocket.OPEN) {
 						socketRef.current.send(
 							JSON.stringify({ event: "get-streams", data: {} })
@@ -201,7 +219,7 @@ const ViewerPage = () => {
 			consumersRef.current.forEach((consumer) => consumer.close());
 			consumersRef.current.clear();
 		};
-	}, []);
+	}, [paramStreamId]);
 
 	const createRecvTransport = async (transportOptions, streamId) => {
 		try {
@@ -811,7 +829,7 @@ const ViewerPage = () => {
 		}
 	};
 
-	const StreamListPanel = () => (
+	/*const StreamListPanel = () => (
 		<div className="p-4 flex flex-col h-full">
 			<div className="flex items-center justify-between mb-4 flex-shrink-0">
 				<h2 className="text-xl font-bold text-teal-400">
@@ -866,7 +884,7 @@ const ViewerPage = () => {
 				)}
 			</div>
 		</div>
-	);
+	);*/
 
 	const ChatPanelContent = () => (
 		<Chat
@@ -1182,7 +1200,7 @@ const ViewerPage = () => {
 				</button>
 			)}
 
-			<div className="absolute top-20 left-4 max-h-[calc(100vh-5rem)] w-80 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl z-20 hidden lg:flex flex-col">
+			{/*<div className="absolute top-20 left-4 max-h-[calc(100vh-5rem)] w-80 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl z-20 hidden lg:flex flex-col">
 				<StreamListPanel />
 			</div>
 			{isStreamListOpen && (
@@ -1196,7 +1214,7 @@ const ViewerPage = () => {
 					<StreamListPanel />
 				</div>
 			)}
-
+*/}
 			{/* Right Side Panels (Desktop) */}
 			<div className="absolute top-4 right-4 max-h-[calc(100vh-2rem)] w-80 space-y-4 flex flex-col z-20">
 				{currentStreamId && (

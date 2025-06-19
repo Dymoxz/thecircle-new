@@ -17,4 +17,12 @@ export class UserService {
     }
     return user;
   }
+
+  async getUserById(id: string): Promise<IUser | null> {
+    const user = await this.userModel.findOne({ _id: id }).exec();
+    if (!user) {
+      console.log('Item not found');
+    }
+    return user;
+  }
 }

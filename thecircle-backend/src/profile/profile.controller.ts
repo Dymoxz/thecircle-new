@@ -8,20 +8,16 @@ export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
 
   @UseGuards(AuthGuard)
-  @Get(':userId')
-  async getProfile(@Param('userId') userId: string) {
-    return this.profileService.getUserProfile(userId);
-  }
-
-  @UseGuards(AuthGuard) // Protect this route with your AuthGuard
-  @Get() // No userId parameter in the URL
-  async getMyProfile(@Request() req) {
+  @Get('getMySubscriptions') // This specific route should come BEFORE ':userId'
+  async getMySubscriptions(@Request() req) {
     const userId = req.user.sub;
     if (!userId) {
       throw new UnauthorizedException('User ID not found in token.');
     }
-    return this.profileService.getUserProfile(userId);
+    return this.profileService.getSubscriptions(userId);
   }
+
+
 
   @Post('subscribe')
   @UseGuards(AuthGuard)
@@ -54,8 +50,28 @@ export class ProfileController {
     return this.profileService.getSubscribers(streamerId);
   }
 
+
+
   @Get('subscriptions/:subscriberId')
   async getSubscriptions(@Param('subscriberId') subscriberId: string) {
     return this.profileService.getSubscriptions(subscriberId);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get(':userId')
+  async getProfile(@Param('userId') userId: string) {
+    return this.profileService.getUserProfile(userId);
+  }
+
+
+
+  @UseGuards(AuthGuard) // Protect this route with your AuthGuard
+  @Get() // No userId parameter in the URL
+  async getMyProfile(@Request() req) {
+    const userId = req.user.sub;
+    if (!userId) {
+      throw new UnauthorizedException('User ID not found in token.');
+    }
+    return this.profileService.getUserProfile(userId);
   }
 }

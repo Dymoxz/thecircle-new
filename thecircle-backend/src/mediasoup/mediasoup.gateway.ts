@@ -72,16 +72,18 @@ export class MediasoupGateway
 
       // Notify all viewers that stream ended
       const stream = await this.mediasoupService.getStreamInfo(streamId);
-      if (stream) {
-        for (const viewer of stream.viewers.values()) {
-          viewer.socket.send(
+      this.server.clients.forEach(clientSocket => {
+        if (clientSocket.readyState === WebSocket.OPEN) {
+          clientSocket.send(
             JSON.stringify({
               event: 'stream-ended',
               data: { streamId },
             }),
           );
         }
-      }
+      });
+      await this.broadcastStreamListUpdate(); // Re-broadcast the list after a stream ends
+
 
       this.logger.log(
         `[CLEANUP] Streamer ${streamerId} disconnected, streamId=${streamId} removed`,
@@ -111,10 +113,11 @@ export class MediasoupGateway
       streamId: string;
       streamerId?: string;
       username: string;
+      tags?: string[];
     },
     @ConnectedSocket() socket: WebSocket,
   ) {
-    const { id, clientType, streamId, streamerId, username } = data;
+    const { id, clientType, streamId, streamerId, username, tags } = data;
 
     // If streamerId is provided (for viewers), use it as the stream owner reference
     const effectiveStreamId = streamerId || streamId;
@@ -133,7 +136,7 @@ export class MediasoupGateway
 
     if (clientType === 'streamer' && effectiveStreamId) {
       try {
-        await this.mediasoupService.createStream(id, effectiveStreamId, socket, username);
+        await this.mediasoupService.createStream(id, effectiveStreamId, socket, username, tags);
         this.logger.log(
           `[STREAMS] Streamer registered streamId=${effectiveStreamId}`,
         );
@@ -181,7 +184,7 @@ export class MediasoupGateway
             }),
           );
           // If the stream is currently paused, notify the new viewer
-          if (stream.streamer.isStreaming === false) {
+          if (!stream.streamer.isStreaming) {
             socket.send(
               JSON.stringify({
                 event: 'stream-paused',
@@ -205,7 +208,6 @@ export class MediasoupGateway
   @SubscribeMessage('get-streams')
   async handleGetStreams(@ConnectedSocket() socket: WebSocket) {
     this.logger.log('[STREAMS] get-streams requested');
-
     try {
       const activeStreams = await this.mediasoupService.getActiveStreams();
       socket.send(
@@ -223,6 +225,25 @@ export class MediasoupGateway
           data: { message: 'Failed to get streams' },
         }),
       );
+    }
+  }
+
+  private async broadcastStreamListUpdate() {
+    try {
+      const activeStreams = await this.mediasoupService.getActiveStreams();
+      this.server.clients.forEach(clientSocket => {
+        if (clientSocket.readyState === WebSocket.OPEN) {
+          clientSocket.send(
+            JSON.stringify({
+              event: 'streams',
+              data: { streams: activeStreams },
+            }),
+          );
+        }
+      });
+      this.logger.log('[BROADCAST] Updated stream list sent to all clients.');
+    } catch (error) {
+      this.logger.error(`Error broadcasting stream list update: ${error.message}`);
     }
   }
 
@@ -355,6 +376,7 @@ export class MediasoupGateway
           data: { producer },
         }),
       );
+      await this.broadcastStreamListUpdate();
     } catch (error) {
       this.logger.error(`Error creating producer: ${error.message}`);
       socket.send(
@@ -473,6 +495,7 @@ export class MediasoupGateway
       this.logger.log(
         `[END-STREAM] Streamer ${clientId} ended streamId=${streamId}`,
       );
+      await this.broadcastStreamListUpdate();
     } catch (error) {
       this.logger.error(`Error ending stream: ${error.message}`);
     }

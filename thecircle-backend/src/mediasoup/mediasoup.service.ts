@@ -1,9 +1,10 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import * as mediasoup from 'mediasoup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import * as os from 'os';
+import { UserService } from '../user/user.service';
 
 // Types for mediasoup
 type MediasoupWorker = {
@@ -45,6 +46,7 @@ type StreamInfo = {
   viewers: Map<string, ViewerInfo>;
   router: mediasoup.types.Router;
   recordingPath: string;
+  tags?: string[];
 };
 
 @Injectable()
@@ -209,6 +211,7 @@ export class MediasoupService implements OnModuleDestroy {
     streamerId: string,
     streamerSocket: any,
     username: string,
+    tags?: string[],
   ): Promise<StreamInfo> {
     const worker = this.getNextWorker();
     const router = worker.router;
@@ -235,6 +238,7 @@ export class MediasoupService implements OnModuleDestroy {
         this.getConfig().recordingOptions.outputPath,
         `${streamId}.${this.getConfig().recordingOptions.format}`,
       ),
+      tags: tags || [],
     };
 
     this.streams.set(streamId, streamInfo);
@@ -361,12 +365,17 @@ export class MediasoupService implements OnModuleDestroy {
       rtpParameters,
     });
 
-    // Store producer by kind
     stream.streamer.producers.set(kind, producer);
-    stream.streamer.isStreaming = true;
 
-    // Start recording when first producer is created
-    if (stream.streamer.producers.size === 1) {
+
+    if (!stream.streamer.isStreaming) {
+      stream.streamer.isStreaming = true;
+      this.logger.log(`Stream ${streamId} is now live.`);
+
+    }
+
+
+    if (!stream.streamer.recordingProcess) {
       await this.startRecording(stream);
     }
 
@@ -536,11 +545,12 @@ export class MediasoupService implements OnModuleDestroy {
     }
   }
 
-async getActiveStreams(): Promise<{ streamId: string; streamerName: string | undefined }[]> {
+async getActiveStreams(): Promise<{ streamId: string; streamerName: string | undefined; tags: string[] | undefined }[]> {
     // Return an array of objects with streamId and streamerName
     return Array.from(this.streams.values()).map(stream => ({
       streamId: stream.streamId,
       streamerName: stream.streamer.username,
+      tags: stream.tags,
     }));
   }
 
