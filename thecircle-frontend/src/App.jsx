@@ -1,17 +1,30 @@
 import React, { useEffect, useState, useRef } from "react";
-import { BrowserRouter as Router, Route, Routes, Link, useNavigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  Link,
+  useNavigate,
+} from "react-router-dom";
 import StreamerPage from "./pages/StreamerPage";
 import ViewerPage from "./pages/ViewerPage";
 import LoginPage from "./pages/LoginPage.jsx";
 import RequireAuth from "./component/RequireAuth.jsx";
-import { Camera, Eye, Lock, Search, SlidersHorizontal, ArrowDownWideNarrow, User } from "lucide-react";
+import {
+  Camera,
+  Eye,
+  Lock,
+  Search,
+  SlidersHorizontal,
+  ArrowDownWideNarrow,
+  User,
+} from "lucide-react";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import { jwtDecode } from "jwt-decode";
-import { useRef } from "react";
 import { setupDeviceKey } from "./services/keys.service.js";
 
 const API_URL = "https://localhost:3001/api";
-const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const WS_URL = `${wsProtocol}//${window.location.hostname}:3001`;
 
 const TheCircleLogo = ({ className }) => (
@@ -69,9 +82,9 @@ const useClickOutside = (ref, callback) => {
         callback();
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [ref, callback]);
 };
@@ -90,12 +103,12 @@ const HomePage = () => {
   // Filter and sort state
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState({
-    category: '',
+    category: "",
     liveOnly: true,
     subscribedOnly: false,
   });
   const [sortOpen, setSortOpen] = useState(false);
-  const [sortOption, setSortOption] = useState('viewers-desc');
+  const [sortOption, setSortOption] = useState("viewers-desc");
 
   // Refs for click outside
   const filterRef = useRef();
@@ -103,30 +116,6 @@ const HomePage = () => {
 
   useClickOutside(filterRef, () => setFilterOpen(false));
   useClickOutside(sortRef, () => setSortOpen(false));
-
-  const setupCalled = useRef(false);
-
-  useEffect(() => {
-    document.title = "The Circle - Home";
-
-    const token = localStorage.getItem("jwt_token");
-
-    if (token) {
-      try {
-        const { exp } = jwtDecode(token);
-        if (Date.now() < exp * 1000) {
-          if (!setupCalled.current) {
-            setupDeviceKey();
-            setupCalled.current = true;
-          }
-        } else {
-          console.log("expired jwt_token");
-        }
-      } catch (e) {
-        console.log("invalid jwt_token");
-      }
-    }
-  }, []);
 
   // Effect for fetching subscriptions
   useEffect(() => {
@@ -137,29 +126,28 @@ const HomePage = () => {
       try {
         const token = localStorage.getItem("jwt_token");
         if (!token) {
-          navigate('/login');
+          navigate("/login");
           return;
         }
 
         const response = await fetch(`${API_URL}/profile/getMySubscriptions`, {
-          method: 'GET',
+          method: "GET",
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
         });
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to fetch subscriptions');
+          throw new Error(errorData.message || "Failed to fetch subscriptions");
         }
 
         const data = await response.json();
         setSubscriptions(Array.isArray(data) ? data : []);
-
       } catch (error) {
-        console.error('Error fetching subscriptions:', error);
-        setSubscriptionError(error.message || 'Failed to load subscriptions.');
+        console.error("Error fetching subscriptions:", error);
+        setSubscriptionError(error.message || "Failed to load subscriptions.");
         setSubscriptions([]);
       } finally {
         setLoadingSubscriptions(false);
@@ -171,30 +159,32 @@ const HomePage = () => {
 
   // Effect for WebSocket connection
   useEffect(() => {
+    document.title = "The Circle - Home";
+
     socketRef.current = new WebSocket(WS_URL);
     const socket = socketRef.current;
 
     socket.onopen = () => {
-      console.log('[WS] Connected to server.');
-      socket.send(JSON.stringify({ event: 'get-streams', data: {} }));
+      console.log("[WS] Connected to server.");
+      socket.send(JSON.stringify({ event: "get-streams", data: {} }));
       setLoadingStreams(false);
     };
 
     socket.onmessage = (event) => {
       const msg = JSON.parse(event.data);
-      console.log('[WS MESSAGE HOME]', msg);
+      console.log("[WS MESSAGE HOME]", msg);
       switch (msg.event) {
-        case 'streams':
+        case "streams":
           setStreams(msg.data.streams);
-          console.log('Received streams:', msg.data.streams);
+          console.log("Received streams:", msg.data.streams);
           setLoadingStreams(false);
           break;
-        case 'stream-started':
-        case 'stream-ended':
-          socket.send(JSON.stringify({ event: 'get-streams', data: {} }));
+        case "stream-started":
+        case "stream-ended":
+          socket.send(JSON.stringify({ event: "get-streams", data: {} }));
           break;
-        case 'error':
-          console.error('Server error:', msg.data.message);
+        case "error":
+          console.error("Server error:", msg.data.message);
           setStreamError(msg.data.message);
           setLoadingStreams(false);
           break;
@@ -204,13 +194,13 @@ const HomePage = () => {
     };
 
     socket.onclose = () => {
-      console.log('[WS] Disconnected from server.');
+      console.log("[WS] Disconnected from server.");
       setLoadingStreams(false);
       setStreamError("Disconnected from stream server. Please refresh.");
     };
 
     socket.onerror = (err) => {
-      console.error('[WS] Error:', err);
+      console.error("[WS] Error:", err);
       setStreamError("WebSocket error. Could not connect to stream server.");
       setLoadingStreams(false);
     };
@@ -223,56 +213,56 @@ const HomePage = () => {
   }, []);
 
   // Filter streams
-  const filteredStreams = streams.filter(stream => {
+  const filteredStreams = streams.filter((stream) => {
     // Live only filter
     if (filters.liveOnly && !stream.isLive) return false;
-    
+
     // Subscribed only filter
     if (filters.subscribedOnly) {
-      const isSubscribed = subscriptions.some(sub => 
-        sub.streamer?._id === stream.streamerId
+      const isSubscribed = subscriptions.some(
+        (sub) => sub.streamer?._id === stream.streamerId
       );
       if (!isSubscribed) return false;
     }
-    
+
     // Category filter
     if (filters.category && stream.category !== filters.category) {
       return false;
     }
-    
+
     return true;
   });
 
   // Sort streams
   const sortedStreams = [...filteredStreams].sort((a, b) => {
     switch (sortOption) {
-      case 'viewers-desc':
+      case "viewers-desc":
         return (b.viewerCount || 0) - (a.viewerCount || 0);
-      case 'viewers-asc':
+      case "viewers-asc":
         return (a.viewerCount || 0) - (b.viewerCount || 0);
-      case 'date-desc':
+      case "date-desc":
         return new Date(b.startTime || 0) - new Date(a.startTime || 0);
-      case 'date-asc':
+      case "date-asc":
         return new Date(a.startTime || 0) - new Date(b.startTime || 0);
-      case 'title-asc':
-        return (a.title || '').localeCompare(b.title || '');
-      case 'title-desc':
-        return (b.title || '').localeCompare(a.title || '');
+      case "title-asc":
+        return (a.title || "").localeCompare(b.title || "");
+      case "title-desc":
+        return (b.title || "").localeCompare(a.title || "");
       default:
         return 0;
     }
   });
 
   // Search streams
-  const searchedStreams = sortedStreams.filter(stream => {
+  const searchedStreams = sortedStreams.filter((stream) => {
     if (!searchTerm) return true;
-    
+
     const searchLower = searchTerm.toLowerCase();
     return (
-      (stream.title || '').toLowerCase().includes(searchLower) ||
-      (stream.streamerName || '').toLowerCase().includes(searchLower) ||
-      (stream.category || '').toLowerCase().includes(searchLower) ||
-      (stream.tags || []).some(tag => tag.toLowerCase().includes(searchLower))
+      (stream.title || "").toLowerCase().includes(searchLower) ||
+      (stream.streamerName || "").toLowerCase().includes(searchLower) ||
+      (stream.category || "").toLowerCase().includes(searchLower) ||
+      (stream.tags || []).some((tag) => tag.toLowerCase().includes(searchLower))
     );
   });
 
@@ -314,49 +304,63 @@ const HomePage = () => {
           <div className="flex space-x-2 mt-4 md:mt-0">
             {/* Filter Dropdown */}
             <div className="relative" ref={filterRef}>
-              <button 
+              <button
                 onClick={() => setFilterOpen(!filterOpen)}
                 className="flex items-center px-4 py-2 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-colors shadow-md"
               >
                 <SlidersHorizontal className="w-4 h-4 mr-2" /> Filter
               </button>
-              
+
               {filterOpen && (
                 <div className="absolute right-0 mt-2 w-64 bg-white/90 backdrop-blur-lg rounded-lg shadow-xl z-50 p-4">
-                  <h3 className="font-bold text-gray-800 mb-2">Filter Streams</h3>
-                  
+                  <h3 className="font-bold text-gray-800 mb-2">
+                    Filter Streams
+                  </h3>
+
                   <div className="space-y-3">
                     <div>
                       <label className="flex items-center space-x-2">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           checked={filters.liveOnly}
-                          onChange={() => setFilters({...filters, liveOnly: !filters.liveOnly})}
+                          onChange={() =>
+                            setFilters({
+                              ...filters,
+                              liveOnly: !filters.liveOnly,
+                            })
+                          }
                           className="rounded text-[#a83246]"
                         />
                         <span className="text-gray-800">Live Only</span>
                       </label>
                     </div>
-                    
+
                     <div>
                       <label className="flex items-center space-x-2">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           checked={filters.subscribedOnly}
-                          onChange={() => setFilters({...filters, subscribedOnly: !filters.subscribedOnly})}
+                          onChange={() =>
+                            setFilters({
+                              ...filters,
+                              subscribedOnly: !filters.subscribedOnly,
+                            })
+                          }
                           className="rounded text-[#a83246]"
                         />
                         <span className="text-gray-800">Subscribed Only</span>
                       </label>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Category
                       </label>
                       <select
                         value={filters.category}
-                        onChange={(e) => setFilters({...filters, category: e.target.value})}
+                        onChange={(e) =>
+                          setFilters({ ...filters, category: e.target.value })
+                        }
                         className="w-full rounded-md border-gray-300 shadow-sm focus:border-[#a83246] focus:ring-[#a83246] text-gray-800"
                       >
                         <option value="">All Categories</option>
@@ -373,27 +377,30 @@ const HomePage = () => {
 
             {/* Sort Dropdown */}
             <div className="relative" ref={sortRef}>
-              <button 
+              <button
                 onClick={() => setSortOpen(!sortOpen)}
                 className="flex items-center px-4 py-2 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-colors shadow-md"
               >
                 <ArrowDownWideNarrow className="w-4 h-4 mr-2" /> Sort
               </button>
-              
+
               {sortOpen && (
                 <div className="absolute right-0 mt-2 w-64 bg-white/90 backdrop-blur-lg rounded-lg shadow-xl z-50 p-4">
                   <h3 className="font-bold text-gray-800 mb-2">Sort By</h3>
-                  
+
                   <div className="space-y-2">
                     {[
-                      {value: 'viewers-desc', label: 'Viewers (High to Low)'},
-                      {value: 'viewers-asc', label: 'Viewers (Low to High)'},
-                      {value: 'date-desc', label: 'Recently Started'},
-                      {value: 'date-asc', label: 'Oldest'},
-                      {value: 'title-asc', label: 'Title (A-Z)'},
-                      {value: 'title-desc', label: 'Title (Z-A)'},
-                    ].map(option => (
-                      <label key={option.value} className="flex items-center space-x-2">
+                      { value: "viewers-desc", label: "Viewers (High to Low)" },
+                      { value: "viewers-asc", label: "Viewers (Low to High)" },
+                      { value: "date-desc", label: "Recently Started" },
+                      { value: "date-asc", label: "Oldest" },
+                      { value: "title-asc", label: "Title (A-Z)" },
+                      { value: "title-desc", label: "Title (Z-A)" },
+                    ].map((option) => (
+                      <label
+                        key={option.value}
+                        className="flex items-center space-x-2"
+                      >
                         <input
                           type="radio"
                           name="sortOption"
@@ -423,23 +430,37 @@ const HomePage = () => {
               Error loading streams: {streamError}
             </div>
           ) : searchedStreams.length > 0 ? (
-            searchedStreams.map(stream => (
+            searchedStreams.map((stream) => (
               <div
                 key={stream.streamId}
                 className="bg-white/80 backdrop-blur-sm rounded-lg overflow-hidden shadow-xl shadow-black/30 transition-all duration-300 ease-in-out hover:scale-[1.02] cursor-pointer"
                 onClick={() => handleStreamClick(stream.streamId)}
               >
-                <img src={ "https://placehold.co/320x180/7B1FA2/FFFFFF?text=Live+Stream"} alt={stream.streamId} className="w-full h-40 object-cover" />
+                <img
+                  src={
+                    "https://placehold.co/320x180/7B1FA2/FFFFFF?text=Live+Stream"
+                  }
+                  alt={stream.streamId}
+                  className="w-full h-40 object-cover"
+                />
                 <div className="p-4">
-                  <h3 className="text-xl font-bold text-gray-900 mb-1 truncate">{stream.streamerName}</h3>
-                  <p className="text-gray-800 text-sm mb-2 truncate">{stream.tags}</p>
+                  <h3 className="text-xl font-bold text-gray-900 mb-1 truncate">
+                    {stream.streamerName}
+                  </h3>
+                  <p className="text-gray-800 text-sm mb-2 truncate">
+                    {stream.tags}
+                  </p>
                   <div className="flex items-center text-sm text-neutral-600">
-                    <Eye className="w-4 h-4 mr-1" /> {stream.viewers || 0} viewers
+                    <Eye className="w-4 h-4 mr-1" /> {stream.viewers || 0}{" "}
+                    viewers
                   </div>
                   {stream.tags && stream.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {stream.tags.slice(0, 3).map(tag => (
-                        <span key={tag} className="bg-[#a83246]/10 text-[#a83246] text-xs px-2 py-1 rounded-full">
+                      {stream.tags.slice(0, 3).map((tag) => (
+                        <span
+                          key={tag}
+                          className="bg-[#a83246]/10 text-[#a83246] text-xs px-2 py-1 rounded-full"
+                        >
                           {tag}
                         </span>
                       ))}
@@ -460,7 +481,7 @@ const HomePage = () => {
         {/* Aangepaste profiel/stream card */}
         <div className="bg-white/80 border-white/10 rounded-3xl p-4 shadow-md shadow-black/30 flex flex-col items-center">
           {/* Profiel sectie - aparte klik handler */}
-          <div 
+          <div
             className="flex items-center justify-start w-full mb-2 cursor-pointer"
             onClick={(e) => {
               e.stopPropagation();
@@ -472,9 +493,9 @@ const HomePage = () => {
             </div>
             <h2 className="text-xl font-bold text-gray-800">My Profile</h2>
           </div>
-          
+
           {/* Go Live knop - aparte klik handler */}
-          <button 
+          <button
             onClick={(e) => {
               e.stopPropagation();
               handleGoLiveClick();
@@ -486,7 +507,9 @@ const HomePage = () => {
         </div>
 
         <div className="flex-grow bg-white/80 border-white/10 rounded-3xl p-8 shadow-md shadow-black/30 overflow-y-auto">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Subscriptions</h3>
+          <h3 className="text-lg font-bold text-gray-800 mb-4">
+            Subscriptions
+          </h3>
           {loadingSubscriptions ? (
             <div className="flex justify-center items-center h-20">
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-teal-500"></div>
@@ -495,23 +518,28 @@ const HomePage = () => {
             <p className="text-red-500 text-sm">{subscriptionError}</p>
           ) : subscriptions.length > 0 ? (
             <ul>
-              {subscriptions.map(sub => (
-                sub?.streamer && (
-                  <li
-                    key={sub._id}
-                    className="flex items-center mb-3 p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/profile/${sub.streamer._id}`)}
-                  >
-                    <div className="w-6 h-6 rounded-full mr-3 flex-shrink-0 overflow-hidden bg-neutral-700 flex items-center justify-center text-white text-xs font-bold">
-                      {sub.streamer?.userName?.charAt(0).toUpperCase() || 'U'}
-                    </div>
-                    <span className="text-gray-800 font-semibold flex-grow truncate">{sub.streamer?.userName}</span>
-                  </li>
-                )
-              ))}
+              {subscriptions.map(
+                (sub) =>
+                  sub?.streamer && (
+                    <li
+                      key={sub._id}
+                      className="flex items-center mb-3 p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/profile/${sub.streamer._id}`)}
+                    >
+                      <div className="w-6 h-6 rounded-full mr-3 flex-shrink-0 overflow-hidden bg-neutral-700 flex items-center justify-center text-white text-xs font-bold">
+                        {sub.streamer?.userName?.charAt(0).toUpperCase() || "U"}
+                      </div>
+                      <span className="text-gray-800 font-semibold flex-grow truncate">
+                        {sub.streamer?.userName}
+                      </span>
+                    </li>
+                  )
+              )}
             </ul>
           ) : (
-            <p className="text-gray-600 text-sm">You have no active subscriptions.</p>
+            <p className="text-gray-600 text-sm">
+              You have no active subscriptions.
+            </p>
           )}
         </div>
       </div>
@@ -523,11 +551,14 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={
-          <RequireAuth>
-            <HomePage />
-          </RequireAuth>
-        } />
+        <Route
+          path="/"
+          element={
+            <RequireAuth>
+              <HomePage />
+            </RequireAuth>
+          }
+        />
         <Route
           path="/streamer"
           element={

@@ -30,7 +30,6 @@ export class UserController {
 
   @Post('registerPubKey')
   async registerPubKey(@Body() obj: any, @User() user: any): Promise<Boolean> {
-
-    return this.userService.registerPubKey(obj, user._id);
+    return this.userService.registerPubKey(obj, user.sub);
   }
 }

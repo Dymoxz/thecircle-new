@@ -144,7 +144,8 @@ export async function setupDeviceKey() {
       publicKey: pubKey,
       deviceId: deviceId,
     };
-
+    
+    console.log("tejaskl;fjds;alkfjask;ljf");
     //send public key and deviceId to db
     await fetch(`https://localhost:3002/api/user/registerPubKey`, {
       method: "POST",
