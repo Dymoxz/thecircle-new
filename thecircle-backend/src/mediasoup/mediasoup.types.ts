@@ -29,6 +29,7 @@ export interface ViewerInfo {
   socket: any;
   transport: TransportInfo;
   streamId: string;
+  streamswatching: Int16Array
 }
 
 export interface StreamInfo {

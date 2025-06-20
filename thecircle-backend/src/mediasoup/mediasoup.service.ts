@@ -1,5 +1,8 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import * as mediasoup from 'mediasoup';
+import * as fs from 'fs';
+import * as path from 'path';
+import { spawn } from 'child_process';
 import * as os from 'os';
 import { UserService } from '../user/user.service';
 
@@ -33,6 +36,7 @@ type ViewerInfo = {
   socket: any;
   transport: TransportInfo;
   streamId: string;
+  streamsWatching?: number;
 };
 
 type StreamInfo = {
@@ -49,6 +53,8 @@ export class MediasoupService implements OnModuleDestroy {
   private workers: MediasoupWorker[] = [];
   private streams = new Map<string, StreamInfo>();
   private currentWorkerIndex = 0;
+  private viewerStreamsWatching = new Map<string, number>();
+
 
   private getLocalIpAddress(): string {
     const interfaces = os.networkInterfaces();
@@ -225,7 +231,7 @@ export class MediasoupService implements OnModuleDestroy {
     streamerId: string,
     clientId?: string,
   ): Promise<any> {
-    console.log (this.streams)
+    // console.log (this.streams)
     const stream = this.streams.get(streamerId);
     if (!stream) {
       throw new Error(`Stream ${streamId} not found`);
@@ -429,12 +435,18 @@ export class MediasoupService implements OnModuleDestroy {
     viewerId: string,
     viewerSocket: any,
   ): Promise<ViewerInfo> {
-    console.log(this.streams)
+    // console.log(this.streams)
     const stream = this.streams.get(streamId);
     if (!stream) {
       throw new Error(`Stream ${streamId} not found`);
     }
 
+    const currentWatching = this.viewerStreamsWatching.get(viewerId) || 0;
+    if (currentWatching >= 4) {
+      this.logger.warn(`Viewer ${viewerId} is already watching 4 streams`);
+      throw new Error(`You can only watch up to 4 streams at a time.`);
+    }
+    this.viewerStreamsWatching.set(viewerId, currentWatching + 1);
     const viewerInfo: ViewerInfo = {
       id: viewerId,
       socket: viewerSocket,
@@ -447,6 +459,7 @@ export class MediasoupService implements OnModuleDestroy {
       streamId,
     };
 
+    console.log( `[SERVICE] Viewer ${viewerId} is now watching ${currentWatching+1} streams. `)
     stream.viewers.set(viewerId, viewerInfo);
     this.logger.log(`Viewer ${viewerId} added to stream ${streamId}`);
     return viewerInfo;
@@ -458,21 +471,25 @@ export class MediasoupService implements OnModuleDestroy {
       return;
     }
 
-    // Close all consumers
-    for (const consumer of stream.viewers.values()) {
-      for (const consumerConsumer of consumer.transport.consumers.values()) {
-        consumerConsumer.close();
+    const viewer = stream.viewers.get(viewerId);
+    if (viewer) {
+      // Close all consumers
+      const currentWatching = this.viewerStreamsWatching.get(viewerId) || 0;
+      this.viewerStreamsWatching.set(viewerId, currentWatching - 1);
+      console.log(`[SERVICE] Viewer ${viewerId} is now watching ${currentWatching - 1} streams.`);
+      for (const consumer of viewer.transport.consumers.values()) {
+        consumer.close();
       }
-      consumer.transport.consumers.clear();
+      viewer.transport.consumers.clear();
 
       // Close transport
-      if (consumer.transport.transport) {
-        consumer.transport.transport.close();
+      if (viewer.transport.transport) {
+        viewer.transport.transport.close();
       }
-    }
 
-    stream.viewers.delete(viewerId);
-    this.logger.log(`Viewer ${viewerId} removed from stream ${streamId}`);
+      stream.viewers.delete(viewerId);
+      this.logger.log(`Viewer ${viewerId} removed from stream ${streamId}`);
+    }
   }
 
   async closeStream(streamId: string): Promise<void> {

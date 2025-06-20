@@ -94,6 +94,19 @@ export class MediasoupGateway
   }
 
   private async handleViewerDisconnect(streamId: string, viewerId: string) {
+    // Remove viewer from the stream
+    const stream = await this.mediasoupService.getStreamInfo(streamId);
+
+    if (stream) {
+      const streamer = stream.streamer;
+      streamer.socket.send(
+        JSON.stringify({
+          event: 'viewer-left',
+          data: { viewerId },
+        }),
+      );
+    }
+
     try {
       await this.mediasoupService.removeViewer(streamId, viewerId);
       this.logger.log(
@@ -159,7 +172,8 @@ export class MediasoupGateway
     } else if (clientType === 'viewer' && effectiveStreamId) {
       try {
         console.log(
-          `[STREAMS] Viewer ${id} joining streamId=${effectiveStreamId}`,)
+          `[STREAMS] Viewer ${id} joining streamId=${effectiveStreamId}`,
+        );
         await this.mediasoupService.addViewer(effectiveStreamId, id, socket);
         this.logger.log(
           `[STREAMS] Viewer ${id} joined streamId=${effectiveStreamId}`,
@@ -195,12 +209,24 @@ export class MediasoupGateway
         }
       } catch (error) {
         this.logger.error(`Error adding viewer: ${error.message}`);
-        socket.send(
-          JSON.stringify({
-            event: 'error',
-            data: { message: 'Failed to join stream' },
-          }),
-        );
+        if (error.message === 'You can only watch up to 4 streams at a time.') {
+          console.log(
+            `[STREAMS] Viewer ${id} reached max streams limit for streamId=${effectiveStreamId}`,
+          );
+          socket.send(
+            JSON.stringify({
+              event: 'maxStreamsReached',
+              data: { message: error.message },
+            }),
+          );
+        } else {
+          socket.send(
+            JSON.stringify({
+              event: 'error',
+              data: { message: 'Failed to join stream' },
+            }),
+          );
+        }
       }
     }
   }

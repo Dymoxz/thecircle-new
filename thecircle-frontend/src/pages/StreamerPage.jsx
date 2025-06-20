@@ -127,6 +127,7 @@ const StreamerPage = () => {
         socket.onopen = () => setIsWsConnected(true);
         socket.onclose = () => setIsWsConnected(false);
         socket.onerror = (err) => console.error("[WS] Error:", err);
+			
 
         socket.onmessage = async (event) => {
             try {
@@ -139,6 +140,14 @@ const StreamerPage = () => {
                         }
                         break;
                     }
+                    		case "viewer-left": {
+						const { viewerId } = msg.data;
+						if (viewerId) {
+							setViewerCount((prev) => Math.max(prev - 1, 0));
+							console.log(viewerCount);
+						}
+						break;
+					}
                     case "rtp-capabilities": {
                         const {rtpCapabilities} = msg.data;
                         if (deviceRef.current) {
