@@ -162,7 +162,7 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 
 	useEffect(() => {
 		// Connect to backend WebSocket
-		wsRef.current = socket
+		wsRef.current = socket;
 		if (!socket) return;
 
 		const onMessage = async (event) => {
@@ -232,7 +232,7 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 		socket.addEventListener("message", onMessage);
 
 		return () => {
-			socket.removeEventListener('message', onMessage);
+			socket.removeEventListener("message", onMessage);
 		};
 	}, [streamId, username, socket]);
 

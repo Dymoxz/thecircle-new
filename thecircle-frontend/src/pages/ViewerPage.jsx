@@ -22,13 +22,15 @@ import { jwtDecode } from "jwt-decode";
 import {useParams} from "react-router-dom";
 
 // WebSocket URL configuration
-const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_URL = `${wsProtocol}//${window.location.hostname}:3001`;
 
+
+
 const VIDEO_CONSTRAINTS = {
-	width: { ideal: 1280 },
-	height: { ideal: 720 },
-	frameRate: { ideal: 30, max: 60 },
+    width: {ideal: 1280},
+    height: {ideal: 720},
+    frameRate: {ideal: 30, max: 60}
 };
 
 const ViewerPage = () => {
@@ -59,20 +61,20 @@ const ViewerPage = () => {
 	const recvTransportRef = useRef(null);
 	const consumersRef = useRef(new Map());
 
-	const streamInfo = {
-		streamerName: "CodeMaster_Dev",
-		title: "Building a React Streaming App - Live Coding Session",
-		viewers: 247,
-		category: "Programming",
-		tags: ["React", "JavaScript", "WebRTC", "Live Coding"],
-	};
+    const streamInfo = {
+        streamerName: "CodeMaster_Dev",
+        title: "Building a React Streaming App - Live Coding Session",
+        viewers: 247,
+        category: "Programming",
+        tags: ["React", "JavaScript", "WebRTC", "Live Coding"]
+    };
 
-	useEffect(() => {
-		document.title = "StreamHub - Watch";
-		return () => {
-			document.title = "StreamHub";
-		};
-	}, []);
+    useEffect(() => {
+        document.title = 'StreamHub - Watch';
+        return () => {
+            document.title = 'StreamHub';
+        };
+    }, []);
 
 
 
@@ -141,7 +143,13 @@ const ViewerPage = () => {
 
 		socket.onmessage = async (event) => {
 			const msg = JSON.parse(event.data);
-			switch (msg.event) {
+            if (msg.event === "frame-hash") {
+                console.log("[Viewer] FULL frame-hash event:", msg);
+                console.log("MESSAGE DATA", msg.data);
+                setLatestFrameHash(msg.data?.frameHash || null);
+                setLatestFrameSignature(msg.data?.signature || null);
+            }
+            switch (msg.event) {
 				case "streams":
 					setStreams(msg.data.streams);
 					console.log("Received streams:", msg.data.streams);
@@ -763,7 +771,7 @@ const ViewerPage = () => {
 							clearTimeout(timeout);
 							socketRef.current.onmessage = originalOnMessage;
 							resolve();
-						} 
+						}
 						else if (msg.event === "maxStreamsReached") {
 							clearTimeout(timeout);
 							setShowMaxStreams(true);
@@ -908,6 +916,120 @@ const ViewerPage = () => {
 			myStream={false}
 		/>
 	);
+
+    // --- Frame hash verification ---
+    // Store the latest frame hash from streamer
+    const [latestFrameHash, setLatestFrameHash] = useState(null);
+    const [latestFrameSignature, setLatestFrameSignature] = useState(null);
+    const [frameVerified, setFrameVerified] = useState(null);
+
+    // Helper: Capture a frame from the video element
+    function captureFrame(videoElement) {
+        const canvas = document.createElement("canvas");
+        canvas.width = videoElement.videoWidth;
+        canvas.height = videoElement.videoHeight;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+        return canvas;
+    }
+
+    // --- Single pixel hash for consistency ---
+    function getSinglePixelHash(canvas) {
+        // Pick a fixed pixel, e.g., (10, 10) or (0, 0)
+        const x = Math.min(10, canvas.width - 1);
+        const y = Math.min(10, canvas.height - 1);
+        const ctx = canvas.getContext("2d");
+        const pixel = ctx.getImageData(x, y, 1, 1).data;
+        // Log pixel info
+        console.log("[Viewer] Single pixel at", x, y, ":", pixel);
+        // Simple hash: join RGB values
+        return pixel[0] + "-" + pixel[1] + "-" + pixel[2];
+    }
+
+    // Helper: Get single pixel hash of the frame
+    async function getFrameHash(canvas) {
+        const frameHash = getDownscaledFrameHash(canvas, 8);
+        console.log("[Viewer] Downscaled frame hash:", frameHash);
+        return frameHash;
+    }
+
+    // --- Downscale and hash frame for robust comparison ---
+    function getDownscaledFrameHash(canvas, size = 8) {
+        const downCanvas = document.createElement("canvas");
+        downCanvas.width = size;
+        downCanvas.height = size;
+        const ctx = downCanvas.getContext("2d");
+        ctx.drawImage(canvas, 0, 0, size, size);
+        const imgData = ctx.getImageData(0, 0, size, size).data;
+        let hash = "";
+        let total = 0;
+        const grays = [];
+        for (let i = 0; i < size * size; i++) {
+            const r = imgData[i * 4];
+            const g = imgData[i * 4 + 1];
+            const b = imgData[i * 4 + 2];
+            const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+            grays.push(gray);
+            total += gray;
+        }
+        const avg = total / (size * size);
+        for (let i = 0; i < grays.length; i++) {
+            hash += grays[i] > avg ? "1" : "0";
+        }
+        return hash;
+    }
+
+    function hashesAreSimilar(hashA, hashB, tolerance = 4) {
+        if (!hashA || !hashB || hashA.length !== hashB.length) return false;
+        let diff = 0;
+        for (let i = 0; i < hashA.length; i++) {
+            if (hashA[i] !== hashB[i]) diff++;
+        }
+        console.log(
+            `[Viewer] Hamming distance: ${diff} (tolerance: ${tolerance}) | Local: ${hashA} | Streamer: ${hashB}`
+        );
+        return diff <= tolerance;
+    }
+
+    useEffect(() => {
+        let intervalId;
+        async function verifyFrame() {
+            if (
+                remoteVideoRef.current &&
+                !remoteVideoRef.current.paused &&
+                !remoteVideoRef.current.ended
+            ) {
+                const canvas = captureFrame(remoteVideoRef.current);
+                const frameHash = await getFrameHash(canvas);
+                console.log("[Viewer] frame hash (local):", frameHash);
+                console.log(
+                    "[Viewer] latest frame hash (from streamer):",
+                    latestFrameHash
+                );
+                if (
+                    latestFrameHash &&
+                    frameHash &&
+                    frameHash.length === latestFrameHash.length
+                ) {
+                    const similar = hashesAreSimilar(
+                        frameHash,
+                        latestFrameHash,
+                        4
+                    );
+                    setFrameVerified(similar);
+                    if (!similar) {
+                        console.warn(
+                            "[Viewer] Frame hashes differ (not similar enough)"
+                        );
+                    }
+                } else {
+                    setFrameVerified(false);
+                }
+            }
+        }
+        intervalId = setInterval(verifyFrame, 1000);
+        return () => clearInterval(intervalId);
+    }, [latestFrameHash]);
 
 	// --- Bottom Bar Controls ---
 	const handlePause = () => {

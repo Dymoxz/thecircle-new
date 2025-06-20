@@ -1,7 +1,9 @@
 import React, {useEffect, useRef, useState} from "react";
+import { v4 as uuidv4 } from "uuid";
 import {
     Eye,
     FlipHorizontal,
+    MessageSquare,
     Mic,
     MicOff,
     Monitor,
@@ -9,6 +11,7 @@ import {
     Play,
     RotateCcw,
     Square,
+    Settings,
     SwitchCamera,
     Video,
     VideoOff,
@@ -120,14 +123,14 @@ const StreamerPage = () => {
         return `${minutes}:${secs.toString().padStart(2, "0")}`;
     };
 
-    useEffect(() => {
-        socketRef.current = new WebSocket(WS_URL);
-        const socket = socketRef.current;
+	useEffect(() => {
+		socketRef.current = new WebSocket(WS_URL);
+		const socket = socketRef.current;
 
         socket.onopen = () => setIsWsConnected(true);
         socket.onclose = () => setIsWsConnected(false);
         socket.onerror = (err) => console.error("[WS] Error:", err);
-			
+
 
         socket.onmessage = async (event) => {
             try {
@@ -530,8 +533,142 @@ const StreamerPage = () => {
         streamStartTime.current = null;
     };
 
-    const handlePauseStream = () => {
-        if (!localStreamRef.current) return;
+	function captureFrame(videoElement) {
+		const canvas = document.createElement("canvas");
+		canvas.width = videoElement.videoWidth;
+		canvas.height = videoElement.videoHeight;
+		const ctx = canvas.getContext("2d");
+		ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+		return canvas;
+	}
+
+	async function getFrameHash(canvas) {
+		const blob = await new Promise((resolve) =>
+			canvas.toBlob(resolve, "image/png")
+		);
+		const arrayBuffer = await blob.arrayBuffer();
+		const hashBuffer = await window.crypto.subtle.digest(
+			"SHA-256",
+			arrayBuffer
+		);
+		return new Uint8Array(hashBuffer);
+	}
+
+	async function signFrameHash(privateKey, frameHash) {
+		const signature = await window.crypto.subtle.sign(
+			{ name: "RSASSA-PKCS1-v1_5" },
+			privateKey,
+			frameHash
+		);
+		return btoa(String.fromCharCode(...new Uint8Array(signature)));
+	}
+
+	const keyPairRef = useRef(null);
+
+	useEffect(() => {
+		async function loadKeyPair() {
+			if (!keyPairRef.current) {
+				const pair = await window.crypto.subtle.generateKey(
+					{
+						name: "RSASSA-PKCS1-v1_5",
+						modulusLength: 2048,
+						publicExponent: new Uint8Array([1, 0, 1]),
+						hash: "SHA-256",
+					},
+					true,
+					["sign", "verify"]
+				);
+				keyPairRef.current = pair;
+			}
+		}
+		loadKeyPair();
+	}, []);
+
+	useEffect(() => {
+		let intervalId;
+		async function sendFrameHashMediasoup() {
+			if (
+				isStreaming &&
+				localVideoRef.current &&
+				!isPaused &&
+				!isVideoOff &&
+				socketRef.current &&
+				socketRef.current.readyState === WebSocket.OPEN
+			) {
+				const canvas = captureFrame(localVideoRef.current);
+				const frameHash = getDownscaledFrameHash(canvas, 8);
+				const timestamp = new Date().toISOString();
+				socketRef.current.send(
+					JSON.stringify({
+						event: "frame-hash",
+						data: {
+							streamId,
+							senderId: streamerId,
+							frameHash: frameHash,
+							timestamp,
+						},
+					})
+				);
+				console.log(
+					"[Streamer] Sent frame hash via mediasoup event:",
+					frameHash
+				);
+			}
+		}
+		if (isStreaming) {
+			intervalId = setInterval(sendFrameHashMediasoup, 1000);
+		}
+		return () => clearInterval(intervalId);
+	}, [isStreaming, isPaused, isVideoOff]);
+
+	const extractFramefromStream = (stream) => {
+		if (!stream || !stream.getVideoTracks().length) {
+			console.error("No video track found in the stream");
+			return null;
+		}
+
+		const videoTrack = stream.getVideoTracks()[0];
+		const imageCapture = new ImageCapture(videoTrack);
+
+		return imageCapture;
+	};
+
+	const createDigitalSignature = async (stream) => {
+		if (!stream || !stream.getVideoTracks().length) {
+			console.error("No video track found in the stream");
+			return null;
+		}
+		const imageCapture = extractFramefromStream(stream);
+		if (!imageCapture) {
+			console.error("Could not extract frame from stream");
+			return null;
+		}
+		try {
+			const frame = await imageCapture.grabFrame();
+			const canvas = document.createElement("canvas");
+			canvas.width = frame.width;
+			canvas.height = frame.height;
+			const ctx = canvas.getContext("2d");
+			ctx.drawImage(frame, 0, 0, frame.width, frame.height);
+			const imageData = ctx.getImageData(0, 0, frame.width, frame.height);
+			const data = imageData.data;
+			const hashBuffer = await crypto.subtle.digest(
+				"SHA-256",
+				new Uint8Array(data)
+			);
+			const hashArray = Array.from(new Uint8Array(hashBuffer));
+			const hashHex = hashArray
+				.map((b) => b.toString(16).padStart(2, "0"))
+				.join("");
+			return hashHex;
+		} catch (error) {
+			console.error("Error creating digital signature:", error);
+			return null;
+		}
+	};
+
+	const handlePauseStream = () => {
+		if (!localStreamRef.current) return;
 
         const nextPausedState = !isPaused;
         const tracks = localStreamRef.current.getTracks();
@@ -838,3 +975,30 @@ disabled={!isWsConnected}
 };
 
 export default StreamerPage;
+
+// --- Downscale and hash frame for robust comparison ---
+function getDownscaledFrameHash(canvas, size = 8) {
+	// Downscale to 8x8 and hash the grayscale values
+	const downCanvas = document.createElement("canvas");
+	downCanvas.width = size;
+	downCanvas.height = size;
+	const ctx = downCanvas.getContext("2d");
+	ctx.drawImage(canvas, 0, 0, size, size);
+	const imgData = ctx.getImageData(0, 0, size, size).data;
+	let hash = "";
+	let total = 0;
+	const grays = [];
+	for (let i = 0; i < size * size; i++) {
+		const r = imgData[i * 4];
+		const g = imgData[i * 4 + 1];
+		const b = imgData[i * 4 + 2];
+		const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+		grays.push(gray);
+		total += gray;
+	}
+	const avg = total / (size * size);
+	for (let i = 0; i < grays.length; i++) {
+		hash += grays[i] > avg ? "1" : "0";
+	}
+	return hash;
+}

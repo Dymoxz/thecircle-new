@@ -631,4 +631,35 @@ export class MediasoupGateway
     );
     this.logger.log(`[RESUME] Stream ${streamId} resumed`);
   }
+
+  @SubscribeMessage('frame-hash')
+  async handleFrameHash(
+    @MessageBody()
+    data: {
+      streamId: string;
+      senderId: string;
+      frameHash: string;
+      timestamp: string;
+    },
+    @ConnectedSocket() socket: WebSocket,
+  ) {
+    const { streamId, senderId, frameHash, timestamp } = data;
+    // Get stream info from mediasoupService
+    const stream = await this.mediasoupService.getStreamInfo(streamId);
+    if (!stream) return;
+    // Relay to all viewers (not streamer)
+    for (const [viewerId, viewer] of stream.viewers.entries()) {
+      if (viewer.socket.readyState === WebSocket.OPEN) {
+        viewer.socket.send(
+          JSON.stringify({
+            event: 'frame-hash',
+            data: { streamId, senderId, frameHash, timestamp },
+          }),
+        );
+      }
+    }
+    this.logger.log(
+      `[FRAME-HASH] Relayed frame hash from ${senderId} in stream ${streamId}: ${frameHash}`,
+    );
+  }
 }
