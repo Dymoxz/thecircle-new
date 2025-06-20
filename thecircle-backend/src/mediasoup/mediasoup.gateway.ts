@@ -126,10 +126,19 @@ export class MediasoupGateway
       streamerId?: string;
       username: string;
       tags?: string[];
+      viewerCount?: number;
     },
     @ConnectedSocket() socket: WebSocket,
   ) {
-    const { id, clientType, streamId, streamerId, username, tags } = data;
+    const {
+      id,
+      clientType,
+      streamId,
+      streamerId,
+      username,
+      tags,
+      viewerCount,
+    } = data;
 
     // If streamerId is provided (for viewers), use it as the stream owner reference
     const effectiveStreamId = streamerId || streamId;
@@ -154,6 +163,7 @@ export class MediasoupGateway
           socket,
           username,
           tags,
+          0,
         );
         this.logger.log(
           `[STREAMS] Streamer registered streamId=${effectiveStreamId}`,

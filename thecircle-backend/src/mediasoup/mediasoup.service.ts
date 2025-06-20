@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import * as mediasoup from 'mediasoup';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -48,6 +53,7 @@ type StreamInfo = {
   router: mediasoup.types.Router;
   recordingPath: string;
   tags?: string[];
+  viewerCount?: number;
 };
 
 @Injectable()
@@ -57,7 +63,6 @@ export class MediasoupService implements OnModuleDestroy {
   private streams = new Map<string, StreamInfo>();
   private currentWorkerIndex = 0;
   private viewerStreamsWatching = new Map<string, number>();
-
 
   private getLocalIpAddress(): string {
     const interfaces = os.networkInterfaces();
@@ -215,6 +220,7 @@ export class MediasoupService implements OnModuleDestroy {
     streamerSocket: any,
     username: string,
     tags?: string[],
+    viewerCount?: number,
   ): Promise<StreamInfo> {
     const worker = this.getNextWorker();
     const router = worker.router;
@@ -242,6 +248,7 @@ export class MediasoupService implements OnModuleDestroy {
         `${streamId}.${this.getConfig().recordingOptions.format}`,
       ),
       tags: tags || [],
+      viewerCount: viewerCount || 0,
     };
 
     this.streams.set(streamId, streamInfo);
@@ -269,7 +276,8 @@ export class MediasoupService implements OnModuleDestroy {
       enableTcp: transportOptions.enableTcp,
     });
 
-    const transport = await stream.router.createWebRtcTransport(transportOptions);
+    const transport =
+      await stream.router.createWebRtcTransport(transportOptions);
 
     const transportInfo: TransportInfo = {
       id: transport.id,
@@ -312,7 +320,7 @@ export class MediasoupService implements OnModuleDestroy {
     isStreamer: boolean,
   ): Promise<void> {
     // console.log('[CONNECT] connectTransport called with:', { streamId, transportId, isStreamer });
-    
+
     const stream = this.streams.get(streamId);
     if (!stream) {
       console.log('[CONNECT] Stream not found:', streamId);
@@ -370,13 +378,10 @@ export class MediasoupService implements OnModuleDestroy {
 
     stream.streamer.producers.set(kind, producer);
 
-
     if (!stream.streamer.isStreaming) {
       stream.streamer.isStreaming = true;
       this.logger.log(`Stream ${streamId} is now live.`);
-
     }
-
 
     if (!stream.streamer.recordingProcess) {
       await this.startRecording(stream);
@@ -398,8 +403,12 @@ export class MediasoupService implements OnModuleDestroy {
     transportId: string,
     rtpCapabilities: any,
   ): Promise<any> {
-    console.log('[SERVICE] createConsumer called with:', { streamId, viewerId, transportId });
-    
+    console.log('[SERVICE] createConsumer called with:', {
+      streamId,
+      viewerId,
+      transportId,
+    });
+
     const stream = this.streams.get(streamId);
     if (!stream) {
       console.log('[SERVICE] Stream not found:', streamId);
@@ -415,11 +424,17 @@ export class MediasoupService implements OnModuleDestroy {
     const transport = viewer.transport
       .transport as mediasoup.types.WebRtcTransport;
     if (transport.id !== transportId) {
-      console.log('[SERVICE] Transport ID mismatch:', { expected: transport.id, received: transportId });
+      console.log('[SERVICE] Transport ID mismatch:', {
+        expected: transport.id,
+        received: transportId,
+      });
       throw new Error(`Transport ${transportId} not found`);
     }
 
-    console.log('[SERVICE] Stream has producers:', stream.streamer.producers.size);
+    console.log(
+      '[SERVICE] Stream has producers:',
+      stream.streamer.producers.size,
+    );
     if (stream.streamer.producers.size === 0) {
       console.log('[SERVICE] No producers available');
       throw new Error(`No producers available for stream ${streamId}`);
@@ -435,8 +450,11 @@ export class MediasoupService implements OnModuleDestroy {
     }> = [];
 
     for (const [kind, producer] of stream.streamer.producers.entries()) {
-      console.log('[SERVICE] Creating consumer for producer:', { kind, producerId: producer.id });
-      
+      console.log('[SERVICE] Creating consumer for producer:', {
+        kind,
+        producerId: producer.id,
+      });
+
       const consumer = await transport.consume({
         producerId: producer.id,
         rtpCapabilities,
@@ -489,8 +507,10 @@ export class MediasoupService implements OnModuleDestroy {
       },
       streamId,
     };
-   
-    console.log( `[SERVICE] Viewer ${viewerId} is now watching ${currentWatching+1} streams. `)
+
+    console.log(
+      `[SERVICE] Viewer ${viewerId} is now watching ${currentWatching + 1} streams. `,
+    );
     stream.viewers.set(viewerId, viewerInfo);
     this.logger.log(`Viewer ${viewerId} added to stream ${streamId}`);
     return viewerInfo;
@@ -507,7 +527,9 @@ export class MediasoupService implements OnModuleDestroy {
       // Close all consumers
       const currentWatching = this.viewerStreamsWatching.get(viewerId) || 0;
       this.viewerStreamsWatching.set(viewerId, currentWatching - 1);
-      console.log(`[SERVICE] Viewer ${viewerId} is now watching ${currentWatching - 1} streams.`);
+      console.log(
+        `[SERVICE] Viewer ${viewerId} is now watching ${currentWatching - 1} streams.`,
+      );
       for (const consumer of viewer.transport.consumers.values()) {
         consumer.close();
       }
@@ -558,12 +580,20 @@ export class MediasoupService implements OnModuleDestroy {
     }
   }
 
-async getActiveStreams(): Promise<{ streamId: string; streamerName: string | undefined; tags: string[] | undefined }[]> {
+  async getActiveStreams(): Promise<
+    {
+      streamId: string;
+      streamerName: string | undefined;
+      tags: string[] | undefined;
+      viewerCount: number | undefined;
+    }[]
+  > {
     // Return an array of objects with streamId and streamerName
-    return Array.from(this.streams.values()).map(stream => ({
+    return Array.from(this.streams.values()).map((stream) => ({
       streamId: stream.streamId,
       streamerName: stream.streamer.username,
       tags: stream.tags,
+      viewerCount: stream.viewerCount,
     }));
   }
 

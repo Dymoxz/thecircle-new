@@ -32,6 +32,7 @@ const VIDEO_CONSTRAINTS = {
 };
 
 const ViewerPage = () => {
+	const [viererCount, setViewerCount] = useState(0);
 	const navigate = useNavigate();
 	const [streams, setStreams] = useState([]);
 	const [currentStreamId, setCurrentStreamId] = useState(null);
@@ -912,7 +913,8 @@ const ViewerPage = () => {
 
 	useEffect(() => {
 		let intervalId;
-		async function verifyFrame() {
+		function verifyFrame() {
+			// Always compare at a fixed interval, using the latest hashes
 			if (
 				remoteVideoRef.current &&
 				!remoteVideoRef.current.paused &&
@@ -921,45 +923,46 @@ const ViewerPage = () => {
 				remoteVideoRef.current.videoHeight > 0
 			) {
 				const canvas = captureFrame(remoteVideoRef.current);
-				const frameHash = await getFrameHash(canvas);
-				console.log(
-					"[Viewer] frame hash (local):",
-					frameHash,
-					"length:",
-					frameHash.length
-				);
-				console.log(
-					"[Viewer] latest frame hash (from streamer):",
-					latestFrameHash,
-					"length:",
-					latestFrameHash && latestFrameHash.length
-				);
-				if (
-					latestFrameHash &&
-					frameHash &&
-					typeof latestFrameHash === "string" &&
-					typeof frameHash === "string" &&
-					frameHash.length === 64 &&
-					latestFrameHash.length === 64
-				) {
-					const similar = hashesAreSimilar(
+				getFrameHash(canvas).then((frameHash) => {
+					console.log(
+						"[Viewer] frame hash (local):",
 						frameHash,
+						"length:",
+						frameHash.length
+					);
+					console.log(
+						"[Viewer] latest frame hash (from streamer):",
 						latestFrameHash,
-						4
+						"length:",
+						latestFrameHash && latestFrameHash.length
 					);
-					setFrameVerified(similar);
-					if (!similar) {
-						console.warn(
-							"[Viewer] Frame hashes differ (not similar enough)"
+					if (
+						latestFrameHash &&
+						frameHash &&
+						typeof latestFrameHash === "string" &&
+						typeof frameHash === "string" &&
+						frameHash.length === 64 &&
+						latestFrameHash.length === 64
+					) {
+						const similar = hashesAreSimilar(
+							frameHash,
+							latestFrameHash,
+							4
 						);
+						setFrameVerified(similar);
+						if (!similar) {
+							console.warn(
+								"[Viewer] Frame hashes differ (not similar enough)"
+							);
+						}
+					} else {
+						console.warn(
+							"[Viewer] Hashes missing or wrong length. Skipping comparison.",
+							{ frameHash, latestFrameHash }
+						);
+						setFrameVerified(null); // Show 'Verifying...' if hashes are not comparable
 					}
-				} else {
-					console.warn(
-						"[Viewer] Hashes missing or wrong length. Skipping comparison.",
-						{ frameHash, latestFrameHash }
-					);
-					setFrameVerified(null); // Show 'Verifying...' if hashes are not comparable
-				}
+				});
 			}
 		}
 		intervalId = setInterval(verifyFrame, 1000);
