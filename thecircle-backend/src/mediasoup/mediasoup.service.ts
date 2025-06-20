@@ -505,6 +505,9 @@ export class MediasoupService implements OnModuleDestroy {
     const viewer = stream.viewers.get(viewerId);
     if (viewer) {
       // Close all consumers
+      const currentWatching = this.viewerStreamsWatching.get(viewerId) || 0;
+      this.viewerStreamsWatching.set(viewerId, currentWatching - 1);
+      console.log(`[SERVICE] Viewer ${viewerId} is now watching ${currentWatching - 1} streams.`);
       for (const consumer of viewer.transport.consumers.values()) {
         consumer.close();
       }
