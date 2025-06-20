@@ -21,8 +21,6 @@ export interface StreamerInfo {
   streamId: string;
   streamerID: string;
   isStreaming: boolean;
-  recordingProcess?: any; // FFmpeg process
-  recordingPath?: string;
   username: string;
 }
 
@@ -38,7 +36,6 @@ export interface StreamInfo {
   streamer: StreamerInfo;
   viewers: Map<string, ViewerInfo>;
   router: mediasoupTypes.Router;
-  recordingPath: string;
 }
 
 export interface RtpCapabilities {
@@ -68,15 +65,6 @@ export interface ConsumerOptions {
   appData?: any;
 }
 
-export interface RecordingConfig {
-  outputPath: string;
-  videoCodec: string;
-  audioCodec: string;
-  videoBitrate: string;
-  audioBitrate: string;
-  format: string;
-}
-
 export interface MediasoupConfig {
   numWorkers: number;
   workerSettings: {
@@ -95,5 +83,4 @@ export interface MediasoupConfig {
     preferUdp: boolean;
     initialAvailableOutgoingBitrate: number;
   };
-  recordingOptions: RecordingConfig;
 }
