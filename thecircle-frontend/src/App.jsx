@@ -170,10 +170,15 @@ const HomePage = () => {
     const token = localStorage.getItem("jwt_token");
 
     if (token) {
-      const { exp } = jwtDecode(token);
-
-      if (Date.now() < exp * 1000) {
-        setupDeviceKey();
+      try {
+        const { exp } = jwtDecode(token);
+        if (Date.now() < exp * 1000) {
+          setupDeviceKey();
+        } else {
+          console.log("expired jwt_token");
+        }
+      } catch (e) {
+        console.log("invalid jwt_token");
       }
     }
   }, []);
