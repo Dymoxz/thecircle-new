@@ -37,6 +37,7 @@ type ViewerInfo = {
   socket: any;
   transport: TransportInfo;
   streamId: string;
+  streamsWatching?: number;
 };
 
 type StreamInfo = {
@@ -53,6 +54,8 @@ export class MediasoupService implements OnModuleDestroy {
   private workers: MediasoupWorker[] = [];
   private streams = new Map<string, StreamInfo>();
   private currentWorkerIndex = 0;
+  private viewerStreamsWatching = new Map<string, number>();
+
 
   private getLocalIpAddress(): string {
     const interfaces = os.networkInterfaces();
@@ -248,7 +251,7 @@ export class MediasoupService implements OnModuleDestroy {
     streamerId: string,
     clientId?: string,
   ): Promise<any> {
-    console.log (this.streams)
+    // console.log (this.streams)
     const stream = this.streams.get(streamerId);
     if (!stream) {
       throw new Error(`Stream ${streamId} not found`);
@@ -304,7 +307,7 @@ export class MediasoupService implements OnModuleDestroy {
     dtlsParameters: any,
     isStreamer: boolean,
   ): Promise<void> {
-    console.log('[CONNECT] connectTransport called with:', { streamId, transportId, isStreamer });
+    // console.log('[CONNECT] connectTransport called with:', { streamId, transportId, isStreamer });
     
     const stream = this.streams.get(streamId);
     if (!stream) {
@@ -316,14 +319,14 @@ export class MediasoupService implements OnModuleDestroy {
     if (isStreamer) {
       transport = stream.streamer.transport
         .transport as mediasoup.types.WebRtcTransport;
-      console.log('[CONNECT] Found streamer transport:', transport.id);
+      // console.log('[CONNECT] Found streamer transport:', transport.id);
     } else {
       // Find viewer transport
       for (const viewer of stream.viewers.values()) {
         if (viewer.transport.id === transportId) {
           transport = viewer.transport
             .transport as mediasoup.types.WebRtcTransport;
-          console.log('[CONNECT] Found viewer transport:', transport.id);
+          // console.log('[CONNECT] Found viewer transport:', transport.id);
           break;
         }
       }
@@ -334,7 +337,7 @@ export class MediasoupService implements OnModuleDestroy {
       throw new Error(`Transport ${transportId} not found`);
     }
 
-    console.log('[CONNECT] Connecting transport with dtlsParameters:', dtlsParameters);
+    // console.log('[CONNECT] Connecting transport with dtlsParameters:', dtlsParameters);
     await transport.connect({ dtlsParameters });
     console.log('[CONNECT] Transport connected successfully');
   }
@@ -445,7 +448,7 @@ export class MediasoupService implements OnModuleDestroy {
       );
     }
 
-    console.log('[SERVICE] Returning consumers:', consumers);
+    // console.log('[SERVICE] Returning consumers:', consumers);
     return consumers;
   }
 
@@ -454,12 +457,18 @@ export class MediasoupService implements OnModuleDestroy {
     viewerId: string,
     viewerSocket: any,
   ): Promise<ViewerInfo> {
-    console.log(this.streams)
+    // console.log(this.streams)
     const stream = this.streams.get(streamId);
     if (!stream) {
       throw new Error(`Stream ${streamId} not found`);
     }
 
+    const currentWatching = this.viewerStreamsWatching.get(viewerId) || 0;
+    if (currentWatching >= 4) {
+      this.logger.warn(`Viewer ${viewerId} is already watching 4 streams`);
+      throw new Error(`You can only watch up to 4 streams at a time.`);
+    }
+    this.viewerStreamsWatching.set(viewerId, currentWatching + 1);
     const viewerInfo: ViewerInfo = {
       id: viewerId,
       socket: viewerSocket,
@@ -471,7 +480,8 @@ export class MediasoupService implements OnModuleDestroy {
       },
       streamId,
     };
-
+   
+    console.log( `[SERVICE] Viewer ${viewerId} is now watching ${currentWatching+1} streams. `)
     stream.viewers.set(viewerId, viewerInfo);
     this.logger.log(`Viewer ${viewerId} added to stream ${streamId}`);
     return viewerInfo;

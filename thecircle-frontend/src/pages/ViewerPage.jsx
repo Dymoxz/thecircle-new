@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import * as mediasoupClient from "mediasoup-client";
 import Chat from "../component/chat";
+import MaxStreams from "../component/MaxStreams";
 import { jwtDecode } from "jwt-decode";
 
 // WebSocket URL configuration
@@ -42,6 +43,7 @@ const ViewerPage = () => {
 	const [showVolumeSlider, setShowVolumeSlider] = useState(false);
 	const volumeSliderTimeoutRef = useRef(null);
 	const [user, setUser] = useState(null);
+	const [showMaxStreams, setShowMaxStreams] = useState(false);
 
 	const remoteVideoRef = useRef(null);
 	const socketRef = useRef(null);
@@ -182,6 +184,11 @@ const ViewerPage = () => {
 					if (remoteVideoRef.current) {
 						remoteVideoRef.current.play();
 					}
+					break;
+				}
+				case "maxStreamsReached": {
+					console.log
+					setShowMaxStreams(true);
 					break;
 				}
 				case "error": {
@@ -738,7 +745,14 @@ const ViewerPage = () => {
 							clearTimeout(timeout);
 							socketRef.current.onmessage = originalOnMessage;
 							resolve();
-						} else if (msg.event === "error") {
+						} 
+						else if (msg.event === "maxStreamsReached") {
+							clearTimeout(timeout);
+							setShowMaxStreams(true);
+							socketRef.current.onmessage = originalOnMessage;
+							console.log("Max streams reached, showing alert");
+						}
+						else if (msg.event === "error") {
 							clearTimeout(timeout);
 							socketRef.current.onmessage = originalOnMessage;
 							reject(new Error(msg.data.message));
@@ -1317,6 +1331,10 @@ const ViewerPage = () => {
 					</div>
 				</div>
 			)}
+			<MaxStreams
+				show={showMaxStreams}
+				onClose={() => setShowMaxStreams(false)}
+			/>
 		</div>
 	);
 };
