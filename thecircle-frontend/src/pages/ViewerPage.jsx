@@ -752,14 +752,7 @@ const ViewerPage = () => {
 	};
 
 
-	const ChatPanelContent = () => (
-		<Chat
-			streamId={currentStreamId}
-			username={username}
-			socket={socketRef.current}
-			myStream={false}
-		/>
-	);
+
 
     // --- Frame hash verification ---
     // Store the latest frame hash from streamer
@@ -1224,7 +1217,12 @@ const ViewerPage = () => {
 								))}
 							</div>
 						</div>
-						<ChatPanelContent />
+						<Chat
+							streamId={currentStreamId}
+							username={username}
+							socket={socketRef.current}
+							myStream={false}
+							/>
 					</>
 				)}
 			</div>
