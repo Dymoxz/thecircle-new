@@ -69,7 +69,7 @@ async function saveDevice(device: any): Promise<boolean> {
 }
 
 // Get device by ID
-async function getDevice(id: IDBValidKey): Promise<any> {
+export async function getDevice(id: IDBValidKey): Promise<any> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readonly");
@@ -96,15 +96,21 @@ async function getDevice(id: IDBValidKey): Promise<any> {
   });
 }
 
-
-export async function setupDeviceKey() {
-  //get deviceId
+export async function getDeviceName() {
+    //get deviceId
   let deviceId = localStorage.getItem("deviceId");
   if (!deviceId) {
     //gen deviceId
     deviceId = crypto.randomUUID();
     localStorage.setItem("deviceId", deviceId);
   }
+
+  return deviceId;
+}
+
+export async function setupDeviceKey() {
+  //get deviceId
+  const deviceId = await getDeviceName()
 
   //get device with privkey info
   let device = await getDevice(deviceId);
@@ -156,4 +162,31 @@ export async function setupDeviceKey() {
 export async function exportPublicKey(key) {
   const spki = await window.crypto.subtle.exportKey("spki", key);
   return btoa(String.fromCharCode(...new Uint8Array(spki)));
+}
+
+export async function importPublicKey(spkiB64) {
+	const binary = Uint8Array.from(atob(spkiB64), (c) => c.charCodeAt(0));
+	return window.crypto.subtle.importKey(
+		"spki",
+		binary,
+		{ name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+		true,
+		["verify"]
+	);
+}
+
+export async function exportPrivateKey(key) {
+	const pkcs8 = await window.crypto.subtle.exportKey("pkcs8", key);
+	return btoa(String.fromCharCode(...new Uint8Array(pkcs8)));
+}
+
+export async function importPrivateKey(pkcs8B64) {
+	const binary = Uint8Array.from(atob(pkcs8B64), (c) => c.charCodeAt(0));
+	return window.crypto.subtle.importKey(
+		"pkcs8",
+		binary,
+		{ name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+		true,
+		["sign"]
+	);
 }

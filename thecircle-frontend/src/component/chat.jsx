@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { getDeviceName, setupDeviceKey } from "../services/keys.service";
 
 // Helper functions for key management and signing/verifying
 const KEY_NAME = "chat_keypair";
@@ -13,39 +14,6 @@ async function generateKeyPair() {
 		},
 		true,
 		["sign", "verify"]
-	);
-}
-// pub, priv
-
-async function exportPublicKey(key) {
-	const spki = await window.crypto.subtle.exportKey("spki", key);
-	return btoa(String.fromCharCode(...new Uint8Array(spki)));
-}
-
-async function importPublicKey(spkiB64) {
-	const binary = Uint8Array.from(atob(spkiB64), (c) => c.charCodeAt(0));
-	return window.crypto.subtle.importKey(
-		"spki",
-		binary,
-		{ name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-		true,
-		["verify"]
-	);
-}
-
-async function exportPrivateKey(key) {
-	const pkcs8 = await window.crypto.subtle.exportKey("pkcs8", key);
-	return btoa(String.fromCharCode(...new Uint8Array(pkcs8)));
-}
-
-async function importPrivateKey(pkcs8B64) {
-	const binary = Uint8Array.from(atob(pkcs8B64), (c) => c.charCodeAt(0));
-	return window.crypto.subtle.importKey(
-		"pkcs8",
-		binary,
-		{ name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-		true,
-		["sign"]
 	);
 }
 
