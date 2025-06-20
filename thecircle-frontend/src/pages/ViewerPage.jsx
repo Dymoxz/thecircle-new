@@ -35,9 +35,8 @@ const ViewerPage = () => {
 	const socketRef = useRef(null);
 	const viewerId = useRef(uuidv4()).current;
 	const currentStreamIdRef = useRef(null);
-	const username = useRef("Viewer_" + viewerId.slice(0, 8)).current; // Simple username based on viewer ID
+	const username = useRef("Viewer_" + viewerId.slice(0, 8)).current;
 
-	// Mediasoup refs
 	const deviceRef = useRef(null);
 	const recvTransportRef = useRef(null);
 	const consumersRef = useRef(new Map());
@@ -836,12 +835,49 @@ const ViewerPage = () => {
 
 	// Helper: Get single pixel hash of the frame
 	async function getFrameHash(canvas) {
-		const pixelHash = getSinglePixelHash(canvas);
-		console.log("[Viewer] Single pixel hash:", pixelHash);
-		return pixelHash;
+		const frameHash = getDownscaledFrameHash(canvas, 8);
+		console.log("[Viewer] Downscaled frame hash:", frameHash);
+		return frameHash;
 	}
 
-	// Periodically hash the current frame and compare to the latest hash from streamer
+	// --- Downscale and hash frame for robust comparison ---
+	function getDownscaledFrameHash(canvas, size = 8) {
+		const downCanvas = document.createElement("canvas");
+		downCanvas.width = size;
+		downCanvas.height = size;
+		const ctx = downCanvas.getContext("2d");
+		ctx.drawImage(canvas, 0, 0, size, size);
+		const imgData = ctx.getImageData(0, 0, size, size).data;
+		let hash = "";
+		let total = 0;
+		const grays = [];
+		for (let i = 0; i < size * size; i++) {
+			const r = imgData[i * 4];
+			const g = imgData[i * 4 + 1];
+			const b = imgData[i * 4 + 2];
+			const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+			grays.push(gray);
+			total += gray;
+		}
+		const avg = total / (size * size);
+		for (let i = 0; i < grays.length; i++) {
+			hash += grays[i] > avg ? "1" : "0";
+		}
+		return hash;
+	}
+
+	function hashesAreSimilar(hashA, hashB, tolerance = 4) {
+		if (!hashA || !hashB || hashA.length !== hashB.length) return false;
+		let diff = 0;
+		for (let i = 0; i < hashA.length; i++) {
+			if (hashA[i] !== hashB[i]) diff++;
+		}
+		console.log(
+			`[Viewer] Hamming distance: ${diff} (tolerance: ${tolerance}) | Local: ${hashA} | Streamer: ${hashB}`
+		);
+		return diff <= tolerance;
+	}
+
 	useEffect(() => {
 		let intervalId;
 		async function verifyFrame() {
@@ -857,25 +893,24 @@ const ViewerPage = () => {
 					"[Viewer] latest frame hash (from streamer):",
 					latestFrameHash
 				);
-				// Print both hashes together for easy comparison
-				console.log(
-					`[Viewer] Compare hashes | Local: ${frameHash} | Streamer: ${latestFrameHash}`
-				);
-				if (latestFrameHash) {
-					// Compare first 8 chars for fuzzy match
-					const localShort = frameHash?.slice(0, 8);
-					const remoteShort = latestFrameHash?.slice(0, 8);
-					setFrameVerified(localShort === remoteShort);
-					if (localShort !== remoteShort) {
+				if (
+					latestFrameHash &&
+					frameHash &&
+					frameHash.length === latestFrameHash.length
+				) {
+					const similar = hashesAreSimilar(
+						frameHash,
+						latestFrameHash,
+						4
+					);
+					setFrameVerified(similar);
+					if (!similar) {
 						console.warn(
-							"[Viewer] Hashes differ! This is common due to video encoding. Local:",
-							localShort,
-							"Remote:",
-							remoteShort
+							"[Viewer] Frame hashes differ (not similar enough)"
 						);
 					}
 				} else {
-					setFrameVerified(null);
+					setFrameVerified(false);
 				}
 			}
 		}

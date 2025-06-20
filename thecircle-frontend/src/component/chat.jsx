@@ -119,39 +119,42 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 		return raw ? JSON.parse(raw) : [];
 	}
 	async function flushIncomingBuffer() {
-    const buffer = loadIncomingBuffer();
-    if (buffer.length > 0) {
-        console.log("[Chat] Flushing incoming buffer:", JSON.stringify(buffer));
-        // Remove buffer before sending to prevent race conditions
-        localStorage.removeItem(INCOMING_BUFFER_KEY);
-        // Send buffered messages to backend
-        await fetch(`https://localhost:3002/api/chat/save/`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(buffer),
-        });
-    }
-}
-
-	useEffect(() => {
-		// Fetch old messages from backend (localhost:3002)
-		fetch(`http://localhost:3002/api/chat/stream/${streamerId}`)
-			.then((res) => res.json())
-			.then((data) => {
-				const mapped = data.map((chat) => ({
-					user: chat.sender,
-					text: chat.message,
-					timestamp: chat.timestamp,
-					verified: true,
-				}));
-				setMessages(mapped);
-			})
-			.catch((err) => {
-				console.error("Failed to fetch chat history", err);
+		const buffer = loadIncomingBuffer();
+		if (buffer.length > 0) {
+			console.log(
+				"[Chat] Flushing incoming buffer:",
+				JSON.stringify(buffer)
+			);
+			// Remove buffer before sending to prevent race conditions
+			localStorage.removeItem(INCOMING_BUFFER_KEY);
+			// Send buffered messages to backend
+			await fetch(`https://localhost:3002/api/chat/save/`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(buffer),
 			});
-	}, [streamerId]);
+		}
+	}
+
+	// useEffect(() => {
+	// 	// Fetch old messages from backend (localhost:3002)
+	// 	fetch(`http://localhost:3002/api/chat/stream/${streamerId}`)
+	// 		.then((res) => res.json())
+	// 		.then((data) => {
+	// 			const mapped = data.map((chat) => ({
+	// 				user: chat.sender,
+	// 				text: chat.message,
+	// 				timestamp: chat.timestamp,
+	// 				verified: true,
+	// 			}));
+	// 			setMessages(mapped);
+	// 		})
+	// 		.catch((err) => {
+	// 			console.error("Failed to fetch chat history", err);
+	// 		});
+	// }, [streamerId]);
 
 	useEffect(() => {
 		// Generate or load keypair on mount
@@ -162,7 +165,7 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 
 	useEffect(() => {
 		// Connect to backend WebSocket
-		wsRef.current = socket
+		wsRef.current = socket;
 		if (!socket) return;
 
 		const onMessage = async (event) => {
@@ -232,7 +235,7 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 		socket.addEventListener("message", onMessage);
 
 		return () => {
-			socket.removeEventListener('message', onMessage);
+			socket.removeEventListener("message", onMessage);
 		};
 	}, [streamId, username, socket]);
 

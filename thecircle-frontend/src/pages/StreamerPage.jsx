@@ -499,36 +499,37 @@ const StreamerPage = () => {
 
 	useEffect(() => {
 		let intervalId;
-		async function signAndSendFrame() {
+		async function sendFrameHashMediasoup() {
 			if (
 				isStreaming &&
 				localVideoRef.current &&
-				keyPairRef.current &&
 				!isPaused &&
-				!isVideoOff
+				!isVideoOff &&
+				socketRef.current &&
+				socketRef.current.readyState === WebSocket.OPEN
 			) {
 				const canvas = captureFrame(localVideoRef.current);
-				const pixelHash = getSinglePixelHash(canvas);
-				console.log("[Streamer] Single pixel hash:", pixelHash);
-				if (
-					socketRef.current &&
-					socketRef.current.readyState === WebSocket.OPEN
-				) {
-					socketRef.current.send(
-						JSON.stringify({
-							event: "frame-hash",
-							data: {
-								streamId,
-								frameHash: pixelHash,
-								timestamp: Date.now(),
-							},
-						})
-					);
-				}
+				const frameHash = getDownscaledFrameHash(canvas, 8);
+				const timestamp = new Date().toISOString();
+				socketRef.current.send(
+					JSON.stringify({
+						event: "frame-hash",
+						data: {
+							streamId,
+							senderId: streamerId,
+							frameHash: frameHash,
+							timestamp,
+						},
+					})
+				);
+				console.log(
+					"[Streamer] Sent frame hash via mediasoup event:",
+					frameHash
+				);
 			}
 		}
 		if (isStreaming) {
-			intervalId = setInterval(signAndSendFrame, 1000);
+			intervalId = setInterval(sendFrameHashMediasoup, 1000);
 		}
 		return () => clearInterval(intervalId);
 	}, [isStreaming, isPaused, isVideoOff]);
@@ -869,49 +870,29 @@ const StreamerPage = () => {
 
 export default StreamerPage;
 
-// --- Perceptual hash function (dHash) on a cropped region ---
-function getPerceptualHash(canvas) {
-	const cropW = Math.min(64, canvas.width);
-	const cropH = Math.min(64, canvas.height);
-	const cropCanvas = document.createElement("canvas");
-	cropCanvas.width = cropW;
-	cropCanvas.height = cropH;
-	const cropCtx = cropCanvas.getContext("2d");
-	cropCtx.drawImage(canvas, 0, 0, cropW, cropH, 0, 0, cropW, cropH);
-	// Log crop info
-	console.log("[Streamer] Cropping region for hash:", cropW, cropH);
-	// Now do dHash on the cropped region
-	const w = 9,
-		h = 8;
-	const small = document.createElement("canvas");
-	small.width = w;
-	small.height = h;
-	const ctx = small.getContext("2d");
-	ctx.drawImage(cropCanvas, 0, 0, w, h);
-	const imgData = ctx.getImageData(0, 0, w, h).data;
+// --- Downscale and hash frame for robust comparison ---
+function getDownscaledFrameHash(canvas, size = 8) {
+	// Downscale to 8x8 and hash the grayscale values
+	const downCanvas = document.createElement("canvas");
+	downCanvas.width = size;
+	downCanvas.height = size;
+	const ctx = downCanvas.getContext("2d");
+	ctx.drawImage(canvas, 0, 0, size, size);
+	const imgData = ctx.getImageData(0, 0, size, size).data;
 	let hash = "";
-	for (let y = 0; y < h; y++) {
-		for (let x = 0; x < w - 1; x++) {
-			const i = (y * w + x) * 4;
-			const left = (imgData[i] + imgData[i + 1] + imgData[i + 2]) / 3;
-			const right =
-				(imgData[i + 4] + imgData[i + 5] + imgData[i + 6]) / 3;
-			hash += left > right ? "1" : "0";
-		}
+	let total = 0;
+	const grays = [];
+	for (let i = 0; i < size * size; i++) {
+		const r = imgData[i * 4];
+		const g = imgData[i * 4 + 1];
+		const b = imgData[i * 4 + 2];
+		const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+		grays.push(gray);
+		total += gray;
 	}
-	console.log("[Streamer] Perceptual hash (cropped):", hash);
+	const avg = total / (size * size);
+	for (let i = 0; i < grays.length; i++) {
+		hash += grays[i] > avg ? "1" : "0";
+	}
 	return hash;
-}
-
-// --- Single pixel hash for consistency ---
-function getSinglePixelHash(canvas) {
-	// Pick a fixed pixel, e.g., (10, 10) or (0, 0)
-	const x = Math.min(10, canvas.width - 1);
-	const y = Math.min(10, canvas.height - 1);
-	const ctx = canvas.getContext("2d");
-	const pixel = ctx.getImageData(x, y, 1, 1).data;
-	// Log pixel info
-	console.log("[Streamer] Single pixel at", x, y, ":", pixel);
-	// Simple hash: join RGB values
-	return pixel[0] + "-" + pixel[1] + "-" + pixel[2];
 }
