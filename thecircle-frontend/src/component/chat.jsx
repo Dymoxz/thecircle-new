@@ -104,7 +104,7 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 	const wsRef = useRef(null);
 	const messagesEndRef = useRef(null);
 	const keyPairRef = useRef(null);
-	const streamerId = username; // Everything after 'stream-'
+	const streamerId = streamId; // Everything after 'stream-'
 	const INCOMING_BUFFER_KEY = `incoming_chat_buffer_${streamId}`;
 	const timerRef = useRef(null);
 	const incomingTimerRef = useRef(null);
@@ -210,7 +210,7 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 						sender: msg.data.senderId,
 						message: msg.data.message,
 						timestamp: msg.data.timestamp,
-						streamer: streamerId,
+						streamer: streamId,
 						verified,
 					};
 					setMessages((prev) => [...prev, chatObj]);
