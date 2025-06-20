@@ -25,7 +25,7 @@ export class UserService {
         $push: {
           publicKeys: {
             publicKey: obj.publicKey,
-            deviceName: obj.deviceName,
+            deviceId: obj.deviceId,
           },
         },
       },
