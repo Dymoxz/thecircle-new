@@ -72,7 +72,7 @@ export class MediasoupGateway
 
       // Notify all viewers that stream ended
       const stream = await this.mediasoupService.getStreamInfo(streamId);
-      this.server.clients.forEach(clientSocket => {
+      this.server.clients.forEach((clientSocket) => {
         if (clientSocket.readyState === WebSocket.OPEN) {
           clientSocket.send(
             JSON.stringify({
@@ -83,7 +83,6 @@ export class MediasoupGateway
         }
       });
       await this.broadcastStreamListUpdate(); // Re-broadcast the list after a stream ends
-
 
       this.logger.log(
         `[CLEANUP] Streamer ${streamerId} disconnected, streamId=${streamId} removed`,
@@ -149,7 +148,13 @@ export class MediasoupGateway
 
     if (clientType === 'streamer' && effectiveStreamId) {
       try {
-        await this.mediasoupService.createStream(id, effectiveStreamId, socket, username, tags);
+        await this.mediasoupService.createStream(
+          id,
+          effectiveStreamId,
+          socket,
+          username,
+          tags,
+        );
         this.logger.log(
           `[STREAMS] Streamer registered streamId=${effectiveStreamId}`,
         );
@@ -257,7 +262,7 @@ export class MediasoupGateway
   private async broadcastStreamListUpdate() {
     try {
       const activeStreams = await this.mediasoupService.getActiveStreams();
-      this.server.clients.forEach(clientSocket => {
+      this.server.clients.forEach((clientSocket) => {
         if (clientSocket.readyState === WebSocket.OPEN) {
           clientSocket.send(
             JSON.stringify({
@@ -269,7 +274,9 @@ export class MediasoupGateway
       });
       this.logger.log('[BROADCAST] Updated stream list sent to all clients.');
     } catch (error) {
-      this.logger.error(`Error broadcasting stream list update: ${error.message}`);
+      this.logger.error(
+        `Error broadcasting stream list update: ${error.message}`,
+      );
     }
   }
 
@@ -658,8 +665,8 @@ export class MediasoupGateway
         );
       }
     }
-    this.logger.log(
-      `[FRAME-HASH] Relayed frame hash from ${senderId} in stream ${streamId}: ${frameHash}`,
-    );
+    // this.logger.log(
+    //   `[FRAME-HASH] Relayed frame hash from ${senderId} in stream ${streamId}: ${frameHash}`,
+    // );
   }
 }

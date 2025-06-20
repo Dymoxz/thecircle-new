@@ -19,24 +19,23 @@ import * as mediasoupClient from "mediasoup-client";
 import Chat from "../component/chat";
 import MaxStreams from "../component/MaxStreams";
 import { jwtDecode } from "jwt-decode";
-import {useParams} from "react-router-dom";
+import { Navigate, useParams, useNavigate } from "react-router-dom";
 
 // WebSocket URL configuration
-const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const WS_URL = `${wsProtocol}//${window.location.hostname}:3001`;
 
-
-
 const VIDEO_CONSTRAINTS = {
-    width: {ideal: 1280},
-    height: {ideal: 720},
-    frameRate: {ideal: 30, max: 60}
+	width: { ideal: 1280 },
+	height: { ideal: 720 },
+	frameRate: { ideal: 30, max: 60 },
 };
 
 const ViewerPage = () => {
+	const navigate = useNavigate();
 	const [streams, setStreams] = useState([]);
 	const [currentStreamId, setCurrentStreamId] = useState(null);
-	const { streamId: paramStreamId} = useParams();
+	const { streamId: paramStreamId } = useParams();
 	const [isWsConnected, setIsWsConnected] = useState(false);
 	const [isStreamListOpen, setIsStreamListOpen] = useState(false);
 	const [showPauseOverlay, setShowPauseOverlay] = useState(false);
@@ -61,23 +60,20 @@ const ViewerPage = () => {
 	const recvTransportRef = useRef(null);
 	const consumersRef = useRef(new Map());
 
-    const streamInfo = {
-        streamerName: "CodeMaster_Dev",
-        title: "Building a React Streaming App - Live Coding Session",
-        viewers: 247,
-        category: "Programming",
-        tags: ["React", "JavaScript", "WebRTC", "Live Coding"]
-    };
+	const streamInfo = {
+		streamerName: "CodeMaster_Dev",
+		title: "Building a React Streaming App - Live Coding Session",
+		viewers: 247,
+		category: "Programming",
+		tags: ["React", "JavaScript", "WebRTC", "Live Coding"],
+	};
 
-    useEffect(() => {
-        document.title = 'StreamHub - Watch';
-        return () => {
-            document.title = 'StreamHub';
-        };
-    }, []);
-
-
-
+	useEffect(() => {
+		document.title = "StreamHub - Watch";
+		return () => {
+			document.title = "StreamHub";
+		};
+	}, []);
 
 	useEffect(() => {
 		fetch(`https://localhost:3002/api/user/${viewerId}`, {
@@ -122,7 +118,8 @@ const ViewerPage = () => {
 		socketRef.current = new WebSocket(WS_URL);
 		const socket = socketRef.current;
 
-		socket.onopen = async () => { // Make onopen an async function
+		socket.onopen = async () => {
+			// Make onopen an async function
 			setIsWsConnected(true);
 			socket.send(JSON.stringify({ event: "get-streams", data: {} }));
 
@@ -143,7 +140,7 @@ const ViewerPage = () => {
 
 		socket.onmessage = async (event) => {
 			const msg = JSON.parse(event.data);
-            switch (msg.event) {
+			switch (msg.event) {
 				case "frame-hash":
 					console.log("[Viewer] FULL frame-hash event:", msg);
 					console.log("MESSAGE DATA", msg.data);
@@ -173,7 +170,9 @@ const ViewerPage = () => {
 						);
 						await consumeTracks(currentStreamIdRef.current);
 					} else {
-						console.error("currentStreamIdRef is null when transport-created");
+						console.error(
+							"currentStreamIdRef is null when transport-created"
+						);
 					}
 					break;
 				}
@@ -213,7 +212,7 @@ const ViewerPage = () => {
 					break;
 				}
 				case "maxStreamsReached": {
-					console.log
+					console.log;
 					setShowMaxStreams(true);
 					break;
 				}
@@ -467,13 +466,23 @@ const ViewerPage = () => {
 				consumersRef.current.set(consumer.id, consumer);
 
 				// Add event listeners to the consumer
-				consumer.on("trackended", () => {console.log(`Consumer ${consumer.id} track ended`);});
-				consumer.on("transportclose", () => {console.log(`Consumer ${consumer.id} transport closed`);});
+				consumer.on("trackended", () => {
+					console.log(`Consumer ${consumer.id} track ended`);
+				});
+				consumer.on("transportclose", () => {
+					console.log(`Consumer ${consumer.id} transport closed`);
+				});
 
 				// Add event listeners to the track
-				consumer.track.onended = () => {console.log(`Track ${consumer.track.id} ended`);};
-				consumer.track.onmute = () => {console.log(`Track ${consumer.track.id} muted`);};
-				consumer.track.onunmute = () => {console.log(`Track ${consumer.track.id} unmuted`);};
+				consumer.track.onended = () => {
+					console.log(`Track ${consumer.track.id} ended`);
+				};
+				consumer.track.onmute = () => {
+					console.log(`Track ${consumer.track.id} muted`);
+				};
+				consumer.track.onunmute = () => {
+					console.log(`Track ${consumer.track.id} unmuted`);
+				};
 
 				console.log("Consumer created:", {
 					id: consumer.id,
@@ -503,12 +512,30 @@ const ViewerPage = () => {
 				const stream = new MediaStream(tracks);
 				if (remoteVideoRef.current) {
 					remoteVideoRef.current.srcObject = stream;
-					console.log("Set remote stream with tracks:", tracks.map((t) => ({ kind: t.kind, id: t.id })));
-					console.log("Video element srcObject:", remoteVideoRef.current.srcObject);
-					console.log("Video element readyState:", remoteVideoRef.current.readyState);
-					console.log("Video element paused:", remoteVideoRef.current.paused);
-					console.log("Video element currentTime:", remoteVideoRef.current.currentTime);
-					console.log("Video element duration:", remoteVideoRef.current.duration);
+					console.log(
+						"Set remote stream with tracks:",
+						tracks.map((t) => ({ kind: t.kind, id: t.id }))
+					);
+					console.log(
+						"Video element srcObject:",
+						remoteVideoRef.current.srcObject
+					);
+					console.log(
+						"Video element readyState:",
+						remoteVideoRef.current.readyState
+					);
+					console.log(
+						"Video element paused:",
+						remoteVideoRef.current.paused
+					);
+					console.log(
+						"Video element currentTime:",
+						remoteVideoRef.current.currentTime
+					);
+					console.log(
+						"Video element duration:",
+						remoteVideoRef.current.duration
+					);
 
 					// Log track states
 					tracks.forEach((track) => {
@@ -540,55 +567,112 @@ const ViewerPage = () => {
 						.play()
 						.then(() => {
 							console.log("Video play() resolved successfully");
-							console.log("Video muted state after play:", remoteVideoRef.current.muted);
-							console.log("Video volume after play:", remoteVideoRef.current.volume);
+							console.log(
+								"Video muted state after play:",
+								remoteVideoRef.current.muted
+							);
+							console.log(
+								"Video volume after play:",
+								remoteVideoRef.current.volume
+							);
 						})
 						.catch((error) => {
 							console.error("Video play() failed:", error);
 							// If autoplay is blocked, try to enable audio on user interaction
 							if (error.name === "NotAllowedError") {
-								console.log("Autoplay blocked, audio will be enabled on user interaction");
+								console.log(
+									"Autoplay blocked, audio will be enabled on user interaction"
+								);
 								const enableAudio = () => {
 									if (remoteVideoRef.current) {
 										remoteVideoRef.current.muted = false;
 										remoteVideoRef.current.volume = 1.0;
-										console.log("Audio enabled by user interaction");
-										console.log("Video muted state:", remoteVideoRef.current.muted);
-										console.log("Video volume:", remoteVideoRef.current.volume);
+										console.log(
+											"Audio enabled by user interaction"
+										);
+										console.log(
+											"Video muted state:",
+											remoteVideoRef.current.muted
+										);
+										console.log(
+											"Video volume:",
+											remoteVideoRef.current.volume
+										);
 									}
-									document.removeEventListener("click", enableAudio);
-									document.removeEventListener("touchstart", enableAudio);
+									document.removeEventListener(
+										"click",
+										enableAudio
+									);
+									document.removeEventListener(
+										"touchstart",
+										enableAudio
+									);
 								};
 								document.addEventListener("click", enableAudio);
-								document.addEventListener("touchstart", enableAudio);
+								document.addEventListener(
+									"touchstart",
+									enableAudio
+								);
 							}
 						});
 
 					// Add a timeout to check if video loads
 					setTimeout(() => {
 						if (remoteVideoRef.current) {
-							console.log("After 2 seconds - Video readyState:", remoteVideoRef.current.readyState);
-							console.log("After 2 seconds - Video paused:", remoteVideoRef.current.paused);
-							console.log("After 2 seconds - Video currentTime:", remoteVideoRef.current.currentTime);console.log("After 2 seconds - Video duration:", remoteVideoRef.current.duration);
-							console.log("After 2 seconds - Video srcObject:", remoteVideoRef.current.srcObject);
+							console.log(
+								"After 2 seconds - Video readyState:",
+								remoteVideoRef.current.readyState
+							);
+							console.log(
+								"After 2 seconds - Video paused:",
+								remoteVideoRef.current.paused
+							);
+							console.log(
+								"After 2 seconds - Video currentTime:",
+								remoteVideoRef.current.currentTime
+							);
+							console.log(
+								"After 2 seconds - Video duration:",
+								remoteVideoRef.current.duration
+							);
+							console.log(
+								"After 2 seconds - Video srcObject:",
+								remoteVideoRef.current.srcObject
+							);
 
 							// Check track states again
 							tracks.forEach((track) => {
-								console.log(`After 2 seconds - ${track.kind} track enabled:`, track.enabled);
-								console.log(`After 2 seconds - ${track.kind} track muted:`, track.muted);
-								console.log(`After 2 seconds - ${track.kind} track readyState:`, track.readyState);
+								console.log(
+									`After 2 seconds - ${track.kind} track enabled:`,
+									track.enabled
+								);
+								console.log(
+									`After 2 seconds - ${track.kind} track muted:`,
+									track.muted
+								);
+								console.log(
+									`After 2 seconds - ${track.kind} track readyState:`,
+									track.readyState
+								);
 							});
 
 							// Try to play again if not playing
 							if (remoteVideoRef.current.paused) {
-								console.log("Video is still paused, trying to play again...");
+								console.log(
+									"Video is still paused, trying to play again..."
+								);
 								remoteVideoRef.current
 									.play()
 									.then(() => {
-										console.log("Second play() attempt successful");
+										console.log(
+											"Second play() attempt successful"
+										);
 									})
 									.catch((error) => {
-										console.error("Second play() attempt failed:", error);
+										console.error(
+											"Second play() attempt failed:",
+											error
+										);
 									});
 							}
 						}
@@ -597,15 +681,26 @@ const ViewerPage = () => {
 					// Add a longer timeout to check if tracks become unmuted
 					setTimeout(() => {
 						tracks.forEach((track) => {
-							console.log(`After 5 seconds - ${track.kind} track muted:`, track.muted);
-							console.log(`After 5 seconds - ${track.kind} track readyState:`, track.readyState);
+							console.log(
+								`After 5 seconds - ${track.kind} track muted:`,
+								track.muted
+							);
+							console.log(
+								`After 5 seconds - ${track.kind} track readyState:`,
+								track.readyState
+							);
 						});
-						console.log("After 5 seconds - Video readyState:", remoteVideoRef.current?.readyState);
+						console.log(
+							"After 5 seconds - Video readyState:",
+							remoteVideoRef.current?.readyState
+						);
 						const mutedTracks = tracks.filter(
 							(track) => track.muted
 						);
 						if (mutedTracks.length > 0) {
-							console.log("Some tracks are still muted after 5 seconds - this indicates no data is being received");
+							console.log(
+								"Some tracks are still muted after 5 seconds - this indicates no data is being received"
+							);
 						}
 					}, 5000);
 				}
@@ -671,14 +766,12 @@ const ViewerPage = () => {
 							clearTimeout(timeout);
 							socketRef.current.onmessage = originalOnMessage;
 							resolve();
-						}
-						else if (msg.event === "maxStreamsReached") {
+						} else if (msg.event === "maxStreamsReached") {
 							clearTimeout(timeout);
 							setShowMaxStreams(true);
 							socketRef.current.onmessage = originalOnMessage;
 							console.log("Max streams reached, showing alert");
-						}
-						else if (msg.event === "error") {
+						} else if (msg.event === "error") {
 							clearTimeout(timeout);
 							socketRef.current.onmessage = originalOnMessage;
 							reject(new Error(msg.data.message));
@@ -751,112 +844,127 @@ const ViewerPage = () => {
 		}
 	};
 
+	// --- Frame hash verification ---
+	// Store the latest frame hash from streamer
+	const [latestFrameHash, setLatestFrameHash] = useState(null);
+	const [latestFrameSignature, setLatestFrameSignature] = useState(null);
+	const [frameVerified, setFrameVerified] = useState(null);
 
+	// Helper: Capture a frame from the video element
+	function captureFrame(videoElement) {
+		const canvas = document.createElement("canvas");
+		canvas.width = videoElement.videoWidth;
+		canvas.height = videoElement.videoHeight;
+		const ctx = canvas.getContext("2d");
+		ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+		return canvas;
+	}
 
+	// Helper: Get single pixel hash of the frame
+	async function getFrameHash(canvas) {
+		const frameHash = getDownscaledFrameHash(canvas, 8);
+		console.log(
+			"[Viewer] Downscaled frame hash (8x8):",
+			frameHash,
+			"length:",
+			frameHash.length
+		);
+		return frameHash;
+	}
 
-    // --- Frame hash verification ---
-    // Store the latest frame hash from streamer
-    const [latestFrameHash, setLatestFrameHash] = useState(null);
-    const [latestFrameSignature, setLatestFrameSignature] = useState(null);
-    const [frameVerified, setFrameVerified] = useState(null);
+	// --- Downscale and hash frame for robust comparison ---
+	function getDownscaledFrameHash(canvas, size = 8) {
+		const downCanvas = document.createElement("canvas");
+		downCanvas.width = size;
+		downCanvas.height = size;
+		const ctx = downCanvas.getContext("2d");
+		ctx.drawImage(canvas, 0, 0, size, size);
+		const imgData = ctx.getImageData(0, 0, size, size).data;
+		let hash = "";
+		let total = 0;
+		const grays = [];
+		for (let i = 0; i < size * size; i++) {
+			const r = imgData[i * 4];
+			const g = imgData[i * 4 + 1];
+			const b = imgData[i * 4 + 2];
+			const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+			grays.push(gray);
+			total += gray;
+		}
+		const avg = total / (size * size);
+		for (let i = 0; i < grays.length; i++) {
+			hash += grays[i] > avg ? "1" : "0";
+		}
+		return hash;
+	}
 
-    // Helper: Capture a frame from the video element
-    function captureFrame(videoElement) {
-        const canvas = document.createElement("canvas");
-        canvas.width = videoElement.videoWidth;
-        canvas.height = videoElement.videoHeight;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-        return canvas;
-    }
+	function hashesAreSimilar(hashA, hashB, tolerance = 4) {
+		if (!hashA || !hashB || hashA.length !== hashB.length) return false;
+		let diff = 0;
+		for (let i = 0; i < hashA.length; i++) {
+			if (hashA[i] !== hashB[i]) diff++;
+		}
+		console.log(
+			`[Viewer] Hamming distance: ${diff} (tolerance: ${tolerance}) | Local: ${hashA} | Streamer: ${hashB}`
+		);
+		return diff <= tolerance;
+	}
 
-
-    // Helper: Get single pixel hash of the frame
-    async function getFrameHash(canvas) {
-        const frameHash = getDownscaledFrameHash(canvas, 8);
-        console.log("[Viewer] Downscaled frame hash:", frameHash);
-        return frameHash;
-    }
-
-    // --- Downscale and hash frame for robust comparison ---
-    function getDownscaledFrameHash(canvas, size = 8) {
-        const downCanvas = document.createElement("canvas");
-        downCanvas.width = size;
-        downCanvas.height = size;
-        const ctx = downCanvas.getContext("2d");
-        ctx.drawImage(canvas, 0, 0, size, size);
-        const imgData = ctx.getImageData(0, 0, size, size).data;
-        let hash = "";
-        let total = 0;
-        const grays = [];
-        for (let i = 0; i < size * size; i++) {
-            const r = imgData[i * 4];
-            const g = imgData[i * 4 + 1];
-            const b = imgData[i * 4 + 2];
-            const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-            grays.push(gray);
-            total += gray;
-        }
-        const avg = total / (size * size);
-        for (let i = 0; i < grays.length; i++) {
-            hash += grays[i] > avg ? "1" : "0";
-        }
-        return hash;
-    }
-
-    function hashesAreSimilar(hashA, hashB, tolerance = 4) {
-        if (!hashA || !hashB || hashA.length !== hashB.length) return false;
-        let diff = 0;
-        for (let i = 0; i < hashA.length; i++) {
-            if (hashA[i] !== hashB[i]) diff++;
-        }
-        console.log(
-            `[Viewer] Hamming distance: ${diff} (tolerance: ${tolerance}) | Local: ${hashA} | Streamer: ${hashB}`
-        );
-        return diff <= tolerance;
-    }
-
-    useEffect(() => {
-        let intervalId;
-        async function verifyFrame() {
-            if (
-                remoteVideoRef.current &&
-                !remoteVideoRef.current.paused &&
-                !remoteVideoRef.current.ended &&
+	useEffect(() => {
+		let intervalId;
+		async function verifyFrame() {
+			if (
+				remoteVideoRef.current &&
+				!remoteVideoRef.current.paused &&
+				!remoteVideoRef.current.ended &&
 				remoteVideoRef.current.videoWidth > 0 &&
 				remoteVideoRef.current.videoHeight > 0
-            ) {
-                const canvas = captureFrame(remoteVideoRef.current);
-                const frameHash = await getFrameHash(canvas);
-                console.log("[Viewer] frame hash (local):", frameHash);
-                console.log(
-                    "[Viewer] latest frame hash (from streamer):",
-                    latestFrameHash
-                );
-                if (
-                    latestFrameHash &&
-                    frameHash &&
-                    frameHash.length === latestFrameHash.length
-                ) {
-                    const similar = hashesAreSimilar(
-                        frameHash,
-                        latestFrameHash,
-                        4
-                    );
-                    setFrameVerified(similar);
-                    if (!similar) {
-                        console.warn(
-                            "[Viewer] Frame hashes differ (not similar enough)"
-                        );
-                    }
-                } else {
-                    setFrameVerified(false);
-                }
-            }
-        }
-        intervalId = setInterval(verifyFrame, 1000);
-        return () => clearInterval(intervalId);
-    }, [latestFrameHash]);
+			) {
+				const canvas = captureFrame(remoteVideoRef.current);
+				const frameHash = await getFrameHash(canvas);
+				console.log(
+					"[Viewer] frame hash (local):",
+					frameHash,
+					"length:",
+					frameHash.length
+				);
+				console.log(
+					"[Viewer] latest frame hash (from streamer):",
+					latestFrameHash,
+					"length:",
+					latestFrameHash && latestFrameHash.length
+				);
+				if (
+					latestFrameHash &&
+					frameHash &&
+					typeof latestFrameHash === "string" &&
+					typeof frameHash === "string" &&
+					frameHash.length === 64 &&
+					latestFrameHash.length === 64
+				) {
+					const similar = hashesAreSimilar(
+						frameHash,
+						latestFrameHash,
+						4
+					);
+					setFrameVerified(similar);
+					if (!similar) {
+						console.warn(
+							"[Viewer] Frame hashes differ (not similar enough)"
+						);
+					}
+				} else {
+					console.warn(
+						"[Viewer] Hashes missing or wrong length. Skipping comparison.",
+						{ frameHash, latestFrameHash }
+					);
+					setFrameVerified(null); // Show 'Verifying...' if hashes are not comparable
+				}
+			}
+		}
+		intervalId = setInterval(verifyFrame, 1000);
+		return () => clearInterval(intervalId);
+	}, [latestFrameHash]);
 
 	// --- Bottom Bar Controls ---
 	const handlePause = () => {
@@ -1120,13 +1228,6 @@ const ViewerPage = () => {
 				</div>
 			)}
 
-			<button
-				onClick={() => setIsStreamListOpen(true)}
-				className="absolute top-4 left-16 z-30 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-full p-3 shadow-lg lg:hidden"
-			>
-				<LayoutGrid className="w-6 h-6 text-neutral-100" />
-			</button>
-
 			{/* Back Button - Top Left */}
 			{currentStreamId && (
 				<button
@@ -1136,7 +1237,6 @@ const ViewerPage = () => {
 					<ArrowLeft className="w-6 h-6" />
 				</button>
 			)}
-
 
 			{/* Right Side Panels (Desktop) */}
 			<div className="absolute top-4 right-4 max-h-[calc(100vh-2rem)] w-80 space-y-4 flex flex-col z-20">
@@ -1185,8 +1285,8 @@ const ViewerPage = () => {
 											frameVerified === true
 												? "bg-green-500"
 												: frameVerified === false
-													? "bg-red-500"
-													: "bg-gray-400"
+												? "bg-red-500"
+												: "bg-gray-400"
 										}`}
 									></span>
 									<span
@@ -1194,15 +1294,15 @@ const ViewerPage = () => {
 											frameVerified === true
 												? "text-green-400"
 												: frameVerified === false
-													? "text-red-400"
-													: "text-neutral-400"
+												? "text-red-400"
+												: "text-neutral-400"
 										}`}
 									>
 										{frameVerified === true
 											? "Stream Verified"
 											: frameVerified === false
-												? "Not Verified"
-												: "Verifying..."}
+											? "Not Verified"
+											: "Verifying..."}
 									</span>
 								</div>
 							</div>
@@ -1222,7 +1322,7 @@ const ViewerPage = () => {
 							username={username}
 							socket={socketRef.current}
 							myStream={false}
-							/>
+						/>
 					</>
 				)}
 			</div>
