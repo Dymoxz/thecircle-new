@@ -1,24 +1,22 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {v4 as uuidv4} from 'uuid';
 import {
-    Camera,
     Eye,
-    MessageSquare,
     Mic,
     MicOff,
     Monitor,
     Pause,
+    FlipHorizontal,
     Play,
     RotateCcw,
-    Send,
     Settings,
     Square,
     Video,
     VideoOff,
+    SwitchCamera,
 } from 'lucide-react';
 import * as mediasoupClient from 'mediasoup-client';
 import Chat from '../component/chat';
-
 // WebSocket URL configuration
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const WS_URL = `${wsProtocol}//${window.location.hostname}:3001`;
@@ -34,18 +32,15 @@ const ControlButton = ({onClick, children, className = '', ...props}) => (
     </button>
 );
 
-// --- Mock Data for Chat Panel ---
-
-
 const VIDEO_CONSTRAINTS = {
     width: {ideal: 1280},
     height: {ideal: 720},
     frameRate: {ideal: 30, max: 60}
 };
 const AUDIO_CONSTRAINTS = {
-	echoCancellation: true,
-	noiseSuppression: true,
-	sampleRate: 48000,
+    echoCancellation: true,
+    noiseSuppression: true,
+    sampleRate: 48000,
 };
 
 const StreamerPage = () => {
@@ -56,8 +51,10 @@ const StreamerPage = () => {
     const [currentCamera, setCurrentCamera] = useState('user');
     const [viewerCount, setViewerCount] = useState(0);
     const [streamDuration, setStreamDuration] = useState(0);
-    const [showPauseOverlay, setShowPauseOverlay] = useState(false); // <-- FIXED: add missing state
+    const [showPauseOverlay, setShowPauseOverlay] = useState(false);
+    const [videoRotation, setVideoRotation] = useState(0);
 
+    const [isMirrored, setIsMirrored] = useState(false);
     const localVideoRef = useRef(null);
     const socketRef = useRef(null);
     const [isWsConnected, setIsWsConnected] = useState(false);
@@ -74,12 +71,12 @@ const StreamerPage = () => {
     const streamerId = useRef(uuidv4()).current;
     const streamId = `stream-${streamerId}`;
 
-	useEffect(() => {
-		document.title = "StreamHub - Stream";
-		return () => {
-			document.title = "StreamHub";
-		};
-	}, []);
+    useEffect(() => {
+        document.title = "StreamHub - Stream";
+        return () => {
+            document.title = "StreamHub";
+        };
+    }, []);
 
     const formatDuration = (seconds) => {
         const hours = Math.floor(seconds / 3600);
@@ -420,12 +417,12 @@ const StreamerPage = () => {
             if (nextPausedState) {
                 socketRef.current.send(JSON.stringify({
                     event: 'pause-stream',
-                    data: { streamId }
+                    data: {streamId}
                 }));
             } else {
                 socketRef.current.send(JSON.stringify({
                     event: 'resume-stream',
-                    data: { streamId }
+                    data: {streamId}
                 }));
             }
         }
@@ -457,16 +454,16 @@ const StreamerPage = () => {
             if (currentVideoTrack) localStreamRef.current.addTrack(currentVideoTrack);
         }
     };
-    	const toggleMute = () => {
-		if (!localStreamRef.current) return;
-		const audioTrack = localStreamRef.current.getAudioTracks()[0];
-		if (audioTrack) {
-			audioTrack.enabled = isMuted;
-			setIsMuted(!isMuted);
-		}
-	};
+    const toggleMute = () => {
+        if (!localStreamRef.current) return;
+        const audioTrack = localStreamRef.current.getAudioTracks()[0];
+        if (audioTrack) {
+            audioTrack.enabled = isMuted;
+            setIsMuted(!isMuted);
+        }
+    };
 
-        const toggleVideo = () => {
+    const toggleVideo = () => {
         if (!localStreamRef.current) return;
         const videoTrack = localStreamRef.current.getVideoTracks()[0];
         if (videoTrack) {
@@ -479,11 +476,16 @@ const StreamerPage = () => {
         <div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
             {/* --- VIDEO + OVERLAY CONTAINER --- */}
             <div className="absolute inset-0 w-full h-full z-0">
-                <video ref={localVideoRef}
-                       autoPlay
-                       playsInline
-                       muted
-                       className="w-full h-full"/>
+                <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full"
+                    style={{
+                        transform: `${isMirrored ? 'scaleX(-1) ' : ''}rotate(${videoRotation}deg)`
+                    }}
+                />
                 {isStreaming && showPauseOverlay && (
                     <div
                         className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500 z-0 pointer-events-none">
@@ -520,8 +522,18 @@ const StreamerPage = () => {
                 </div>
             )}
 
-            {isStreaming && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center">
+            <div
+                className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center">
+                {!isStreaming ? (
+                    <button
+                        onClick={handleStartStream}
+                        disabled={!isWsConnected}
+                        className="bg-teal-500 mb-4 hover:bg-teal-600 disabled:bg-neutral-600 disabled:cursor-not-allowed text-neutral-900 py-3 px-8 rounded-2xl font-semibold transition-all duration-300 ease-in-out flex items-center justify-center space-x-2 transform hover:scale-105 active:scale-100 shadow-lg z-10"
+                    >
+                        <Play className="w-6 h-6 "/>
+                        <span>{isWsConnected ? 'Start Stream' : 'Connecting...'}</span>
+                    </button>
+                ) : (
                     <div
                         className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg z-10">
                         <ControlButton
@@ -540,6 +552,18 @@ const StreamerPage = () => {
                             onClick={handleFlipCamera}
                             className="bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
                         >
+                            <SwitchCamera className="w-6 h-6"/>
+                        </ControlButton>
+                        <ControlButton
+                            onClick={() => setIsMirrored(m => !m)}
+                            className={isMirrored ? 'bg-teal-500/80 hover:bg-teal-500 text-white' : 'bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200'}
+                        >
+                            <FlipHorizontal className="w-6 h-6"/>
+                        </ControlButton>
+                        <ControlButton
+                            onClick={() => setVideoRotation(r => (r + 90) % 360)}
+                            className={videoRotation !== 0 ? 'bg-teal-500/80 hover:bg-teal-500 text-white' : 'bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200'}
+                        >
                             <RotateCcw className="w-6 h-6"/>
                         </ControlButton>
                         <div className="w-px h-8 bg-neutral-100/10 mx-2"></div>
@@ -556,10 +580,11 @@ const StreamerPage = () => {
                             <Square className="w-6 h-6"/>
                         </ControlButton>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
 
-            <div className="absolute top-4 right-4 w-80 space-y-4 hidden lg:flex flex-col max-h-[calc(100vh-2rem)] z-20">
+            <div
+                className="absolute top-4 right-4 w-80 space-y-4 hidden lg:flex flex-col max-h-[calc(100vh-2rem)] z-20">
                 <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 p-4 rounded-2xl">
                     <h3 className="font-semibold mb-4 flex items-center text-lg">
                         <Monitor className="w-5 h-5 mr-3 text-teal-400"/>
@@ -571,7 +596,7 @@ const StreamerPage = () => {
                             <span className={`font-semibold px-2 py-0.5 rounded-md text-xs ${
                                 isStreaming ? (isPaused ? 'bg-yellow-500/20 text-yellow-300' : 'bg-teal-500/20 text-teal-300') : 'bg-neutral-700 text-neutral-300'
                             }`}>
-                                {isStreaming ? (isPaused ? 'Paused' : 'Live') : 'Offline'}
+                                {isStreaming ? (isPaused ? 'Paused' : 'Online') : 'Offline'}
                             </span>
                         </div>
                         <div className="flex justify-between items-center">
@@ -581,48 +606,12 @@ const StreamerPage = () => {
                     </div>
                 </div>
 
-                <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 p-4 rounded-2xl">
-                    <h3 className="font-semibold mb-4 flex items-center text-lg">
-                        <Settings className="w-5 h-5 mr-3 text-teal-400"/>
-                        Quick Controls
-                    </h3>
-                    {!isStreaming ? (
-                        <button
-                            onClick={handleStartStream}
-                            disabled={!isWsConnected}
-                            className="w-full bg-teal-500 hover:bg-teal-600 disabled:bg-neutral-600 disabled:cursor-not-allowed text-neutral-900 py-3 px-4 rounded-xl font-semibold transition-all duration-300 ease-in-out flex items-center justify-center space-x-2 transform hover:scale-105 active:scale-100"
-                        >
-                            <Play className="w-5 h-5"/>
-                            <span>{isWsConnected ? 'Start Stream' : 'Connecting...'}</span>
-                        </button>
-                    ) : (
-                        <div className="space-y-3">
-                            <button
-                                onClick={handlePauseStream}
-                                className={`w-full py-3 px-4 rounded-xl font-semibold transition-colors flex items-center justify-center space-x-2 ${
-                                    isPaused ? 'bg-teal-500/80 hover:bg-teal-500 text-white' : 'bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900'
-                                }`}
-                            >
-                                {isPaused ? <Play className="w-5 h-5"/> : <Pause className="w-5 h-5"/>}
-                                <span>{isPaused ? 'Resume Stream' : 'Pause Stream'}</span>
-                            </button>
-                            <button
-                                onClick={handleStopStream}
-                                className="w-full bg-red-500/80 hover:bg-red-500 text-white py-3 px-4 rounded-xl font-semibold transition-colors flex items-center justify-center space-x-2"
-                            >
-                                <Square className="w-5 h-5"/>
-                                <span>End Stream</span>
-                            </button>
-                        </div>
-                    )}
-                </div>
-
                 {/* --- CHAT PANEL --- */}
                 <Chat
-                streamId = {streamId}
-                username={streamerId}
-                socket = {socketRef.current}
-                myStream={true}
+                    streamId={streamId}
+                    username={streamerId}
+                    socket={socketRef.current}
+                    myStream={true}
                 />
             </div>
         </div>
