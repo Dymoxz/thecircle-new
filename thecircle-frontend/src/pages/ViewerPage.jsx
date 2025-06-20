@@ -143,13 +143,13 @@ const ViewerPage = () => {
 
 		socket.onmessage = async (event) => {
 			const msg = JSON.parse(event.data);
-            if (msg.event === "frame-hash") {
-                console.log("[Viewer] FULL frame-hash event:", msg);
-                console.log("MESSAGE DATA", msg.data);
-                setLatestFrameHash(msg.data?.frameHash || null);
-                setLatestFrameSignature(msg.data?.signature || null);
-            }
             switch (msg.event) {
+				case "frame-hash":
+					console.log("[Viewer] FULL frame-hash event:", msg);
+					console.log("MESSAGE DATA", msg.data);
+					setLatestFrameHash(msg.data?.frameHash || null);
+					setLatestFrameSignature(msg.data?.signature || null);
+					break;
 				case "streams":
 					setStreams(msg.data.streams);
 					console.log("Received streams:", msg.data.streams);
@@ -467,26 +467,13 @@ const ViewerPage = () => {
 				consumersRef.current.set(consumer.id, consumer);
 
 				// Add event listeners to the consumer
-				consumer.on("trackended", () => {
-					console.log(`Consumer ${consumer.id} track ended`);
-				});
-
-				consumer.on("transportclose", () => {
-					console.log(`Consumer ${consumer.id} transport closed`);
-				});
+				consumer.on("trackended", () => {console.log(`Consumer ${consumer.id} track ended`);});
+				consumer.on("transportclose", () => {console.log(`Consumer ${consumer.id} transport closed`);});
 
 				// Add event listeners to the track
-				consumer.track.onended = () => {
-					console.log(`Track ${consumer.track.id} ended`);
-				};
-
-				consumer.track.onmute = () => {
-					console.log(`Track ${consumer.track.id} muted`);
-				};
-
-				consumer.track.onunmute = () => {
-					console.log(`Track ${consumer.track.id} unmuted`);
-				};
+				consumer.track.onended = () => {console.log(`Track ${consumer.track.id} ended`);};
+				consumer.track.onmute = () => {console.log(`Track ${consumer.track.id} muted`);};
+				consumer.track.onunmute = () => {console.log(`Track ${consumer.track.id} unmuted`);};
 
 				console.log("Consumer created:", {
 					id: consumer.id,
@@ -516,30 +503,12 @@ const ViewerPage = () => {
 				const stream = new MediaStream(tracks);
 				if (remoteVideoRef.current) {
 					remoteVideoRef.current.srcObject = stream;
-					console.log(
-						"Set remote stream with tracks:",
-						tracks.map((t) => ({ kind: t.kind, id: t.id }))
-					);
-					console.log(
-						"Video element srcObject:",
-						remoteVideoRef.current.srcObject
-					);
-					console.log(
-						"Video element readyState:",
-						remoteVideoRef.current.readyState
-					);
-					console.log(
-						"Video element paused:",
-						remoteVideoRef.current.paused
-					);
-					console.log(
-						"Video element currentTime:",
-						remoteVideoRef.current.currentTime
-					);
-					console.log(
-						"Video element duration:",
-						remoteVideoRef.current.duration
-					);
+					console.log("Set remote stream with tracks:", tracks.map((t) => ({ kind: t.kind, id: t.id })));
+					console.log("Video element srcObject:", remoteVideoRef.current.srcObject);
+					console.log("Video element readyState:", remoteVideoRef.current.readyState);
+					console.log("Video element paused:", remoteVideoRef.current.paused);
+					console.log("Video element currentTime:", remoteVideoRef.current.currentTime);
+					console.log("Video element duration:", remoteVideoRef.current.duration);
 
 					// Log track states
 					tracks.forEach((track) => {
@@ -571,112 +540,55 @@ const ViewerPage = () => {
 						.play()
 						.then(() => {
 							console.log("Video play() resolved successfully");
-							console.log(
-								"Video muted state after play:",
-								remoteVideoRef.current.muted
-							);
-							console.log(
-								"Video volume after play:",
-								remoteVideoRef.current.volume
-							);
+							console.log("Video muted state after play:", remoteVideoRef.current.muted);
+							console.log("Video volume after play:", remoteVideoRef.current.volume);
 						})
 						.catch((error) => {
 							console.error("Video play() failed:", error);
 							// If autoplay is blocked, try to enable audio on user interaction
 							if (error.name === "NotAllowedError") {
-								console.log(
-									"Autoplay blocked, audio will be enabled on user interaction"
-								);
+								console.log("Autoplay blocked, audio will be enabled on user interaction");
 								const enableAudio = () => {
 									if (remoteVideoRef.current) {
 										remoteVideoRef.current.muted = false;
 										remoteVideoRef.current.volume = 1.0;
-										console.log(
-											"Audio enabled by user interaction"
-										);
-										console.log(
-											"Video muted state:",
-											remoteVideoRef.current.muted
-										);
-										console.log(
-											"Video volume:",
-											remoteVideoRef.current.volume
-										);
+										console.log("Audio enabled by user interaction");
+										console.log("Video muted state:", remoteVideoRef.current.muted);
+										console.log("Video volume:", remoteVideoRef.current.volume);
 									}
-									document.removeEventListener(
-										"click",
-										enableAudio
-									);
-									document.removeEventListener(
-										"touchstart",
-										enableAudio
-									);
+									document.removeEventListener("click", enableAudio);
+									document.removeEventListener("touchstart", enableAudio);
 								};
 								document.addEventListener("click", enableAudio);
-								document.addEventListener(
-									"touchstart",
-									enableAudio
-								);
+								document.addEventListener("touchstart", enableAudio);
 							}
 						});
 
 					// Add a timeout to check if video loads
 					setTimeout(() => {
 						if (remoteVideoRef.current) {
-							console.log(
-								"After 2 seconds - Video readyState:",
-								remoteVideoRef.current.readyState
-							);
-							console.log(
-								"After 2 seconds - Video paused:",
-								remoteVideoRef.current.paused
-							);
-							console.log(
-								"After 2 seconds - Video currentTime:",
-								remoteVideoRef.current.currentTime
-							);
-							console.log(
-								"After 2 seconds - Video duration:",
-								remoteVideoRef.current.duration
-							);
-							console.log(
-								"After 2 seconds - Video srcObject:",
-								remoteVideoRef.current.srcObject
-							);
+							console.log("After 2 seconds - Video readyState:", remoteVideoRef.current.readyState);
+							console.log("After 2 seconds - Video paused:", remoteVideoRef.current.paused);
+							console.log("After 2 seconds - Video currentTime:", remoteVideoRef.current.currentTime);console.log("After 2 seconds - Video duration:", remoteVideoRef.current.duration);
+							console.log("After 2 seconds - Video srcObject:", remoteVideoRef.current.srcObject);
 
 							// Check track states again
 							tracks.forEach((track) => {
-								console.log(
-									`After 2 seconds - ${track.kind} track enabled:`,
-									track.enabled
-								);
-								console.log(
-									`After 2 seconds - ${track.kind} track muted:`,
-									track.muted
-								);
-								console.log(
-									`After 2 seconds - ${track.kind} track readyState:`,
-									track.readyState
-								);
+								console.log(`After 2 seconds - ${track.kind} track enabled:`, track.enabled);
+								console.log(`After 2 seconds - ${track.kind} track muted:`, track.muted);
+								console.log(`After 2 seconds - ${track.kind} track readyState:`, track.readyState);
 							});
 
 							// Try to play again if not playing
 							if (remoteVideoRef.current.paused) {
-								console.log(
-									"Video is still paused, trying to play again..."
-								);
+								console.log("Video is still paused, trying to play again...");
 								remoteVideoRef.current
 									.play()
 									.then(() => {
-										console.log(
-											"Second play() attempt successful"
-										);
+										console.log("Second play() attempt successful");
 									})
 									.catch((error) => {
-										console.error(
-											"Second play() attempt failed:",
-											error
-										);
+										console.error("Second play() attempt failed:", error);
 									});
 							}
 						}
@@ -685,27 +597,15 @@ const ViewerPage = () => {
 					// Add a longer timeout to check if tracks become unmuted
 					setTimeout(() => {
 						tracks.forEach((track) => {
-							console.log(
-								`After 5 seconds - ${track.kind} track muted:`,
-								track.muted
-							);
-							console.log(
-								`After 5 seconds - ${track.kind} track readyState:`,
-								track.readyState
-							);
+							console.log(`After 5 seconds - ${track.kind} track muted:`, track.muted);
+							console.log(`After 5 seconds - ${track.kind} track readyState:`, track.readyState);
 						});
-						console.log(
-							"After 5 seconds - Video readyState:",
-							remoteVideoRef.current?.readyState
-						);
-
+						console.log("After 5 seconds - Video readyState:", remoteVideoRef.current?.readyState);
 						const mutedTracks = tracks.filter(
 							(track) => track.muted
 						);
 						if (mutedTracks.length > 0) {
-							console.log(
-								"Some tracks are still muted after 5 seconds - this indicates no data is being received"
-							);
+							console.log("Some tracks are still muted after 5 seconds - this indicates no data is being received");
 						}
 					}, 5000);
 				}
@@ -851,62 +751,6 @@ const ViewerPage = () => {
 		}
 	};
 
-	/*const StreamListPanel = () => (
-		<div className="p-4 flex flex-col h-full">
-			<div className="flex items-center justify-between mb-4 flex-shrink-0">
-				<h2 className="text-xl font-bold text-teal-400">
-					Live Streams
-				</h2>
-				<button
-					onClick={handleRefresh}
-					disabled={!isWsConnected}
-					className="p-2 rounded-lg bg-neutral-700/50 hover:bg-neutral-600/50 disabled:opacity-50 transition-colors"
-				>
-					<RefreshCw className="w-5 h-5" />
-				</button>
-			</div>
-			<div className="flex-1 overflow-y-auto space-y-3 -mr-2 pr-2">
-				{streams.length > 0 ? (
-					streams.map((stream) => (
-						<div
-							key={stream.streamId}
-							onClick={() =>
-								handleConnectToStream(stream.streamId)
-							}
-							className={`p-3 rounded-2xl cursor-pointer transition-all duration-200 border-2 ${
-								stream.streamId === currentStreamId
-									? "bg-teal-500/20 border-teal-400 ring-2 ring-teal-400"
-									: "bg-neutral-800/60 border-transparent hover:border-neutral-500"
-							}`}
-						>
-							<div className="flex items-center space-x-3">
-								<div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-800 rounded-full flex items-center justify-center flex-shrink-0">
-									<Play className="w-5 h-5 text-white" />
-								</div>
-								<div>
-									<h3 className="font-semibold text-sm truncate">
-										{stream.streamerName
-											? stream.streamerName
-											: "Unknown Streamer"}
-									</h3>
-									<p className="text-xs text-neutral-400">
-										Stream {stream.streamId}
-									</p>
-								</div>
-							</div>
-						</div>
-					))
-				) : (
-					<div className="text-center py-8 text-neutral-400">
-						<div className="w-16 h-16 bg-neutral-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
-							<Play className="w-8 h-8 text-neutral-500" />
-						</div>
-						<p className="text-sm">No streams available</p>
-					</div>
-				)}
-			</div>
-		</div>
-	);*/
 
 	const ChatPanelContent = () => (
 		<Chat
@@ -933,18 +777,6 @@ const ViewerPage = () => {
         return canvas;
     }
 
-    // --- Single pixel hash for consistency ---
-    function getSinglePixelHash(canvas) {
-        // Pick a fixed pixel, e.g., (10, 10) or (0, 0)
-        const x = Math.min(10, canvas.width - 1);
-        const y = Math.min(10, canvas.height - 1);
-        const ctx = canvas.getContext("2d");
-        const pixel = ctx.getImageData(x, y, 1, 1).data;
-        // Log pixel info
-        console.log("[Viewer] Single pixel at", x, y, ":", pixel);
-        // Simple hash: join RGB values
-        return pixel[0] + "-" + pixel[1] + "-" + pixel[2];
-    }
 
     // Helper: Get single pixel hash of the frame
     async function getFrameHash(canvas) {
@@ -997,7 +829,9 @@ const ViewerPage = () => {
             if (
                 remoteVideoRef.current &&
                 !remoteVideoRef.current.paused &&
-                !remoteVideoRef.current.ended
+                !remoteVideoRef.current.ended &&
+				remoteVideoRef.current.videoWidth > 0 &&
+				remoteVideoRef.current.videoHeight > 0
             ) {
                 const canvas = captureFrame(remoteVideoRef.current);
                 const frameHash = await getFrameHash(canvas);
@@ -1293,32 +1127,6 @@ const ViewerPage = () => {
 				</div>
 			)}
 
-			{/*/!* Audio Test Button - Only show when stream is active *!/*/}
-			{/*{currentStreamId && remoteVideoRef.current?.srcObject && (*/}
-			{/*    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-30">*/}
-			{/*        <button*/}
-			{/*            onClick={() => {*/}
-			{/*                if (remoteVideoRef.current) {*/}
-			{/*                    remoteVideoRef.current.muted = false;*/}
-			{/*                    remoteVideoRef.current.volume = 1.0;*/}
-			{/*                    console.log('Audio manually enabled');*/}
-			{/*                    console.log('Video muted state:', remoteVideoRef.current.muted);*/}
-			{/*                    console.log('Video volume:', remoteVideoRef.current.volume);*/}
-			{/*                    console.log('Video srcObject tracks:', remoteVideoRef.current.srcObject.getTracks().map(t => ({*/}
-			{/*                        kind: t.kind,*/}
-			{/*                        muted: t.muted,*/}
-			{/*                        enabled: t.enabled*/}
-			{/*                    })));*/}
-			{/*                }*/}
-			{/*            }}*/}
-			{/*            className="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"*/}
-			{/*        >*/}
-			{/*            Enable Audio*/}
-			{/*        </button>*/}
-			{/*    </div>*/}
-			{/*)}*/}
-
-			{/* Left Side: Mobile Button & Stream List */}
 			<button
 				onClick={() => setIsStreamListOpen(true)}
 				className="absolute top-4 left-16 z-30 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-full p-3 shadow-lg lg:hidden"
@@ -1336,21 +1144,7 @@ const ViewerPage = () => {
 				</button>
 			)}
 
-			{/*<div className="absolute top-20 left-4 max-h-[calc(100vh-5rem)] w-80 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl z-20 hidden lg:flex flex-col">
-				<StreamListPanel />
-			</div>
-			{isStreamListOpen && (
-				<div className="absolute inset-0 z-40 bg-neutral-900/80 backdrop-blur-2xl lg:hidden">
-					<button
-						onClick={() => setIsStreamListOpen(false)}
-						className="absolute top-4 right-4 z-50 p-2"
-					>
-						<X className="w-6 h-6" />
-					</button>
-					<StreamListPanel />
-				</div>
-			)}
-*/}
+
 			{/* Right Side Panels (Desktop) */}
 			<div className="absolute top-4 right-4 max-h-[calc(100vh-2rem)] w-80 space-y-4 flex flex-col z-20">
 				{currentStreamId && (
@@ -1390,6 +1184,33 @@ const ViewerPage = () => {
 								<div className="flex items-center space-x-2">
 									<Users className="w-4 h-4 text-teal-400" />
 									<span>{streamInfo.viewers} viewers</span>
+								</div>
+								{/* Stream Verification Status */}
+								<div className="flex items-center space-x-2 mt-2">
+									<span
+										className={`w-3 h-3 rounded-full ${
+											frameVerified === true
+												? "bg-green-500"
+												: frameVerified === false
+													? "bg-red-500"
+													: "bg-gray-400"
+										}`}
+									></span>
+									<span
+										className={`font-semibold ${
+											frameVerified === true
+												? "text-green-400"
+												: frameVerified === false
+													? "text-red-400"
+													: "text-neutral-400"
+										}`}
+									>
+										{frameVerified === true
+											? "Stream Verified"
+											: frameVerified === false
+												? "Not Verified"
+												: "Verifying..."}
+									</span>
 								</div>
 							</div>
 							<div className="flex flex-wrap gap-2 mt-4">
