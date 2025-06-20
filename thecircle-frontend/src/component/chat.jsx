@@ -72,12 +72,11 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 	const wsRef = useRef(null);
 	const messagesEndRef = useRef(null);
 	const keyPairRef = useRef(null);
-	const streamerId = streamId.split("-")[1]; // Extract streamerId from streamId
+	const streamerId = streamId; // Everything after 'stream-'
 	const INCOMING_BUFFER_KEY = `incoming_chat_buffer_${streamId}`;
 	const timerRef = useRef(null);
 	const incomingTimerRef = useRef(null);
-
-	// Buffering logic for all incoming messages
+		// Buffering logic for all incoming messages
 	function saveIncomingBuffer(buffer) {
 		if (myStream === true) {
 			localStorage.setItem(INCOMING_BUFFER_KEY, JSON.stringify(buffer));
@@ -106,14 +105,14 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 
 	useEffect(() => {
 		// Fetch old messages from backend (localhost:3002)
-		fetch(`http://localhost:3002/api/chat/stream/${streamerId}`)
+		fetch(`https://localhost:3002/api/chat/stream/${streamerId}`)
 			.then((res) => res.json())
 			.then((data) => {
 				const mapped = data.map((chat) => ({
-					user: chat.sender,
-					text: chat.message,
+					sender: chat.sender,
+					message: chat.message,
 					timestamp: chat.timestamp,
-					verified: true,
+					verified: chat.verified || true,
 				}));
 				setMessages(mapped);
 			})
@@ -131,7 +130,7 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 
 	useEffect(() => {
 		// Connect to backend WebSocket
-		wsRef.current = socket
+		wsRef.current = socket;
 		if (!socket) return;
 
 		const onMessage = async (event) => {
@@ -180,7 +179,7 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 						sender: msg.data.senderId,
 						message: msg.data.message,
 						timestamp: msg.data.timestamp,
-						streamer: streamerId,
+						streamer: streamId,
 						verified,
 						signature: msg.data.signature,
 						publicKey: msg.data.publicKey,
@@ -205,7 +204,7 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 		socket.addEventListener("message", onMessage);
 
 		return () => {
-			socket.removeEventListener('message', onMessage);
+			socket.removeEventListener("message", onMessage);
 		};
 	}, [streamId, username, socket]);
 

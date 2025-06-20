@@ -19,9 +19,11 @@ export interface StreamerInfo {
   socket: any;
   transport: TransportInfo;
   streamId: string;
+  streamerID: string;
   isStreaming: boolean;
   recordingProcess?: any; // FFmpeg process
   recordingPath?: string;
+  username: string;
 }
 
 export interface ViewerInfo {
@@ -29,6 +31,7 @@ export interface ViewerInfo {
   socket: any;
   transport: TransportInfo;
   streamId: string;
+  streamswatching: Int16Array
 }
 
 export interface StreamInfo {
@@ -95,4 +98,3 @@ export interface MediasoupConfig {
   };
   recordingOptions: RecordingConfig;
 }
-

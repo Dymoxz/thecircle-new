@@ -18,9 +18,14 @@ import { User } from './user.decorator'; // adjust import path
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Get(':email')
-  async findOne(@Param('email') email: string): Promise<IUser | null> {
-    return this.userService.getUser(email);
+  @Get(':id')
+  async findOne(@Param('id') _id: string): Promise<IUser | null> {
+    return this.userService.getUser(_id);
+  }
+
+  @Get('/id/:id')
+  async findOneById(@Param('id') id: string): Promise<IUser | null> {
+    return this.userService.getUserById(id);
   }
 
   @Post('registerPubKey')

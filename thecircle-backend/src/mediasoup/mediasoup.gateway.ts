@@ -72,16 +72,18 @@ export class MediasoupGateway
 
       // Notify all viewers that stream ended
       const stream = await this.mediasoupService.getStreamInfo(streamId);
-      if (stream) {
-        for (const viewer of stream.viewers.values()) {
-          viewer.socket.send(
+      this.server.clients.forEach(clientSocket => {
+        if (clientSocket.readyState === WebSocket.OPEN) {
+          clientSocket.send(
             JSON.stringify({
               event: 'stream-ended',
               data: { streamId },
             }),
           );
         }
-      }
+      });
+      await this.broadcastStreamListUpdate(); // Re-broadcast the list after a stream ends
+
 
       this.logger.log(
         `[CLEANUP] Streamer ${streamerId} disconnected, streamId=${streamId} removed`,
@@ -92,6 +94,19 @@ export class MediasoupGateway
   }
 
   private async handleViewerDisconnect(streamId: string, viewerId: string) {
+    // Remove viewer from the stream
+    const stream = await this.mediasoupService.getStreamInfo(streamId);
+
+    if (stream) {
+      const streamer = stream.streamer;
+      streamer.socket.send(
+        JSON.stringify({
+          event: 'viewer-left',
+          data: { viewerId },
+        }),
+      );
+    }
+
     try {
       await this.mediasoupService.removeViewer(streamId, viewerId);
       this.logger.log(
@@ -104,27 +119,47 @@ export class MediasoupGateway
 
   @SubscribeMessage('register')
   async handleRegister(
-    @MessageBody() data: { id: string; clientType: string; streamId: string },
+    @MessageBody()
+    data: {
+      id: string;
+      clientType: string;
+      streamId: string;
+      streamerId?: string;
+      username: string;
+      tags?: string[];
+    },
     @ConnectedSocket() socket: WebSocket,
   ) {
-    const { id, clientType, streamId } = data;
+    const { id, clientType, streamId, streamerId, username, tags } = data;
+
+    // If streamerId is provided (for viewers), use it as the stream owner reference
+    const effectiveStreamId = streamerId || streamId;
 
     const client: Client = {
       id,
       socket,
       type: clientType as 'streamer' | 'viewer',
-      streamId,
+      streamId: effectiveStreamId,
     };
 
     this.clients.set(id, client);
     this.logger.log(
-      `[REGISTER] ${clientType} registered with id=${id}, streamId=${streamId}`,
+      `[REGISTER] ${clientType} registered with id=${id}, streamId=${effectiveStreamId}`,
     );
 
-    if (clientType === 'streamer' && streamId) {
+    if (clientType === 'streamer' && effectiveStreamId) {
       try {
-        await this.mediasoupService.createStream(streamId, id, socket);
-        this.logger.log(`[STREAMS] Streamer registered streamId=${streamId}`);
+        await this.mediasoupService.createStream(id, effectiveStreamId, socket, username, tags);
+        this.logger.log(
+          `[STREAMS] Streamer registered streamId=${effectiveStreamId}`,
+        );
+        // Send confirmation to streamer
+        socket.send(
+          JSON.stringify({
+            event: 'registered',
+            data: { streamId: effectiveStreamId, clientType: 'streamer' },
+          }),
+        );
       } catch (error) {
         this.logger.error(`Error creating stream: ${error.message}`);
         socket.send(
@@ -134,13 +169,27 @@ export class MediasoupGateway
           }),
         );
       }
-    } else if (clientType === 'viewer' && streamId) {
+    } else if (clientType === 'viewer' && effectiveStreamId) {
       try {
-        await this.mediasoupService.addViewer(streamId, id, socket);
-        this.logger.log(`[STREAMS] Viewer ${id} joined streamId=${streamId}`);
+        console.log(
+          `[STREAMS] Viewer ${id} joining streamId=${effectiveStreamId}`,
+        );
+        await this.mediasoupService.addViewer(effectiveStreamId, id, socket);
+        this.logger.log(
+          `[STREAMS] Viewer ${id} joined streamId=${effectiveStreamId}`,
+        );
+
+        // Send confirmation to viewer
+        socket.send(
+          JSON.stringify({
+            event: 'registered',
+            data: { streamId: effectiveStreamId, clientType: 'viewer' },
+          }),
+        );
 
         // Notify streamer about new viewer
-        const stream = await this.mediasoupService.getStreamInfo(streamId);
+        const stream =
+          await this.mediasoupService.getStreamInfo(effectiveStreamId);
         if (stream) {
           stream.streamer.socket.send(
             JSON.stringify({
@@ -149,23 +198,35 @@ export class MediasoupGateway
             }),
           );
           // If the stream is currently paused, notify the new viewer
-          if (stream.streamer.isStreaming === false) {
+          if (!stream.streamer.isStreaming) {
             socket.send(
               JSON.stringify({
                 event: 'stream-paused',
-                data: { streamId },
+                data: { streamId: effectiveStreamId },
               }),
             );
           }
         }
       } catch (error) {
         this.logger.error(`Error adding viewer: ${error.message}`);
-        socket.send(
-          JSON.stringify({
-            event: 'error',
-            data: { message: 'Failed to join stream' },
-          }),
-        );
+        if (error.message === 'You can only watch up to 4 streams at a time.') {
+          console.log(
+            `[STREAMS] Viewer ${id} reached max streams limit for streamId=${effectiveStreamId}`,
+          );
+          socket.send(
+            JSON.stringify({
+              event: 'maxStreamsReached',
+              data: { message: error.message },
+            }),
+          );
+        } else {
+          socket.send(
+            JSON.stringify({
+              event: 'error',
+              data: { message: 'Failed to join stream' },
+            }),
+          );
+        }
       }
     }
   }
@@ -190,6 +251,25 @@ export class MediasoupGateway
           data: { message: 'Failed to get streams' },
         }),
       );
+    }
+  }
+
+  private async broadcastStreamListUpdate() {
+    try {
+      const activeStreams = await this.mediasoupService.getActiveStreams();
+      this.server.clients.forEach(clientSocket => {
+        if (clientSocket.readyState === WebSocket.OPEN) {
+          clientSocket.send(
+            JSON.stringify({
+              event: 'streams',
+              data: { streams: activeStreams },
+            }),
+          );
+        }
+      });
+      this.logger.log('[BROADCAST] Updated stream list sent to all clients.');
+    } catch (error) {
+      this.logger.error(`Error broadcasting stream list update: ${error.message}`);
     }
   }
 
@@ -222,7 +302,8 @@ export class MediasoupGateway
 
   @SubscribeMessage('create-transport')
   async handleCreateTransport(
-    @MessageBody() data: { streamId: string; isStreamer: boolean },
+    @MessageBody()
+    data: { streamId: string; isStreamer: boolean; streamerId: string },
     @ConnectedSocket() socket: WebSocket,
   ) {
     console.log(
@@ -230,14 +311,17 @@ export class MediasoupGateway
       data.streamId,
       'and isStreamer:',
       data.isStreamer,
+      'for streamerId:',
+      data.streamerId,
     );
-    const { streamId, isStreamer } = data;
+    const { streamId, isStreamer, streamerId } = data;
     const clientId = this.findClientIdBySocket(socket);
-    
+
     try {
       const transport = await this.mediasoupService.createWebRtcTransport(
         streamId,
         isStreamer,
+        streamerId,
         clientId || undefined,
       );
       socket.send(
@@ -318,6 +402,7 @@ export class MediasoupGateway
           data: { producer },
         }),
       );
+      await this.broadcastStreamListUpdate();
     } catch (error) {
       this.logger.error(`Error creating producer: ${error.message}`);
       socket.send(
@@ -337,9 +422,13 @@ export class MediasoupGateway
   ) {
     const { streamId, transportId, rtpCapabilities } = data;
     const clientId = this.findClientIdBySocket(socket);
-    
-    console.log('[CONSUME] Received consume request:', { streamId, transportId, clientId });
-    
+
+    console.log('[CONSUME] Received consume request:', {
+      streamId,
+      transportId,
+      clientId,
+    });
+
     if (!clientId) {
       console.log('[CONSUME] Client not found for socket');
       socket.send(
@@ -365,7 +454,10 @@ export class MediasoupGateway
       this.logger.log(
         `[CONSUME] Created ${consumers.length} consumers for viewer ${clientId}`,
       );
-      console.log('[CONSUME] Sending consumed event with consumers:', consumers);
+      console.log(
+        '[CONSUME] Sending consumed event with consumers:',
+        consumers,
+      );
       socket.send(
         JSON.stringify({
           event: 'consumed',
@@ -429,6 +521,7 @@ export class MediasoupGateway
       this.logger.log(
         `[END-STREAM] Streamer ${clientId} ended streamId=${streamId}`,
       );
+      await this.broadcastStreamListUpdate();
     } catch (error) {
       this.logger.error(`Error ending stream: ${error.message}`);
     }
@@ -537,5 +630,36 @@ export class MediasoupGateway
       }),
     );
     this.logger.log(`[RESUME] Stream ${streamId} resumed`);
+  }
+
+  @SubscribeMessage('frame-hash')
+  async handleFrameHash(
+    @MessageBody()
+    data: {
+      streamId: string;
+      senderId: string;
+      frameHash: string;
+      timestamp: string;
+    },
+    @ConnectedSocket() socket: WebSocket,
+  ) {
+    const { streamId, senderId, frameHash, timestamp } = data;
+    // Get stream info from mediasoupService
+    const stream = await this.mediasoupService.getStreamInfo(streamId);
+    if (!stream) return;
+    // Relay to all viewers (not streamer)
+    for (const [viewerId, viewer] of stream.viewers.entries()) {
+      if (viewer.socket.readyState === WebSocket.OPEN) {
+        viewer.socket.send(
+          JSON.stringify({
+            event: 'frame-hash',
+            data: { streamId, senderId, frameHash, timestamp },
+          }),
+        );
+      }
+    }
+    this.logger.log(
+      `[FRAME-HASH] Relayed frame hash from ${senderId} in stream ${streamId}: ${frameHash}`,
+    );
   }
 }

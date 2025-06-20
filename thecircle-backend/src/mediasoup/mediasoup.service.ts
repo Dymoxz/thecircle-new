@@ -1,9 +1,10 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import * as mediasoup from 'mediasoup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import * as os from 'os';
+import { UserService } from '../user/user.service';
 
 // Types for mediasoup
 type MediasoupWorker = {
@@ -23,6 +24,7 @@ type TransportInfo = {
 type StreamerInfo = {
   id: string;
   socket: any;
+  username: string;
   transport: TransportInfo;
   streamId: string;
   isStreaming: boolean;
@@ -36,6 +38,7 @@ type ViewerInfo = {
   socket: any;
   transport: TransportInfo;
   streamId: string;
+  streamsWatching?: number;
 };
 
 type StreamInfo = {
@@ -44,6 +47,7 @@ type StreamInfo = {
   viewers: Map<string, ViewerInfo>;
   router: mediasoup.types.Router;
   recordingPath: string;
+  tags?: string[];
 };
 
 @Injectable()
@@ -52,6 +56,8 @@ export class MediasoupService implements OnModuleDestroy {
   private workers: MediasoupWorker[] = [];
   private streams = new Map<string, StreamInfo>();
   private currentWorkerIndex = 0;
+  private viewerStreamsWatching = new Map<string, number>();
+
 
   private getLocalIpAddress(): string {
     const interfaces = os.networkInterfaces();
@@ -207,6 +213,8 @@ export class MediasoupService implements OnModuleDestroy {
     streamId: string,
     streamerId: string,
     streamerSocket: any,
+    username: string,
+    tags?: string[],
   ): Promise<StreamInfo> {
     const worker = this.getNextWorker();
     const router = worker.router;
@@ -216,6 +224,7 @@ export class MediasoupService implements OnModuleDestroy {
       streamer: {
         id: streamerId,
         socket: streamerSocket,
+        username,
         transport: {
           id: '',
           type: 'webrtc',
@@ -232,6 +241,7 @@ export class MediasoupService implements OnModuleDestroy {
         this.getConfig().recordingOptions.outputPath,
         `${streamId}.${this.getConfig().recordingOptions.format}`,
       ),
+      tags: tags || [],
     };
 
     this.streams.set(streamId, streamInfo);
@@ -242,9 +252,11 @@ export class MediasoupService implements OnModuleDestroy {
   async createWebRtcTransport(
     streamId: string,
     isStreamer: boolean,
+    streamerId: string,
     clientId?: string,
   ): Promise<any> {
-    const stream = this.streams.get(streamId);
+    // console.log (this.streams)
+    const stream = this.streams.get(streamerId);
     if (!stream) {
       throw new Error(`Stream ${streamId} not found`);
     }
@@ -299,7 +311,7 @@ export class MediasoupService implements OnModuleDestroy {
     dtlsParameters: any,
     isStreamer: boolean,
   ): Promise<void> {
-    console.log('[CONNECT] connectTransport called with:', { streamId, transportId, isStreamer });
+    // console.log('[CONNECT] connectTransport called with:', { streamId, transportId, isStreamer });
     
     const stream = this.streams.get(streamId);
     if (!stream) {
@@ -311,14 +323,14 @@ export class MediasoupService implements OnModuleDestroy {
     if (isStreamer) {
       transport = stream.streamer.transport
         .transport as mediasoup.types.WebRtcTransport;
-      console.log('[CONNECT] Found streamer transport:', transport.id);
+      // console.log('[CONNECT] Found streamer transport:', transport.id);
     } else {
       // Find viewer transport
       for (const viewer of stream.viewers.values()) {
         if (viewer.transport.id === transportId) {
           transport = viewer.transport
             .transport as mediasoup.types.WebRtcTransport;
-          console.log('[CONNECT] Found viewer transport:', transport.id);
+          // console.log('[CONNECT] Found viewer transport:', transport.id);
           break;
         }
       }
@@ -329,7 +341,7 @@ export class MediasoupService implements OnModuleDestroy {
       throw new Error(`Transport ${transportId} not found`);
     }
 
-    console.log('[CONNECT] Connecting transport with dtlsParameters:', dtlsParameters);
+    // console.log('[CONNECT] Connecting transport with dtlsParameters:', dtlsParameters);
     await transport.connect({ dtlsParameters });
     console.log('[CONNECT] Transport connected successfully');
   }
@@ -356,12 +368,17 @@ export class MediasoupService implements OnModuleDestroy {
       rtpParameters,
     });
 
-    // Store producer by kind
     stream.streamer.producers.set(kind, producer);
-    stream.streamer.isStreaming = true;
 
-    // Start recording when first producer is created
-    if (stream.streamer.producers.size === 1) {
+
+    if (!stream.streamer.isStreaming) {
+      stream.streamer.isStreaming = true;
+      this.logger.log(`Stream ${streamId} is now live.`);
+
+    }
+
+
+    if (!stream.streamer.recordingProcess) {
       await this.startRecording(stream);
     }
 
@@ -440,7 +457,7 @@ export class MediasoupService implements OnModuleDestroy {
       );
     }
 
-    console.log('[SERVICE] Returning consumers:', consumers);
+    // console.log('[SERVICE] Returning consumers:', consumers);
     return consumers;
   }
 
@@ -449,11 +466,18 @@ export class MediasoupService implements OnModuleDestroy {
     viewerId: string,
     viewerSocket: any,
   ): Promise<ViewerInfo> {
+    // console.log(this.streams)
     const stream = this.streams.get(streamId);
     if (!stream) {
       throw new Error(`Stream ${streamId} not found`);
     }
 
+    const currentWatching = this.viewerStreamsWatching.get(viewerId) || 0;
+    if (currentWatching >= 4) {
+      this.logger.warn(`Viewer ${viewerId} is already watching 4 streams`);
+      throw new Error(`You can only watch up to 4 streams at a time.`);
+    }
+    this.viewerStreamsWatching.set(viewerId, currentWatching + 1);
     const viewerInfo: ViewerInfo = {
       id: viewerId,
       socket: viewerSocket,
@@ -465,7 +489,8 @@ export class MediasoupService implements OnModuleDestroy {
       },
       streamId,
     };
-
+   
+    console.log( `[SERVICE] Viewer ${viewerId} is now watching ${currentWatching+1} streams. `)
     stream.viewers.set(viewerId, viewerInfo);
     this.logger.log(`Viewer ${viewerId} added to stream ${streamId}`);
     return viewerInfo;
@@ -480,6 +505,9 @@ export class MediasoupService implements OnModuleDestroy {
     const viewer = stream.viewers.get(viewerId);
     if (viewer) {
       // Close all consumers
+      const currentWatching = this.viewerStreamsWatching.get(viewerId) || 0;
+      this.viewerStreamsWatching.set(viewerId, currentWatching - 1);
+      console.log(`[SERVICE] Viewer ${viewerId} is now watching ${currentWatching - 1} streams.`);
       for (const consumer of viewer.transport.consumers.values()) {
         consumer.close();
       }
@@ -530,8 +558,13 @@ export class MediasoupService implements OnModuleDestroy {
     }
   }
 
-  async getActiveStreams(): Promise<string[]> {
-    return Array.from(this.streams.keys());
+async getActiveStreams(): Promise<{ streamId: string; streamerName: string | undefined; tags: string[] | undefined }[]> {
+    // Return an array of objects with streamId and streamerName
+    return Array.from(this.streams.values()).map(stream => ({
+      streamId: stream.streamId,
+      streamerName: stream.streamer.username,
+      tags: stream.tags,
+    }));
   }
 
   async getStreamInfo(streamId: string): Promise<StreamInfo | null> {
