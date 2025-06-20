@@ -199,6 +199,7 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 								dataObj,
 								msg.data.signature
 							);
+							console.log(dataObj);
 						} catch (err) {
 							console.error(
 								"[Chat] Signature verification error:",
@@ -212,6 +213,9 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 						timestamp: msg.data.timestamp,
 						streamer: streamerId,
 						verified,
+						signature: msg.data.signature,
+						publicKey: msg.data.publicKey,
+						streamId: msg.data.streamId,
 					};
 					setMessages((prev) => [...prev, chatObj]);
 
