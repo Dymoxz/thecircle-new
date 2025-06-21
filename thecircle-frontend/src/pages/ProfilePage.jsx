@@ -261,12 +261,12 @@ const ProfilePage = () => {
   );
 
   return (
-    <div className="min-h-screen text-white font-oswald">
+    <div className="min-h-screen text-white font-oswald dark-bg">
       {/* Profile Header */}
       <div className="bg-white/10 py-16 px-4 sm:px-6 lg:px-8 relative shadow-xl bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] shadow-black/30">
         {/* Back Button */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/')}
           className="absolute top-4 left-4 p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-white"
         >
           <ArrowLeft className="w-6 h-6" />
@@ -336,7 +336,7 @@ const ProfilePage = () => {
       <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Main Profile Info */}
-          <div className="md:col-span-2 bg-white/80 backdrop-blur-sm rounded-lg shadow-xl shadow-black/30 p-8">
+          <div className="light-bg md:col-span-2 bg-[#fcf8f6] backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-8">
             <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
               <User className="w-5 h-5 mr-2 text-[#a83246]" />
               About
@@ -371,7 +371,7 @@ const ProfilePage = () => {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Subscribers */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-xl shadow-black/30 p-8">
+            <div className="light-bg bg-[#fcf8f6] backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-8">
               <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
                 <Users className="w-5 h-5 mr-2 text-[#a83246]" />
                 Subscribers
@@ -383,7 +383,7 @@ const ProfilePage = () => {
                     sub?.subscriber && (
                       <li
                         key={sub._id}
-                        className="flex items-center p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"
+                        className="flex items-center p-2 rounded-3xl hover:bg-[#f3ece8] transition-colors cursor-pointer"
                         onClick={() => navigate(`/profile/${sub.subscriber._id}`)}
                       >
                         <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
@@ -405,7 +405,7 @@ const ProfilePage = () => {
             </div>
 
             {/* Subscriptions */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-xl shadow-black/30 p-8">
+            <div className="light-bg bg-[#fcf8f6] backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-8">
               <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
                 <Heart className="w-5 h-5 mr-2 text-[#a83246]" />
                 Subscriptions
@@ -417,7 +417,7 @@ const ProfilePage = () => {
                     sub?.streamer && (
                       <li
                         key={sub._id}
-                        className="flex items-center p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"
+                        className="flex items-center p-2 rounded-3xl hover:bg-[#f3ece8] transition-colors cursor-pointer"
                         onClick={() => navigate(`/profile/${sub.streamer._id}`)}
                       >
                         <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
@@ -436,7 +436,7 @@ const ProfilePage = () => {
         </div>
 
         {/* Recent Activity (placeholder) */}
-        <div className="mt-8 bg-white/80 backdrop-blur-sm rounded-lg shadow-xl shadow-black/30 p-8">
+        <div className="light-bg mt-8 bg-[#fcf8f6] backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-8">
           <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
             <MessageSquare className="w-5 h-5 mr-2 text-[#a83246]" />
             Recent Activity

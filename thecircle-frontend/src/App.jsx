@@ -20,68 +20,18 @@ import {
 	User,
 } from "lucide-react";
 import ProfilePage from "./pages/ProfilePage.jsx";
+import theCircleLogoImg from "./assets/thecircle.jpg";
 
 const API_URL = "https://localhost:3001/api";
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const WS_URL = `${wsProtocol}//${window.location.hostname}:3001`;
 
 const TheCircleLogo = ({ className }) => (
-	<svg
-		width="120"
-		height="120"
-		viewBox="0 0 120 120"
-		className={`drop-shadow-[0_4px_32px_rgba(80,0,20,0.5)] ${className}`}
-	>
-		<defs>
-			<radialGradient id="circle-maroon" cx="50%" cy="50%" r="70%">
-				<stop offset="0%" stopColor="#fff" />
-				<stop offset="60%" stopColor="#a83246" />
-				<stop offset="100%" stopColor="#2d0a14" />
-			</radialGradient>
-			<linearGradient
-				id="circle-maroon-stroke"
-				x1="0"
-				y1="0"
-				x2="1"
-				y2="1"
-			>
-				<stop offset="0%" stopColor="#fff" />
-				<stop offset="100%" stopColor="#a83246" />
-			</linearGradient>
-		</defs>
-		<circle
-			cx="60"
-			cy="60"
-			r="54"
-			fill="url(#circle-maroon)"
-			opacity="0.95"
-		/>
-		<circle
-			cx="60"
-			cy="60"
-			r="44"
-			fill="none"
-			stroke="url(#circle-maroon-stroke)"
-			strokeWidth="8"
-			opacity="0.7"
-		/>
-		<circle
-			cx="60"
-			cy="60"
-			r="22"
-			fill="none"
-			stroke="url(#circle-maroon-stroke)"
-			strokeWidth="5"
-			opacity="0.8"
-		/>
-		<circle
-			cx="60"
-			cy="60"
-			r="11"
-			fill="url(#circle-maroon-stroke)"
-			opacity="0.95"
-		/>
-	</svg>
+	<img
+		src={theCircleLogoImg}
+		alt="The Circle Logo"
+		className={`w-10 h-10 rounded-full object-cover drop-shadow-[0_4px_32px_rgba(80,0,20,0.5)] ${className}`}
+	/>
 );
 
 // Click outside hook
@@ -109,6 +59,7 @@ const HomePage = () => {
 	const [streamError, setStreamError] = useState(null);
 	const socketRef = useRef(null);
 	const [searchTerm, setSearchTerm] = useState("");
+	const [profile, setProfile] = useState(null);
 
 	// Filter and sort state
 	const [filterOpen, setFilterOpen] = useState(false);
@@ -379,11 +330,10 @@ const HomePage = () => {
 												onChange={(e) =>
 													setFilters({
 														...filters,
-														category:
-															e.target.value,
+														category: e.target.value,
 													})
 												}
-												className="w-full rounded-md border-gray-300 shadow-sm focus:border-[#a83246] focus:ring-[#a83246] text-gray-800"
+												className="rounded-md border-gray-300 shadow-sm focus:border-[#a83246] focus:ring-[#a83246] text-gray-800 py-1.5 min-h-[2.1rem] pl-3 bg-white/10 w-44"
 											>
 												<option value="">
 													All Categories
@@ -557,7 +507,7 @@ const HomePage = () => {
 							<User className="w-10 h-10 text-neutral-300" />
 						</div>
 						<h2 className="text-xl font-bold text-gray-800">
-							My Profile
+							{profile?.userName?.charAt(0).toUpperCase() || 'U'}
 						</h2>
 					</div>
 
@@ -624,51 +574,61 @@ const HomePage = () => {
 
 function App() {
 	return (
-		<Router>
-			<Routes>
-				<Route
-					path="/"
-					element={
-						<RequireAuth>
-							<HomePage />
-						</RequireAuth>
+		<>
+			<style>
+				{`
+					::selection {
+						background: #5c0000;
+						color: #fff;
 					}
-				/>
-				<Route
-					path="/streamer"
-					element={
-						<RequireAuth>
-							<StreamerPage />
-						</RequireAuth>
-					}
-				/>
-				<Route
-					path="/viewer/:streamId"
-					element={
-						<RequireAuth>
-							<ViewerPage />
-						</RequireAuth>
-					}
-				/>
-				<Route
-					path="/profile"
-					element={
-						<RequireAuth>
-							<ProfilePage />
-						</RequireAuth>
-					}
-				/>
-				<Route
-					path="/profile/:userId"
-					element={
-						<RequireAuth>
-							<ProfilePage />
-						</RequireAuth>
-					}
-				/>
-				<Route path="/login" element={<LoginPage />} />
-			</Routes>
-		</Router>
+				`}
+			</style>
+			<Router>
+				<Routes>
+					<Route
+						path="/"
+						element={
+							<RequireAuth>
+								<HomePage />
+							</RequireAuth>
+						}
+					/>
+					<Route
+						path="/streamer"
+						element={
+							<RequireAuth>
+								<StreamerPage />
+							</RequireAuth>
+						}
+					/>
+					<Route
+						path="/viewer/:streamId"
+						element={
+							<RequireAuth>
+								<ViewerPage />
+							</RequireAuth>
+						}
+					/>
+					<Route
+						path="/profile"
+						element={
+							<RequireAuth>
+								<ProfilePage />
+							</RequireAuth>
+						}
+					/>
+					<Route
+						path="/profile/:userId"
+						element={
+							<RequireAuth>
+								<ProfilePage />
+							</RequireAuth>
+						}
+					/>
+					<Route path="/login" element={<LoginPage />} />
+				</Routes>
+			</Router>
+		</>
 	);
 }
 
