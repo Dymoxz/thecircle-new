@@ -814,7 +814,7 @@ const StreamerPage = () => {
 					<button
 						onClick={() => setShowTagDialog(true)}
 						disabled={!isWsConnected}
-						className="bg-teal-500 mb-4 hover:bg-teal-600 disabled:bg-neutral-600 disabled:cursor-not-allowed text-neutral-900 py-3 px-8 rounded-2xl font-semibold transition-all duration-300 ease-in-out flex items-center justify-center space-x-2 transform hover:scale-105 active:scale-100 shadow-lg z-10"
+						className="bg-[#800000] hover:bg-[#a00000] mb-4 disabled:bg-neutral-600 disabled:cursor-not-allowed text-white py-3 px-8 rounded-2xl font-semibold transition-all duration-300 ease-in-out flex items-center justify-center space-x-2 transform hover:scale-105 active:scale-100 shadow-lg z-10"
 					>
 						<Play className="w-6 h-6 " />
 						<span>
@@ -907,7 +907,7 @@ const StreamerPage = () => {
 			<div className="absolute top-4 right-4 w-80 space-y-4 hidden lg:flex flex-col max-h-[calc(100vh-2rem)] z-20">
 				<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 p-4 rounded-2xl">
 					<h3 className="font-semibold mb-4 flex items-center text-lg">
-						<Monitor className="w-5 h-5 mr-3 text-teal-400" />
+						<Monitor className="w-5 h-5 mr-3 text-[#800000]" />
 						Stream Info
 					</h3>
 					<div className="space-y-3 text-sm">
@@ -918,7 +918,7 @@ const StreamerPage = () => {
 									isStreaming
 										? isPaused
 											? "bg-yellow-500/20 text-yellow-300"
-											: "bg-teal-500/20 text-teal-300"
+											: "bg-red-500/20 text-red-400"
 										: "bg-neutral-700 text-neutral-300"
 								}`}
 							>
@@ -938,11 +938,11 @@ const StreamerPage = () => {
 						<div>
 							<span className="text-neutral-400">Tags</span>
 							<div className="flex flex-wrap gap-2 mt-1">
-								{streamTags?.length ? ( // <-- safe check
+								{streamTags?.length ? (
 									streamTags.map((tag, i) => (
 										<span
 											key={i}
-											className="bg-teal-700/30 text-teal-200 px-2 py-0.5 rounded-full text-xs"
+											className="bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full text-xs"
 										>
 											{tag}
 										</span>

@@ -14,12 +14,14 @@ import {
 	Pause,
 	Volume2,
 	VolumeX,
+	Eye,
 } from "lucide-react";
 import * as mediasoupClient from "mediasoup-client";
 import Chat from "../component/chat";
 import MaxStreams from "../component/MaxStreams";
 import { jwtDecode } from "jwt-decode";
 import { Navigate, useParams, useNavigate } from "react-router-dom";
+
 
 // WebSocket URL configuration
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -32,7 +34,6 @@ const VIDEO_CONSTRAINTS = {
 };
 
 const ViewerPage = () => {
-	const [viererCount, setViewerCount] = useState(0);
 	const navigate = useNavigate();
 	const [streams, setStreams] = useState([]);
 	const [currentStreamId, setCurrentStreamId] = useState(null);
@@ -62,17 +63,19 @@ const ViewerPage = () => {
 	const consumersRef = useRef(new Map());
 
 	const streamInfo = {
-		streamerName: "CodeMaster_Dev",
-		title: "Building a React Streaming App - Live Coding Session",
-		viewers: 247,
-		category: "Programming",
-		tags: ["React", "JavaScript", "WebRTC", "Live Coding"],
+		streamerName: streamerName || "Unknown Streamer",
+		tags: tags || []
 	};
 
+	// --- Viewer Count and Streamer Name State ---
+	const [viewerCount, setViewerCount] = useState(0);
+	const [streamerName, setStreamerName] = useState("");
+	const [streamTags, setStreamTags] = useState([]);
+
 	useEffect(() => {
-		document.title = "StreamHub - Watch";
+		document.title = "The Circle - Watch";
 		return () => {
-			document.title = "StreamHub";
+			document.title = "The Circle";
 		};
 	}, []);
 
@@ -221,6 +224,14 @@ const ViewerPage = () => {
 					console.error("Server error:", msg.data.message);
 					break;
 				}
+				case "viewer-joined": {
+					setViewerCount((prev) => prev + 1);
+					break;
+				}
+				case "viewer-left": {
+					setViewerCount((prev) => Math.max(prev - 1, 0));
+					break;
+				}
 				default:
 					break;
 			}
@@ -235,6 +246,22 @@ const ViewerPage = () => {
 			consumersRef.current.clear();
 		};
 	}, [paramStreamId]);
+
+	// --- Fetch Streamer Name and Tags when stream changes ---
+	useEffect(() => {
+		if (!currentStreamId) return;
+		const streamerId = currentStreamId.startsWith("stream-")
+			? currentStreamId.substring(7)
+			: currentStreamId;
+		fetch(`https://localhost:3002/api/user/${streamerId}`)
+			.then((res) => res.json())
+			.then((data) => {
+				if (data && data.userName) setStreamerName(data.userName);
+				else setStreamerName("");
+				if (data && data.tags) setStreamTags(data.tags);
+				else setStreamTags([]);
+			});
+	}, [currentStreamId]);
 
 	const createRecvTransport = async (transportOptions, streamId) => {
 		try {
@@ -1182,7 +1209,6 @@ const ViewerPage = () => {
 						remoteVideoRef.current?.volume
 					)
 				}
-				onAudioProcess={() => console.log("Audio processing")}
 			/>
 
 			{currentStreamId && showPauseOverlay && (
@@ -1247,26 +1273,24 @@ const ViewerPage = () => {
 					<>
 						<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4">
 							<h2 className="text-lg font-bold mb-3">
-								{streamInfo.title}
+								{/* Optionally display a stream title here */}
 							</h2>
 							<div className="flex items-center space-x-3 mb-4">
-								<div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-800 rounded-full flex-shrink-0 flex items-center justify-center">
+								<div className="w-10 h-10 bg-gradient-to-br from-[#d32f2f] to-[#ff5252] rounded-full flex-shrink-0 flex items-center justify-center">
 									<span className="text-xs font-bold">
 										CM
 									</span>
 								</div>
 								<div className="text-sm">
 									<p className="font-semibold text-white">
-										{streamInfo.streamerName}
+										{streamerName || "Unknown Streamer"}
 									</p>
-									<p className="text-neutral-400">
-										{streamInfo.category}
-									</p>
+									{/* Optionally display a category here */}
 								</div>
 							</div>
 							<div className="text-xs text-neutral-300 space-y-2 border-t border-neutral-700 pt-3">
 								<div className="flex items-center space-x-2">
-									<Calendar className="w-4 h-4 text-teal-400" />
+									<Calendar className="w-4 h-4 text-[#ff3333]" />
 									<span>
 										{new Date().toLocaleDateString(
 											"en-US",
@@ -1277,9 +1301,11 @@ const ViewerPage = () => {
 										)}
 									</span>
 								</div>
-								<div className="flex items-center space-x-2">
-									<Users className="w-4 h-4 text-teal-400" />
-									<span>{streamInfo.viewers} viewers</span>
+								<div className="flex items-center">
+									<Eye className="w-5 h-5 text-[#ff3333]" />
+									<span className="ml-2 flex items-center" style={{ minHeight: '20px' }}>
+										{viewerCount} viewers
+									</span>
 								</div>
 								{/* Stream Verification Status */}
 								<div className="flex items-center space-x-2 mt-2">
@@ -1288,7 +1314,7 @@ const ViewerPage = () => {
 											frameVerified === true
 												? "bg-green-500"
 												: frameVerified === false
-												? "bg-red-500"
+												? "bg-[#ff3333]"
 												: "bg-gray-400"
 										}`}
 									></span>
@@ -1297,7 +1323,7 @@ const ViewerPage = () => {
 											frameVerified === true
 												? "text-green-400"
 												: frameVerified === false
-												? "text-red-400"
+												? "text-[#ff3333]"
 												: "text-neutral-400"
 										}`}
 									>
@@ -1310,14 +1336,20 @@ const ViewerPage = () => {
 								</div>
 							</div>
 							<div className="flex flex-wrap gap-2 mt-4">
-								{streamInfo.tags.map((tag) => (
-									<span
-										key={tag}
-										className="bg-neutral-700/50 px-3 py-1 rounded-full text-xs"
-									>
-										{tag}
+								{streamTags && streamTags.length > 0 ? (
+									streamTags.map((tag) => (
+										<span
+											key={tag}
+											className="bg-neutral-700/50 px-3 py-1 rounded-full text-xs"
+										>
+											{tag}
+										</span>
+									))
+								) : (
+									<span className="text-neutral-500 text-xs">
+										No tags
 									</span>
-								))}
+								)}
 							</div>
 						</div>
 						<Chat
@@ -1402,3 +1434,7 @@ const ViewerPage = () => {
 };
 
 export default ViewerPage;
+
+// Import backend types/interfaces for reference (adjust the path as needed)
+import { UserService } from '../../../thecircle-backend/src/user/user.service';
+import { MediasoupService } from '../../../thecircle-backend/src/mediasoup/mediasoup.service';

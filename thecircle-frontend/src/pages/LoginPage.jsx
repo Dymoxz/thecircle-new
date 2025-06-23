@@ -58,7 +58,7 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen w-screen bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] text-white flex items-center justify-center p-4 relative overflow-hidden font-oswald">
+        <div className="min-h-screen w-screen bg-gradient-to-br from-[#7a1a1a] via-[#a83246] to-[#2d0a14] text-white flex items-center justify-center p-4 relative overflow-hidden font-oswald">
 
             {/* Back Button */}
             <button
@@ -83,12 +83,12 @@ const LoginPage = () => {
                     <div className="text-center mb-8">
                         <TheCircleLogo />
                         <h1
-                            className="text-[#5c0000] text-4xl md:text-5xl font-bold uppercase mb-2 tracking-wider"
+                            className="text-[#7a1a1a] text-4xl md:text-5xl font-bold uppercase mb-2 tracking-wider"
                             style={{ textShadow: "0 4px 24px rgba(168,50,70,0.15)" }}
                         >
                             Access
                         </h1>
-                        <p className="text-[#5c0000] text-base font-light" style={{ fontFamily: 'sans-serif' }}>
+                        <p className="text-[#7a1a1a] text-base font-light" style={{ fontFamily: 'sans-serif' }}>
                             Enter the circle. Your secrets await.
                         </p>
                     </div>
@@ -96,7 +96,7 @@ const LoginPage = () => {
                     {/* Error Message */}
                     {error && (
                         <div className="mb-6 bg-[#a83246]/10 backdrop-blur-xl border border-[#a83246]/30 rounded-2xl px-4 py-3 text-center">
-                            <p className="text-[#5c0000] text-sm font-light" style={{ fontFamily: 'sans-serif' }}>
+                            <p className="text-[#7a1a1a] text-sm font-light" style={{ fontFamily: 'sans-serif' }}>
                                 {error}
                             </p>
                         </div>
@@ -129,20 +129,20 @@ const LoginPage = () => {
                                 placeholder="Password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full pl-16 pr-4 py-4 bg-white/60 backdrop-blur-xl text-[#5c0000] placeholder-[#a83246]/50 rounded-2xl border border-[#a83246]/20 focus:outline-none focus:bg-white/80 focus:border-[#a83246]/40 focus:ring-2 focus:ring-[#a83246]/30 transition-all duration-300"
+                                className="w-full pl-16 pr-4 py-4 bg-white/60 backdrop-blur-xl text-[#7a1a1a] placeholder-[#a83246]/50 rounded-2xl border border-[#a83246]/20 focus:outline-none focus:bg-white/80 focus:border-[#a83246]/40 focus:ring-2 focus:ring-[#a83246]/30 transition-all duration-300"
                                 style={{ fontFamily: 'sans-serif' }}
                                 required
                                 disabled={loading}
                             />
                             <div className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#a83246]/10 rounded-full flex items-center justify-center border border-[#a83246]/20 transition-all duration-300 group-focus-within:bg-[#a83246]/20 group-focus-within:border-[#a83246]/40">
-                                <Lock className="w-4 h-4 text-[#5c0000]" />
+                                <Lock className="w-4 h-4 text-[#7a1a1a]" />
                             </div>
                         </div>
 
                         {/* Login Button */}
                         <button
                             type="submit"
-                            className="w-full py-4 bg-[#5c0000]/90 backdrop-blur-xl border border-[#a83246]/30 text-white font-bold uppercase tracking-wider rounded-2xl shadow-xl shadow-black/30 transition-all duration-300 ease-in-out hover:bg-[#a83246] hover:scale-105 hover:shadow-2xl hover:shadow-[#a83246]/40 focus:outline-none focus:ring-2 focus:ring-[#a83246]/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            className="w-full py-4 bg-[#7a1a1a]/90 backdrop-blur-xl border border-[#a83246]/30 text-white font-bold uppercase tracking-wider rounded-2xl shadow-xl shadow-black/30 transition-all duration-300 ease-in-out hover:bg-[#a83246] hover:scale-105 hover:shadow-2xl hover:shadow-[#a83246]/40 focus:outline-none focus:ring-2 focus:ring-[#a83246]/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                             disabled={loading}
                         >
                             {loading ? (
@@ -160,7 +160,7 @@ const LoginPage = () => {
                     <div className="mt-8 text-center space-y-3">
                         <button
                             type="button"
-                            className="text-[#5c0000] text-sm font-light hover:text-[#800000] transition-colors duration-300 underline decoration-transparent hover:decoration-[#a83246] decoration-1 underline-offset-4"
+                            className="text-[#7a1a1a] text-sm font-light hover:text-[#a83246] transition-colors duration-300 underline decoration-transparent hover:decoration-[#a83246] decoration-1 underline-offset-4"
                             style={{ fontFamily: 'sans-serif' }}
                         >
                             Forgot your access code?

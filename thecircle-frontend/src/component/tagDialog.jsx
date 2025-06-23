@@ -22,7 +22,7 @@ export const TagDialog = ({ open, onClose, onSave }) => {
                         Cancel
                     </button>
                     <button
-                        className="px-4 py-2 rounded bg-teal-500 text-neutral-900 font-semibold hover:bg-teal-600"
+                        className="px-4 py-2 rounded bg-[#800000] text-white font-semibold hover:bg-[#a00000]"
                         onClick={() => { onSave(input); onClose(); }}
                     >
                         Start
@@ -32,4 +32,3 @@ export const TagDialog = ({ open, onClose, onSave }) => {
         </div>
     );
 };
-

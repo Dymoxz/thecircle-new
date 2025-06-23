@@ -286,13 +286,13 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 	return (
 		<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4 flex flex-col flex-1 pr-4" style={{minHeight: 0}}>
 			<h3 className="font-semibold mb-4 flex items-center text-lg">
-				<MessageSquare className="w-5 h-5 mr-3 text-[#ff5a7c]" />Live Chat
+				<MessageSquare className="w-5 h-5 mr-3 text-[#ff3333]" />Live Chat
 			</h3>
 			{/* Message List */}
 			<div className="flex-1 space-y-4 overflow-y-auto min-h-0">
 				{messages.map((msg, idx) => (
 					<div key={idx} className="flex flex-col items-start text-sm">
-						<span className={`font-bold flex items-center ${msg.sender === username ? 'text-[#7dd3fc]' : 'text-[#f1f1f1]'}`}>
+						<span className={`font-bold flex items-center ${msg.sender === username ? 'text-white' : 'text-red-500'}`}>
 							{msg.verified && (
 								<span className="text-green-500 mr-1" title="Verified">
 									{/* Small checkmark icon */}
@@ -325,8 +325,8 @@ const Chat = ({ streamId, username, socket, myStream }) => {
 					placeholder="Send a message..."
 					className="flex-1 bg-neutral-800/60 border border-[#be123c]/40 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-[#ff5a7c] focus:border-[#ff5a7c] transition-all outline-none"
 				/>
-				<button type="submit" disabled={!input.trim()} className="p-2 bg-gradient-to-r from-[#ff5a7c] to-[#be123c] hover:from-[#be123c] hover:to-[#ff5a7c] rounded-lg transition-colors">
-					<Send className="w-5 h-5 text-neutral-900" />
+				<button type="submit" disabled={!input.trim()} className="p-2 bg-[#800000] hover:bg-[#a00000] rounded-lg transition-colors">
+					<Send className="w-5 h-5 text-white" />
 				</button>
 			</form>
 		</div>
