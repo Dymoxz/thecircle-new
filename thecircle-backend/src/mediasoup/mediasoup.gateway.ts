@@ -70,10 +70,23 @@ export class MediasoupGateway
 
     private async handleStreamerDisconnect(streamId: string, streamerId: string) {
         try {
+            // Get stream info for tags
+            const stream = await this.mediasoupService.getStreamInfo(streamId);
+            const tags = stream?.tags || [];
+            // Log the stream-ended event
+            const streamerObjectId = new Types.ObjectId(streamerId);
+            await this.streamService.createEvent(
+                streamerObjectId,
+                {
+                    id: streamerObjectId,
+                    actor: Actor.STREAMER,
+                    tags,
+                    event: 'stream-ended',
+                }
+            );
             await this.mediasoupService.closeStream(streamId);
 
             // Notify all viewers that stream ended
-            const stream = await this.mediasoupService.getStreamInfo(streamId);
             this.server.clients.forEach((clientSocket) => {
                 if (clientSocket.readyState === WebSocket.OPEN) {
                     clientSocket.send(
@@ -568,6 +581,20 @@ export class MediasoupGateway
         if (!clientId) return;
 
         try {
+            // Get stream info for tags
+            const stream = await this.mediasoupService.getStreamInfo(streamId);
+            const tags = stream?.tags || [];
+            // Log the stream-ended event
+            const streamerObjectId = new Types.ObjectId(clientId);
+            await this.streamService.createEvent(
+                streamerObjectId,
+                {
+                    id: streamerObjectId,
+                    actor: Actor.STREAMER,
+                    tags,
+                    event: 'stream-ended',
+                }
+            );
             await this.mediasoupService.closeStream(streamId);
             this.logger.log(
                 `[END-STREAM] Streamer ${clientId} ended streamId=${streamId}`,
@@ -633,7 +660,28 @@ export class MediasoupGateway
         @MessageBody() data: { streamId: string },
         @ConnectedSocket() socket: WebSocket,
     ) {
-        const {streamId} = data;
+        const { streamId } = data;
+        const clientId = this.findClientIdBySocket(socket);
+        if (!clientId) return;
+
+        // Log the stream-paused event
+        try {
+            const stream = await this.mediasoupService.getStreamInfo(streamId);
+            const tags = stream?.tags || [];
+            const streamerObjectId = new Types.ObjectId(clientId);
+            await this.streamService.createEvent(
+                streamerObjectId,
+                {
+                    id: streamerObjectId,
+                    actor: Actor.STREAMER,
+                    tags,
+                    event: 'stream-paused',
+                }
+            );
+        } catch (error) {
+            this.logger.error(`Error logging stream-paused event: ${error.message}`);
+        }
+
         // Notify all viewers of this stream
         const stream = await this.mediasoupService.getStreamInfo(streamId);
         if (stream) {
@@ -641,7 +689,7 @@ export class MediasoupGateway
                 viewer.socket.send(
                     JSON.stringify({
                         event: 'stream-paused',
-                        data: {streamId},
+                        data: { streamId },
                     }),
                 );
             }
@@ -650,7 +698,7 @@ export class MediasoupGateway
         socket.send(
             JSON.stringify({
                 event: 'stream-paused',
-                data: {streamId},
+                data: { streamId },
             }),
         );
         this.logger.log(`[PAUSE] Stream ${streamId} paused`);
@@ -661,7 +709,28 @@ export class MediasoupGateway
         @MessageBody() data: { streamId: string },
         @ConnectedSocket() socket: WebSocket,
     ) {
-        const {streamId} = data;
+        const { streamId } = data;
+        const clientId = this.findClientIdBySocket(socket);
+        if (!clientId) return;
+
+        // Log the stream-resumed event
+        try {
+            const stream = await this.mediasoupService.getStreamInfo(streamId);
+            const tags = stream?.tags || [];
+            const streamerObjectId = new Types.ObjectId(clientId);
+            await this.streamService.createEvent(
+                streamerObjectId,
+                {
+                    id: streamerObjectId,
+                    actor: Actor.STREAMER,
+                    tags,
+                    event: 'stream-resumed',
+                }
+            );
+        } catch (error) {
+            this.logger.error(`Error logging stream-resumed event: ${error.message}`);
+        }
+
         // Notify all viewers of this stream
         const stream = await this.mediasoupService.getStreamInfo(streamId);
         if (stream) {
@@ -669,7 +738,7 @@ export class MediasoupGateway
                 viewer.socket.send(
                     JSON.stringify({
                         event: 'stream-resumed',
-                        data: {streamId},
+                        data: { streamId },
                     }),
                 );
             }
@@ -678,7 +747,7 @@ export class MediasoupGateway
         socket.send(
             JSON.stringify({
                 event: 'stream-resumed',
-                data: {streamId},
+                data: { streamId },
             }),
         );
         this.logger.log(`[RESUME] Stream ${streamId} resumed`);
