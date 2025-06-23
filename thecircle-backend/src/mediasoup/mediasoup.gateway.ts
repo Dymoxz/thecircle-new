@@ -119,6 +119,24 @@ export class MediasoupGateway
                     data: {viewerId},
                 }),
             );
+
+            try {
+                const tags = stream?.tags || [];
+                const streamerObjectId = new Types.ObjectId(streamId);
+                const viewerObjectId = new Types.ObjectId(viewerId);
+                await this.streamService.createEvent(
+                    streamerObjectId,
+                    {
+                        id: viewerObjectId,
+                        actor: Actor.VIEWER,
+                        tags,
+                        event: 'viewer-left',
+                    }
+                );
+            } catch (error) {
+                this.logger.error(`Error logging stream-paused event: ${error.message}`);
+            }
+
         }
 
         try {
@@ -237,6 +255,26 @@ export class MediasoupGateway
                     `[STREAMS] Viewer ${id} joining streamId=${effectiveStreamId}`,
                 );
                 await this.mediasoupService.addViewer(effectiveStreamId, id, socket);
+
+                // Log the viewer-joined event
+                try {
+                    const stream = await this.mediasoupService.getStreamInfo(streamId);
+                    const tags = stream?.tags || [];
+                    const streamerObjectId = new Types.ObjectId(effectiveStreamId);
+                    const viewerObjectId = new Types.ObjectId(id);
+                    await this.streamService.createEvent(
+                        streamerObjectId,
+                        {
+                            id: viewerObjectId,
+                            actor: Actor.VIEWER,
+                            tags,
+                            event: 'viewer-joined',
+                        }
+                    );
+                } catch (error) {
+                    this.logger.error(`Error logging stream-paused event: ${error.message}`);
+                }
+
                 this.logger.log(
                     `[STREAMS] Viewer ${id} joined streamId=${effectiveStreamId}`,
                 );
