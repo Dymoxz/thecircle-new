@@ -3,10 +3,11 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Chat, ChatDocument } from './chat.schema';
 import { createVerify } from 'crypto';
+import { UserService } from '../user/user.service'
 
 @Injectable()
 export class ChatService {
-  constructor(@InjectModel(Chat.name) private chatModel: Model<ChatDocument>) {}
+  constructor(@InjectModel(Chat.name) private chatModel: Model<ChatDocument>, private readonly userService: UserService) {}
 
   async create(createChatDto: any): Promise<Chat> {
     const createdChat = new this.chatModel(createChatDto);
@@ -44,22 +45,26 @@ export class ChatService {
     for (const obj of chats as any) {
       if (
         obj.signature == undefined ||
-        obj.publicKey == undefined ||
-        obj.streamId == undefined
+        obj.deviceId == undefined ||
+        obj.streamId == undefined ||
+        obj.senderId == undefined
       ) {
         throw new Error('Missing digital signature fields');
       }
 
       const verifyObj = {
         streamId: obj.streamId,
-        senderId: obj.sender,
+        sender: obj.sender,
+        senderId: obj.senderId,
         message: obj.message,
         timestamp: obj.timestamp,
       };
 
+      const publicKeyObject = await this.userService.getPublicKey({userId: obj.senderId, deviceId: obj.deviceId});
+
       const publicKeyPem = [
         '-----BEGIN PUBLIC KEY-----',
-        obj.publicKey,
+        publicKeyObject.publicKey,
         '-----END PUBLIC KEY-----',
       ].join('\n');
 
@@ -70,7 +75,7 @@ export class ChatService {
       );
 
       delete obj.signature;
-      delete obj.publicKey;
+      delete obj.deviceId;
       delete obj.streamId;
     }
 
