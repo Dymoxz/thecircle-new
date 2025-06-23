@@ -1,8 +1,11 @@
-import { Navigate } from 'react-router-dom';
-import { jwtDecode } from 'jwt-decode';
+import { Navigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
+import { setupDeviceKey } from "../services/keys.service";
+import { useRef } from "react";
 
 const RequireAuth = ({ children }) => {
-  const token = localStorage.getItem('jwt_token');
+  const setupCalled = useRef(false);
+  const token = localStorage.getItem("jwt_token");
 
   if (!token) return <Navigate to="/login" replace />;
 
@@ -17,6 +20,11 @@ const RequireAuth = ({ children }) => {
     console.log("invalid token");
     // Invalid token format
     return <Navigate to="/login" replace />;
+  }
+
+  if (!setupCalled.current) {
+    setupDeviceKey();
+    setupCalled.current = true;
   }
 
   return children;
