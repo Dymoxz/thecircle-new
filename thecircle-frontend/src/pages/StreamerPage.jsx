@@ -933,7 +933,22 @@ const StreamerPage = () => {
                             <SwitchCamera className="w-6 h-6"/>
                         </ControlButton>
                         <ControlButton
-                            onClick={() => setIsMirrored((m) => !m)}
+                            onClick={() => setIsMirrored((m) => {
+                                const newMirrored = !m;
+                                // Emit mirroring event to viewers
+                                if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+                                    socketRef.current.send(
+                                        JSON.stringify({
+                                            event: "video-mirror",
+                                            data: {
+                                                streamId: streamerId,
+                                                mirrored: newMirrored,
+                                            },
+                                        })
+                                    );
+                                }
+                                return newMirrored;
+                            })}
                             className={
                                 isMirrored
                                     ? "bg-teal-500/80 hover:bg-teal-500 text-white"

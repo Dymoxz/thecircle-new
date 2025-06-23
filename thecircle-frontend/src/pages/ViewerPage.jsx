@@ -73,6 +73,7 @@ const ViewerPage = () => {
 	};
 
 	const [videoRotation, setVideoRotation] = useState(0);
+	const [videoMirrored, setVideoMirrored] = useState(false);
 
 	useEffect(() => {
 		document.title = "StreamHub - Watch";
@@ -233,6 +234,10 @@ const ViewerPage = () => {
 				case "video-rotation": {
 					const { rotation } = msg.data;
 					setVideoRotation(rotation);
+					break;
+				}
+				case "video-mirror": {
+					setVideoMirrored(!!msg.data.mirrored);
 					break;
 				}
 				default:
@@ -1179,8 +1184,11 @@ const ViewerPage = () => {
 				ref={remoteVideoRef}
 				autoPlay
 				playsInline
-				className="absolute inset-0 w-full h-full "
-				style={{ transform: `rotate(${videoRotation}deg)` }}
+				muted={isMuted}
+				className="absolute inset-0 w-full h-full"
+				style={{
+					transform: `${videoMirrored ? "scaleX(-1) " : ""}rotate(${videoRotation}deg)`
+				}}
 				onLoadedMetadata={() => console.log("Video metadata loaded")}
 				onCanPlay={() => console.log("Video can play")}
 				onPlay={() => {

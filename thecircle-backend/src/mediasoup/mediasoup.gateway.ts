@@ -884,4 +884,26 @@ export class MediasoupGateway
             }
         }
     }
+
+    @SubscribeMessage('video-mirror')
+    async handleVideoMirror(
+        @MessageBody() data: { streamId: string; mirrored: boolean },
+        @ConnectedSocket() socket: WebSocket,
+    ) {
+        const { streamId, mirrored } = data;
+        // Get stream info from mediasoupService
+        const stream = await this.mediasoupService.getStreamInfo(streamId);
+        if (!stream) return;
+        // Relay to all viewers (not streamer)
+        for (const [viewerId, viewer] of stream.viewers.entries()) {
+            if (viewer.socket.readyState === WebSocket.OPEN) {
+                viewer.socket.send(
+                    JSON.stringify({
+                        event: 'video-mirror',
+                        data: { streamId, mirrored },
+                    })
+                );
+            }
+        }
+    }
 }
