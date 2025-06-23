@@ -1,25 +1,32 @@
 import React, { useEffect, useState, useRef } from "react";
 import {
-	BrowserRouter as Router,
-	Route,
-	Routes,
-	Link,
-	useNavigate,
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  Link,
+  useNavigate,
 } from "react-router-dom";
 import StreamerPage from "./pages/StreamerPage";
 import ViewerPage from "./pages/ViewerPage";
 import LoginPage from "./pages/LoginPage.jsx";
 import RequireAuth from "./component/RequireAuth.jsx";
 import {
-	Camera,
-	Eye,
-	Lock,
-	Search,
-	SlidersHorizontal,
-	ArrowDownWideNarrow,
-	User,
+  Camera,
+  Eye,
+  Lock,
+  Search,
+  SlidersHorizontal,
+  ArrowDownWideNarrow,
+  User,
 } from "lucide-react";
 import ProfilePage from "./pages/ProfilePage.jsx";
+import { jwtDecode } from "jwt-decode";
+import {
+  exportPrivateKey,
+  getDevice,
+  getDeviceName,
+  setupDeviceKey,
+} from "./services/keys.service.js";
 import theCircleLogoImg from "./assets/thecircle.jpg";
 
 const API_URL = "https://localhost:3001/api";
@@ -74,12 +81,8 @@ const HomePage = () => {
 	const filterRef = useRef();
 	const sortRef = useRef();
 
-	useClickOutside(filterRef, () => setFilterOpen(false));
-	useClickOutside(sortRef, () => setSortOpen(false));
-
-	useEffect(() => {
-		document.title = "The Circle - Home";
-	}, []);
+  useClickOutside(filterRef, () => setFilterOpen(false));
+  useClickOutside(sortRef, () => setSortOpen(false));
 
 	// Effect for fetching subscriptions
 	useEffect(() => {
@@ -128,10 +131,12 @@ const HomePage = () => {
 		fetchMySubscriptions();
 	}, [navigate]);
 
-	// Effect for WebSocket connection
-	useEffect(() => {
-		socketRef.current = new WebSocket(WS_URL);
-		const socket = socketRef.current;
+  // Effect for WebSocket connection
+  useEffect(() => {
+    document.title = "The Circle - Home";
+
+    socketRef.current = new WebSocket(WS_URL);
+    const socket = socketRef.current;
 
 		socket.onopen = () => {
 			console.log("[WS] Connected to server.");

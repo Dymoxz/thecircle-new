@@ -1061,6 +1061,7 @@ const StreamerPage = () => {
                 <Chat
                     streamId={streamId}
                     username={username}
+                    userId = {streamerId}
                     socket={socketRef.current}
                     myStream={true}
                 />

@@ -42,6 +42,12 @@ export class User implements IUser {
 
   @Prop({ default: 0 })
   satoshis: number;
+  @Prop({
+    required:false,
+    type: []
+  })
+  publicKeys: Object[]
+
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

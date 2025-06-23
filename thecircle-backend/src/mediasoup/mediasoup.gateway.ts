@@ -650,14 +650,15 @@ export class MediasoupGateway
         data: {
             streamId: string;
             senderId: string;
+      sender:string;
             message: string;
             timestamp: Date;
             signature: string;
-            publicKey: string;
+            deviceId: string;
         },
         @ConnectedSocket() socket: WebSocket,
     ) {
-        const {streamId, senderId, message, timestamp, signature, publicKey} =
+        const {streamId,sender, senderId, message, timestamp, signature, deviceId} =
             data;
 
         // Get stream info from mediasoupService
@@ -670,24 +671,25 @@ export class MediasoupGateway
             ...Array.from(stream.viewers.keys()),
         ];
 
-        recipientIds.forEach((clientId) => {
-            const client = this.clients.get(clientId);
-            if (client && client.socket.readyState === WebSocket.OPEN) {
-                client.socket.send(
-                    JSON.stringify({
-                        event: 'chat-message',
-                        data: {
-                            streamId,
-                            senderId,
-                            message,
-                            timestamp,
-                            signature,
-                            publicKey,
-                        },
-                    }),
-                );
-            }
-        });
+    recipientIds.forEach((clientId) => {
+      const client = this.clients.get(clientId);
+      if (client && client.socket.readyState === WebSocket.OPEN) {
+        client.socket.send(
+          JSON.stringify({
+            event: 'chat-message',
+            data: {
+              streamId,
+              senderId,
+              sender,
+              message,
+              timestamp,
+              signature,
+              deviceId,
+            },
+          }),
+        );
+      }
+    });
 
         this.logger.log(
             `[CHAT] Message from ${senderId} in stream ${streamId}: ${message}`,

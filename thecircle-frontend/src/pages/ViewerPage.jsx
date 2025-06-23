@@ -1330,6 +1330,7 @@ const ViewerPage = () => {
 						<Chat
 							streamId={currentStreamId}
 							username={username}
+							userId={viewerId}
 							socket={socketRef.current}
 							myStream={false}
 						/>
