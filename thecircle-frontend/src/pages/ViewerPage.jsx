@@ -1221,17 +1221,7 @@ const ViewerPage = () => {
 
 			{/* Viewer Paused Overlay */}
 			{currentStreamId && isPaused && !showPauseOverlay && (
-				<div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500 z-20">
-					{/* <div className="text-center p-8">
-                        <div
-                            className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                            <Play className="w-12 h-12 text-teal-400"/>
-                        </div>
-                        <h3 className="text-2xl font-bold mb-2">Paused</h3>
-                        <p className="text-neutral-300 max-w-sm">
-                            You have paused the stream. Click the play button to resume.
-                        </p>
-                    </div> */}
+				<div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-xs transition-opacity duration-500 z-20">
 				</div>
 			)}
 
