@@ -75,7 +75,7 @@ const Chat = ({ streamId, userId, username, socket, myStream }) => {
           sender: chat.sender,
           message: chat.message,
           timestamp: chat.timestamp,
-          verified: chat.verified || true,
+          verified: chat.verified,
         }));
         setMessages(mapped);
       })
