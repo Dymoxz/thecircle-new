@@ -100,13 +100,13 @@ export class MediasoupGateway
             await this.broadcastStreamListUpdate(); // Re-broadcast the list after a stream ends
 
 
-      this.logger.log(
-        `[CLEANUP] Streamer ${streamerId} disconnected, streamId=${streamId} removed`,
-      );
-    } catch (error) {
-      this.logger.error(`Error handling streamer disconnect: ${error.message}`);
+            this.logger.log(
+                `[CLEANUP] Streamer ${streamerId} disconnected, streamId=${streamId} removed`,
+            );
+        } catch (error) {
+            this.logger.error(`Error handling streamer disconnect: ${error.message}`);
+        }
     }
-  }
 
     private async handleViewerDisconnect(streamId: string, viewerId: string) {
         // Remove viewer from the stream
@@ -376,32 +376,32 @@ export class MediasoupGateway
         }
     }
 
-  @SubscribeMessage('get-rtp-capabilities')
-  async handleGetRtpCapabilities(
-    @MessageBody() data: { streamId: string },
-    @ConnectedSocket() socket: WebSocket,
-  ) {
-    console.log('Getting RTP capabilities with streamId:', data.streamId);
-    const { streamId } = data;
-    try {
-      const rtpCapabilities =
-        await this.mediasoupService.getRtpCapabilities(streamId);
-      socket.send(
-        JSON.stringify({
-          event: 'rtp-capabilities',
-          data: { rtpCapabilities },
-        }),
-      );
-    } catch (error) {
-      this.logger.error(`Error getting RTP capabilities: ${error.message}`);
-      socket.send(
-        JSON.stringify({
-          event: 'error',
-          data: { message: 'Failed to get RTP capabilities' },
-        }),
-      );
+    @SubscribeMessage('get-rtp-capabilities')
+    async handleGetRtpCapabilities(
+        @MessageBody() data: { streamId: string },
+        @ConnectedSocket() socket: WebSocket,
+    ) {
+        console.log('Getting RTP capabilities with streamId:', data.streamId);
+        const {streamId} = data;
+        try {
+            const rtpCapabilities =
+                await this.mediasoupService.getRtpCapabilities(streamId);
+            socket.send(
+                JSON.stringify({
+                    event: 'rtp-capabilities',
+                    data: {rtpCapabilities},
+                }),
+            );
+        } catch (error) {
+            this.logger.error(`Error getting RTP capabilities: ${error.message}`);
+            socket.send(
+                JSON.stringify({
+                    event: 'error',
+                    data: {message: 'Failed to get RTP capabilities'},
+                }),
+            );
+        }
     }
-  }
 
     @SubscribeMessage('create-transport')
     async handleCreateTransport(
@@ -694,114 +694,115 @@ export class MediasoupGateway
         );
     }
 
-@SubscribeMessage('pause-stream')
-async handlePauseStream(
-  @MessageBody() data: { streamId: string },
-  @ConnectedSocket() socket: WebSocket,
-) {
-  const { streamId } = data;
+    @SubscribeMessage('pause-stream')
+    async handlePauseStream(
+        @MessageBody() data: { streamId: string },
+        @ConnectedSocket() socket: WebSocket,
+    ) {
+        const {streamId} = data;
 
-    const clientId = this.findClientIdBySocket(socket);
-    if (!clientId) return;
+        const clientId = this.findClientIdBySocket(socket);
+        if (!clientId) return;
 
-    // Log the stream-paused event
-    try {
+        // Log the stream-paused event
+        try {
+            const stream = await this.mediasoupService.getStreamInfo(streamId);
+            const tags = stream?.tags || [];
+            const streamerObjectId = new Types.ObjectId(clientId);
+            await this.streamService.createEvent(
+                streamerObjectId,
+                {
+                    id: streamerObjectId,
+                    actor: Actor.STREAMER,
+                    tags,
+                    event: 'stream-paused',
+                }
+            );
+        } catch (error) {
+            this.logger.error(`Error logging stream-paused event: ${error.message}`);
+        }
+
+
         const stream = await this.mediasoupService.getStreamInfo(streamId);
-        const tags = stream?.tags || [];
-        const streamerObjectId = new Types.ObjectId(clientId);
-        await this.streamService.createEvent(
-            streamerObjectId,
-            {
-                id: streamerObjectId,
-                actor: Actor.STREAMER,
-                tags,
-                event: 'stream-paused',
+        if (!stream) return;
+
+        // Mark stream as paused
+        stream.streamer.isStreaming = false;
+
+        // Notify all viewers
+        for (const viewer of stream.viewers.values()) {
+            viewer.socket.send(
+                JSON.stringify({
+                    event: 'stream-paused',
+                    data: {streamId},
+                }),
+            );
+        }
+
+        setTimeout(() => {
+            if (!stream.streamer.isStreaming) {
+                const reward = this.mediasoupService.getTransparencyReward(stream.streamer.id);
+                if (reward) {
+                    reward.currentHourlyRate = 1;
+                    reward.consecutiveHours = 1;
+                    this.logger.log(`Reset transparency reward for ${stream.streamer.username} after pause timeout`);
+                }
             }
-        );
-    } catch (error) {
-        this.logger.error(`Error logging stream-paused event: ${error.message}`);
+        }, 90 * 60 * 1000); // 1.5 uur in milliseconden
+
+        this.logger.log(`Stream ${streamId} paused`);
     }
 
+    @SubscribeMessage('resume-stream')
+    async handleResumeStream(
+        @MessageBody() data: { streamId: string },
+        @ConnectedSocket() socket: WebSocket,
+    ) {
+        const {streamId} = data;
 
-  const stream = await this.mediasoupService.getStreamInfo(streamId);
-  if (!stream) return;
+        const clientId = this.findClientIdBySocket(socket);
+        if (!clientId) return;
 
-  // Mark stream as paused
-  stream.streamer.isStreaming = false;
+        // Log the stream-resumed event
+        try {
+            const stream = await this.mediasoupService.getStreamInfo(streamId);
+            const tags = stream?.tags || [];
+            const streamerObjectId = new Types.ObjectId(clientId);
+            await this.streamService.createEvent(
+                streamerObjectId,
+                {
+                    id: streamerObjectId,
+                    actor: Actor.STREAMER,
+                    tags,
+                    event: 'stream-resumed',
+                }
+            );
+        } catch (error) {
+            this.logger.error(`Error logging stream-resumed event: ${error.message}`);
+        }
 
-  // Notify all viewers
-  for (const viewer of stream.viewers.values()) {
-    viewer.socket.send(
-      JSON.stringify({
-        event: 'stream-paused',
-        data: { streamId },
-      }),
-    );
-  }
-
-  setTimeout(() => {
-    if (!stream.streamer.isStreaming) {
-      const reward = this.mediasoupService.getTransparencyReward(stream.streamer.id);
-      if (reward) {
-        reward.currentHourlyRate = 1;
-        reward.consecutiveHours = 1;
-        this.logger.log(`Reset transparency reward for ${stream.streamer.username} after pause timeout`);
-      }
-    }
-  }, 90 * 60 * 1000); // 1.5 uur in milliseconden
-
-  this.logger.log(`Stream ${streamId} paused`);
-}
-
-@SubscribeMessage('resume-stream')
-async handleResumeStream(
-  @MessageBody() data: { streamId: string },
-  @ConnectedSocket() socket: WebSocket,
-) {
-  const { streamId } = data;
-
-    const clientId = this.findClientIdBySocket(socket);
-    if (!clientId) return;
-
-    // Log the stream-resumed event
-    try {
         const stream = await this.mediasoupService.getStreamInfo(streamId);
-        const tags = stream?.tags || [];
-        const streamerObjectId = new Types.ObjectId(clientId);
-        await this.streamService.createEvent(
-            streamerObjectId,
-            {
-                id: streamerObjectId,
-                actor: Actor.STREAMER,
-                tags,
+        if (!stream) return;
+
+        // Mark stream as resumed
+        stream.streamer.isStreaming = true;
+
+        // Notify all viewers
+        for (const viewer of stream.viewers.values()) {
+            viewer.socket.send(
+                JSON.stringify({
+                    event: 'stream-resumed',
+                    data: {streamId},
+                }),
+            );
+        }
+        socket.send(
+            JSON.stringify({
                 event: 'stream-resumed',
-            }
+                data: {streamId},
+            }),
         );
-    } catch (error) {
-        this.logger.error(`Error logging stream-resumed event: ${error.message}`);
     }
-
-  const stream = await this.mediasoupService.getStreamInfo(streamId);
-  if (!stream) return;
-
-  // Mark stream as resumed
-  stream.streamer.isStreaming = true;
-
-  // Notify all viewers
-  for (const viewer of stream.viewers.values()) {
-    viewer.socket.send(
-      JSON.stringify({
-        event: 'stream-resumed',
-        data: { streamId },
-      }),
-    );
-  }
-  socket.send(
-    JSON.stringify({
-      event: 'stream-resumed',
-      data: { streamId },
-    }),
-  );
 
     @SubscribeMessage('frame-hash')
     async handleFrameHash(
