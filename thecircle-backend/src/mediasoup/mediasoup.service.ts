@@ -160,42 +160,42 @@ export class MediasoupService implements OnModuleDestroy {
     private transparencyRewards = new Map<string, TransparencyReward>();
 
     // Methode om transparantie te updaten
-private updateTransparency(userId: string): number {
-  const now = Date.now();
-  const oneMinute = 60 * 1000;
-  const resetTimeout = 1.5 * oneMinute;
-  
-  let reward = this.transparencyRewards.get(userId);
-  
-  if (!reward) {
-    reward = {
-      userId,
-      currentHourlyRate: 1,
-      consecutiveHours: 1,
-      lastActiveTimestamp: now,
-      totalEarned: 0 // Start vanaf 0
-    };
-    this.transparencyRewards.set(userId, reward);
-  }
-  
-  const timeSinceLastActive = now - reward.lastActiveTimestamp;
-  
-  if (timeSinceLastActive > resetTimeout) {
-    // Meer dan 1.5 minuut inactief, reset
-    reward.currentHourlyRate = 1;
-    reward.consecutiveHours = 1;
-  } else if (timeSinceLastActive >= oneMinute) {
-    // Minstens 1 minuut actief, verhoog beloning
-    reward.consecutiveHours++;
-    reward.currentHourlyRate = Math.min(Math.pow(2, reward.consecutiveHours - 1), 64); // Max 64 satoshis/minuut
-  }
-  
-  reward.lastActiveTimestamp = now;
-  reward.totalEarned += reward.currentHourlyRate;
-  
-  this.transparencyRewards.set(userId, reward);
-  return reward.currentHourlyRate;
-}
+    private updateTransparency(userId: string): number {
+      const now = Date.now();
+      const oneHour = 60 * 60 * 1000; // 1 uur in milliseconden
+      const resetTimeout = 1.5 * oneHour; // 1.5 uur timeout
+      
+      let reward = this.transparencyRewards.get(userId);
+      
+      if (!reward) {
+        reward = {
+          userId,
+          currentHourlyRate: 1,
+          consecutiveHours: 1,
+          lastActiveTimestamp: now,
+          totalEarned: 0
+        };
+        this.transparencyRewards.set(userId, reward);
+      }
+      
+      const timeSinceLastActive = now - reward.lastActiveTimestamp;
+      
+      if (timeSinceLastActive > resetTimeout) {
+        // Meer dan 1.5 uur inactief, reset
+        reward.currentHourlyRate = 1;
+        reward.consecutiveHours = 1;
+      } else if (timeSinceLastActive >= oneHour) {
+        // Minstens 1 uur actief, verhoog beloning
+        reward.consecutiveHours++;
+        reward.currentHourlyRate = Math.min(Math.pow(2, reward.consecutiveHours - 1), 64); // Max 64 satoshis/uur
+      }
+      
+      reward.lastActiveTimestamp = now;
+      reward.totalEarned += reward.currentHourlyRate;
+      
+      this.transparencyRewards.set(userId, reward);
+      return reward.currentHourlyRate;
+    }
 
     // Methode om beloning op te halen
     public getTransparencyReward(userId: string): TransparencyReward | null {
@@ -210,10 +210,9 @@ private updateTransparency(userId: string): number {
     await this.createWorkers();
     this.ensureRecordingDirectory();
 
-      // Start transparency check elke minuut
-  this.transparencyCheckInterval = setInterval(() => {
-    this.checkTransparencyRewards();
-  }, 60 * 1000); // Elke minuut
+      this.transparencyCheckInterval = setInterval(() => {
+        this.checkTransparencyRewards();
+      }, 60 * 60 * 1000); // Elk uur
     }
 private checkTransparencyRewards() {
   try {
@@ -227,7 +226,7 @@ private checkTransparencyRewards() {
           const reward = this.updateTransparency(stream.streamer.id);
           const rewardData = this.transparencyRewards.get(stream.streamer.id);
           
-          this.logger.log(`Transparency reward for ${stream.streamer.username}: ${reward} satoshis this minute`);
+          this.logger.log(`Transparency reward for ${stream.streamer.username}: ${reward} satoshis this hour`);
           
           try {
             if (stream.streamer.socket && stream.streamer.socket.readyState === WebSocket.OPEN) {

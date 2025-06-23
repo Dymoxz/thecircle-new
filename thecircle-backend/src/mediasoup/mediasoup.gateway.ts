@@ -597,7 +597,6 @@ async handlePauseStream(
     );
   }
 
-  // Start timeout for reward reset
   setTimeout(() => {
     if (!stream.streamer.isStreaming) {
       const reward = this.mediasoupService.getTransparencyReward(stream.streamer.id);
@@ -607,7 +606,7 @@ async handlePauseStream(
         this.logger.log(`Reset transparency reward for ${stream.streamer.username} after pause timeout`);
       }
     }
-  }, 90000); // 1.5 minuut
+  }, 90 * 60 * 1000); // 1.5 uur in milliseconden
 
   this.logger.log(`Stream ${streamId} paused`);
 }

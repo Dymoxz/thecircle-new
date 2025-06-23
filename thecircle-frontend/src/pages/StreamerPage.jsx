@@ -561,7 +561,7 @@ const StreamerPage = () => {
         
         // Show warning about 1.5 minute timeout
         if (nextPausedState) {
-            alert("If paused for more than 1.5 minutes, your reward rate will reset to 1 sat/min.");
+            alert("If paused for more than 1.5 hours, your reward rate will reset to 1 sat/hour.");
         }
 
         const tracks = localStreamRef.current.getTracks();
