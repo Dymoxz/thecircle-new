@@ -72,6 +72,8 @@ const ViewerPage = () => {
 		tags: ["React", "JavaScript", "WebRTC", "Live Coding"],
 	};
 
+	const [videoRotation, setVideoRotation] = useState(0);
+
 	useEffect(() => {
 		document.title = "StreamHub - Watch";
 		return () => {
@@ -226,6 +228,11 @@ const ViewerPage = () => {
 				}
 				case "error": {
 					console.error("Server error:", msg.data.message);
+					break;
+				}
+				case "video-rotation": {
+					const { rotation } = msg.data;
+					setVideoRotation(rotation);
 					break;
 				}
 				default:
@@ -1173,6 +1180,7 @@ const ViewerPage = () => {
 				autoPlay
 				playsInline
 				className="absolute inset-0 w-full h-full "
+				style={{ transform: `rotate(${videoRotation}deg)` }}
 				onLoadedMetadata={() => console.log("Video metadata loaded")}
 				onCanPlay={() => console.log("Video can play")}
 				onPlay={() => {

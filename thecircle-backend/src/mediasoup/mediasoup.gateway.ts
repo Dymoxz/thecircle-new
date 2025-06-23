@@ -7,12 +7,12 @@ import {
     WebSocketGateway,
     WebSocketServer,
 } from '@nestjs/websockets';
-import {Server, WebSocket} from 'ws';
-import {Logger} from '@nestjs/common';
-import {MediasoupService} from './mediasoup.service';
-import {StreamService} from "../stream/stream.service";
-import {Types} from "mongoose";
-import {Actor} from "../stream/stream.interface";
+import { Server, WebSocket } from 'ws';
+import { Logger } from '@nestjs/common';
+import { MediasoupService } from './mediasoup.service';
+import { StreamService } from '../stream/stream.service';
+import { Types } from 'mongoose';
+import { Actor } from '../stream/stream.interface';
 
 interface Client {
     id: string;
@@ -650,7 +650,7 @@ export class MediasoupGateway
         data: {
             streamId: string;
             senderId: string;
-      sender:string;
+            sender: string;
             message: string;
             timestamp: Date;
             signature: string;
@@ -658,7 +658,7 @@ export class MediasoupGateway
         },
         @ConnectedSocket() socket: WebSocket,
     ) {
-        const {streamId,sender, senderId, message, timestamp, signature, deviceId} =
+        const {streamId, sender, senderId, message, timestamp, signature, deviceId} =
             data;
 
         // Get stream info from mediasoupService
@@ -671,25 +671,25 @@ export class MediasoupGateway
             ...Array.from(stream.viewers.keys()),
         ];
 
-    recipientIds.forEach((clientId) => {
-      const client = this.clients.get(clientId);
-      if (client && client.socket.readyState === WebSocket.OPEN) {
-        client.socket.send(
-          JSON.stringify({
-            event: 'chat-message',
-            data: {
-              streamId,
-              senderId,
-              sender,
-              message,
-              timestamp,
-              signature,
-              deviceId,
-            },
-          }),
-        );
-      }
-    });
+        recipientIds.forEach((clientId) => {
+            const client = this.clients.get(clientId);
+            if (client && client.socket.readyState === WebSocket.OPEN) {
+                client.socket.send(
+                    JSON.stringify({
+                        event: 'chat-message',
+                        data: {
+                            streamId,
+                            senderId,
+                            sender,
+                            message,
+                            timestamp,
+                            signature,
+                            deviceId,
+                        },
+                    }),
+                );
+            }
+        });
 
         this.logger.log(
             `[CHAT] Message from ${senderId} in stream ${streamId}: ${message}`,
@@ -860,6 +860,28 @@ export class MediasoupGateway
                     data: {message: 'Failed to set transparency'},
                 })
             );
+        }
+    }
+
+    @SubscribeMessage('video-rotation')
+    async handleVideoRotation(
+        @MessageBody() data: { streamId: string; rotation: number },
+        @ConnectedSocket() socket: WebSocket,
+    ) {
+        const { streamId, rotation } = data;
+        // Get stream info from mediasoupService
+        const stream = await this.mediasoupService.getStreamInfo(streamId);
+        if (!stream) return;
+        // Relay to all viewers (not streamer)
+        for (const [viewerId, viewer] of stream.viewers.entries()) {
+            if (viewer.socket.readyState === WebSocket.OPEN) {
+                viewer.socket.send(
+                    JSON.stringify({
+                        event: 'video-rotation',
+                        data: { streamId, rotation },
+                    }),
+                );
+            }
         }
     }
 }

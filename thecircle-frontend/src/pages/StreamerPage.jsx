@@ -943,9 +943,24 @@ const StreamerPage = () => {
                             <FlipHorizontal className="w-6 h-6"/>
                         </ControlButton>
                         <ControlButton
-                            onClick={() =>
-                                setVideoRotation((r) => (r + 90) % 360)
-                            }
+                            onClick={() => {
+                                setVideoRotation((r) => {
+                                    const newRotation = (r + 90) % 360;
+                                    // Emit rotation event to viewers
+                                    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+                                        socketRef.current.send(
+                                            JSON.stringify({
+                                                event: "video-rotation",
+                                                data: {
+                                                    streamId: streamerId,
+                                                    rotation: newRotation,
+                                                },
+                                            })
+                                        );
+                                    }
+                                    return newRotation;
+                                });
+                            }}
                             className={
                                 videoRotation !== 0
                                     ? "bg-teal-500/80 hover:bg-teal-500 text-white"
