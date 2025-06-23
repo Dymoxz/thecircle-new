@@ -22,6 +22,7 @@ import MaxStreams from "../component/MaxStreams";
 import { jwtDecode } from "jwt-decode";
 import { Navigate, useParams, useNavigate } from "react-router-dom";
 
+
 // WebSocket URL configuration
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const WS_URL = `${wsProtocol}//${window.location.hostname}:3001`;
@@ -49,6 +50,11 @@ const ViewerPage = () => {
 	const [user, setUser] = useState(null);
 	const [showMaxStreams, setShowMaxStreams] = useState(false);
 
+	// --- Viewer Count and Streamer Name State ---
+	const [viewerCount, setViewerCount] = useState(0);
+	const [streamerName, setStreamerName] = useState("");
+	const [streamTags, setStreamTags] = useState([]);
+
 	const remoteVideoRef = useRef(null);
 	const socketRef = useRef(null);
 	const token = localStorage.getItem("jwt_token");
@@ -61,22 +67,16 @@ const ViewerPage = () => {
 	const recvTransportRef = useRef(null);
 	const consumersRef = useRef(new Map());
 
+	// Create streamInfo object after state variables are defined
 	const streamInfo = {
-		streamerName: "CodeMaster_Dev",
-		category: "Programming",
-		tags: ["React", "JavaScript", "WebRTC", "Live Coding"],
+		streamerName: streamerName || "Unknown Streamer",
+		tags: streamTags || []
 	};
 
-	// --- Viewer Count and Streamer Name State ---
-	const [viewerCount, setViewerCount] = useState(0);
-	const [streamerName, setStreamerName] = useState("");
-
-
-
 	useEffect(() => {
-		document.title = "The Circle - Watch";
+		document.title = "StreamHub - Watch";
 		return () => {
-			document.title = "The Circle";
+			document.title = "StreamHub";
 		};
 	}, []);
 
@@ -248,7 +248,7 @@ const ViewerPage = () => {
 		};
 	}, [paramStreamId]);
 
-	// --- Fetch Streamer Name when stream changes ---
+	// --- Fetch Streamer Name and Tags when stream changes ---
 	useEffect(() => {
 		if (!currentStreamId) return;
 		const streamerId = currentStreamId.startsWith("stream-")
@@ -259,6 +259,13 @@ const ViewerPage = () => {
 			.then((data) => {
 				if (data && data.userName) setStreamerName(data.userName);
 				else setStreamerName("");
+				if (data && data.tags) setStreamTags(data.tags);
+				else setStreamTags([]);
+			})
+			.catch((error) => {
+				console.error("Error fetching streamer data:", error);
+				setStreamerName("");
+				setStreamTags([]);
 			});
 	}, [currentStreamId]);
 
@@ -1272,7 +1279,7 @@ const ViewerPage = () => {
 					<>
 						<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4">
 							<h2 className="text-lg font-bold mb-3">
-								{streamInfo.title}
+								{/* Optionally display a stream title here */}
 							</h2>
 							<div className="flex items-center space-x-3 mb-4">
 								<div className="w-10 h-10 bg-gradient-to-br from-[#d32f2f] to-[#ff5252] rounded-full flex-shrink-0 flex items-center justify-center">
@@ -1282,12 +1289,9 @@ const ViewerPage = () => {
 								</div>
 								<div className="text-sm">
 									<p className="font-semibold text-white">
-										{/* Show the correct streamer name here */}
-										{streamerName || streamInfo.streamerName}
+										{streamerName || "Unknown Streamer"}
 									</p>
-									<p className="text-neutral-400">
-										{streamInfo.category}
-									</p>
+									{/* Optionally display a category here */}
 								</div>
 							</div>
 							<div className="text-xs text-neutral-300 space-y-2 border-t border-neutral-700 pt-3">
@@ -1316,8 +1320,8 @@ const ViewerPage = () => {
 											frameVerified === true
 												? "bg-green-500"
 												: frameVerified === false
-												? "bg-[#ff3333]"
-												: "bg-gray-400"
+													? "bg-[#ff3333]"
+													: "bg-gray-400"
 										}`}
 									></span>
 									<span
@@ -1325,27 +1329,33 @@ const ViewerPage = () => {
 											frameVerified === true
 												? "text-green-400"
 												: frameVerified === false
-												? "text-[#ff3333]"
-												: "text-neutral-400"
+													? "text-[#ff3333]"
+													: "text-neutral-400"
 										}`}
 									>
 										{frameVerified === true
 											? "Stream Verified"
 											: frameVerified === false
-											? "Not Verified"
-											: "Verifying..."}
+												? "Not Verified"
+												: "Verifying..."}
 									</span>
 								</div>
 							</div>
 							<div className="flex flex-wrap gap-2 mt-4">
-								{streamInfo.tags.map((tag) => (
-									<span
-										key={tag}
-										className="bg-neutral-700/50 px-3 py-1 rounded-full text-xs"
-									>
-										{tag}
+								{streamTags && streamTags.length > 0 ? (
+									streamTags.map((tag) => (
+										<span
+											key={tag}
+											className="bg-neutral-700/50 px-3 py-1 rounded-full text-xs"
+										>
+											{tag}
+										</span>
+									))
+								) : (
+									<span className="text-neutral-500 text-xs">
+										No tags
 									</span>
-								))}
+								)}
 							</div>
 						</div>
 						<Chat
@@ -1430,3 +1440,5 @@ const ViewerPage = () => {
 };
 
 export default ViewerPage;
+
+
