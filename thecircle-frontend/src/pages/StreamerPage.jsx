@@ -17,6 +17,7 @@ import * as mediasoupClient from "mediasoup-client";
 import Chat from "../component/chat";
 import {jwtDecode} from "jwt-decode";
 import {TagDialog} from "../component/tagDialog.jsx";
+import Toast from "../component/Toast";
 // WebSocket URL configuration
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const WS_URL = `${wsProtocol}//${window.location.hostname}:3001`;
@@ -81,6 +82,8 @@ const StreamerPage = () => {
     const [username, setUsername] = useState("streamer");
     const [streamTags, setStreamTags] = useState([]);
     const [showTagDialog, setShowTagDialog] = useState(false);
+    const [showToast, setShowToast] = useState(false);
+    const [toastMessage, setToastMessage] = useState("");
 
     useEffect(() => {
         // Fetch user data from localStorage or API
@@ -531,9 +534,10 @@ const StreamerPage = () => {
                 );
             }
 
-            // Show earned satoshis confirmation
+            // Show earned satoshis confirmation as toast
             if (transparencyReward.totalEarned > 0) {
-                alert(`Stream ended! You earned ${transparencyReward.totalEarned} satoshis.`);
+                setToastMessage(`Stream ended! You earned ${transparencyReward.totalEarned} satoshis.`);
+                setShowToast(true);
             }
 
             // Reset reward state
@@ -811,6 +815,8 @@ const StreamerPage = () => {
 
     return (
         <div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
+            {/* Toast notification */}
+            <Toast message={toastMessage} show={showToast} onClose={() => setShowToast(false)} />
             {/* --- VIDEO + OVERLAY CONTAINER --- */}
             <div className="absolute inset-0 w-full h-full z-0">
                 <video
