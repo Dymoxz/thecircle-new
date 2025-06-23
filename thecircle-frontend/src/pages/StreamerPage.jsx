@@ -84,6 +84,8 @@ const StreamerPage = () => {
     const [showTagDialog, setShowTagDialog] = useState(false);
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState("");
+    const [availableCameras, setAvailableCameras] = useState([]);
+    const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
 
     useEffect(() => {
         // Fetch user data from localStorage or API
@@ -760,32 +762,60 @@ const StreamerPage = () => {
 
     const handleFlipCamera = async () => {
         if (!isStreaming || !localStreamRef.current) return;
-
-        const currentVideoTrack = localStreamRef.current.getVideoTracks()[0];
-        if (currentVideoTrack) currentVideoTrack.stop();
-
-        const newFacingMode = currentCamera === "user" ? "environment" : "user";
+        if (availableCameras.length <= 1) {
+            setToastMessage('No other camera available to switch.');
+            setShowToast(true);
+            return;
+        }
+        // Desktop: cycle through all video input devices
+        let nextIndex = (currentCameraIndex + 1) % availableCameras.length;
+        const nextDeviceId = availableCameras[nextIndex]?.deviceId;
         try {
-            const newStream = await navigator.mediaDevices.getUserMedia({
-                video: {...VIDEO_CONSTRAINTS, facingMode: newFacingMode},
-            });
+            const constraints = {
+                video: { ...VIDEO_CONSTRAINTS, deviceId: { exact: nextDeviceId } },
+                audio: AUDIO_CONSTRAINTS,
+            };
+            const newStream = await navigator.mediaDevices.getUserMedia(constraints);
             const newVideoTrack = newStream.getVideoTracks()[0];
             const audioTrack = localStreamRef.current.getAudioTracks()[0];
-            localStreamRef.current = new MediaStream([
+            // Replace video track in local stream
+            const newLocalStream = new MediaStream([
                 newVideoTrack,
                 audioTrack,
             ]);
-
+            localStreamRef.current = newLocalStream;
+            if (localVideoRef.current) localVideoRef.current.srcObject = newLocalStream;
             // Replace video producer if it exists
             if (videoProducerRef.current && sendTransportRef.current) {
-                videoProducerRef.current.replaceTrack({track: newVideoTrack});
+                await videoProducerRef.current.replaceTrack({ track: newVideoTrack });
             }
-
-            setCurrentCamera(newFacingMode);
-        } catch (err) {
-            console.error("Could not flip camera:", err);
-            if (currentVideoTrack)
-                localStreamRef.current.addTrack(currentVideoTrack);
+            setCurrentCameraIndex(nextIndex);
+            setCurrentCamera(availableCameras[nextIndex].label.toLowerCase().includes('back') ? 'environment' : 'user');
+        } catch {
+            setToastMessage('Failed to switch camera.');
+            setShowToast(true);
+            // Try to revert to previous camera if possible
+            try {
+                const prevDeviceId = availableCameras[currentCameraIndex]?.deviceId;
+                const constraints = {
+                    video: { ...VIDEO_CONSTRAINTS, deviceId: { exact: prevDeviceId } },
+                    audio: AUDIO_CONSTRAINTS,
+                };
+                const prevStream = await navigator.mediaDevices.getUserMedia(constraints);
+                const prevVideoTrack = prevStream.getVideoTracks()[0];
+                const audioTrack = localStreamRef.current.getAudioTracks()[0];
+                const prevLocalStream = new MediaStream([
+                    prevVideoTrack,
+                    audioTrack,
+                ]);
+                localStreamRef.current = prevLocalStream;
+                if (localVideoRef.current) localVideoRef.current.srcObject = prevLocalStream;
+                if (videoProducerRef.current && sendTransportRef.current) {
+                    await videoProducerRef.current.replaceTrack({ track: prevVideoTrack });
+                }
+            } catch {
+                // If revert fails, do nothing but keep the stream running
+            }
         }
     };
     const toggleMute = () => {
@@ -812,6 +842,18 @@ const StreamerPage = () => {
 
 
     };
+
+    useEffect(() => {
+        // Enumerate cameras on mount
+        navigator.mediaDevices.enumerateDevices().then((devices) => {
+            const videoInputs = devices.filter((d) => d.kind === 'videoinput');
+            setAvailableCameras(videoInputs);
+            // Set current camera index if possible
+            if (videoInputs.length > 0) {
+                setCurrentCameraIndex(0);
+            }
+        });
+    }, []);
 
     return (
         <div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
