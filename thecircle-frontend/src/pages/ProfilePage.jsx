@@ -21,6 +21,7 @@ const ProfilePage = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [viewedProfileId, setViewedProfileId] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  
 
   // Effect to determine currentUser from JWT and which profile to view
   useEffect(() => {
@@ -353,6 +354,14 @@ const ProfilePage = () => {
                 <p className="mt-1 flex items-center">
                   <Mail className="w-4 h-4 mr-2 text-neutral-500" />
                   {profile?.email}
+                </p>
+              </div>
+              {/* nieuwe blok voor satoshis */}
+              <div>
+                <h3 className="text-sm font-medium text-neutral-600">Earned Satoshis</h3>
+                <p className="mt-1 text-lg font-semibold flex items-center">
+                  <span className="text-yellow-600 mr-1">₿</span>
+                  {profile?.satoshis || 0}
                 </p>
               </div>
 

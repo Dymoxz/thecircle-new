@@ -1,3 +1,4 @@
+// src/mediasoup/mediasoup.gateway.ts
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -273,6 +274,30 @@ export class MediasoupGateway
       );
     }
   }
+  @SubscribeMessage('set-transparency')
+async handleSetTransparency(
+  @MessageBody() data: { streamId: string; transparent: boolean },
+  @ConnectedSocket() socket: WebSocket,
+) {
+  const { streamId, transparent } = data;
+  try {
+    await this.mediasoupService.setTransparency(streamId, transparent);
+    socket.send(
+      JSON.stringify({
+        event: 'transparency-set',
+        data: { transparent },
+      }),
+    );
+  } catch (error) {
+    this.logger.error(`Error setting transparency: ${error.message}`);
+    socket.send(
+      JSON.stringify({
+        event: 'error',
+        data: { message: 'Failed to set transparency' },
+      }),
+    );
+  }
+}
 
   @SubscribeMessage('create-transport')
   async handleCreateTransport(
@@ -550,59 +575,65 @@ export class MediasoupGateway
     );
   }
 
-  @SubscribeMessage('pause-stream')
-  async handlePauseStream(
-    @MessageBody() data: { streamId: string },
-    @ConnectedSocket() socket: WebSocket,
-  ) {
-    const { streamId } = data;
-    // Notify all viewers of this stream
-    const stream = await this.mediasoupService.getStreamInfo(streamId);
-    if (stream) {
-      for (const viewer of stream.viewers.values()) {
-        viewer.socket.send(
-          JSON.stringify({
-            event: 'stream-paused',
-            data: { streamId },
-          }),
-        );
-      }
-    }
-    // Optionally, notify the streamer as well (for confirmation)
-    socket.send(
+@SubscribeMessage('pause-stream')
+async handlePauseStream(
+  @MessageBody() data: { streamId: string },
+  @ConnectedSocket() socket: WebSocket,
+) {
+  const { streamId } = data;
+  const stream = await this.mediasoupService.getStreamInfo(streamId);
+  if (!stream) return;
+
+  // Mark stream as paused
+  stream.streamer.isStreaming = false;
+
+  // Notify all viewers
+  for (const viewer of stream.viewers.values()) {
+    viewer.socket.send(
       JSON.stringify({
         event: 'stream-paused',
         data: { streamId },
       }),
     );
-    this.logger.log(`[PAUSE] Stream ${streamId} paused`);
   }
 
-  @SubscribeMessage('resume-stream')
-  async handleResumeStream(
-    @MessageBody() data: { streamId: string },
-    @ConnectedSocket() socket: WebSocket,
-  ) {
-    const { streamId } = data;
-    // Notify all viewers of this stream
-    const stream = await this.mediasoupService.getStreamInfo(streamId);
-    if (stream) {
-      for (const viewer of stream.viewers.values()) {
-        viewer.socket.send(
-          JSON.stringify({
-            event: 'stream-resumed',
-            data: { streamId },
-          }),
-        );
+  // Start timeout for reward reset
+  setTimeout(() => {
+    if (!stream.streamer.isStreaming) {
+      const reward = this.mediasoupService.getTransparencyReward(stream.streamer.id);
+      if (reward) {
+        reward.currentHourlyRate = 1;
+        reward.consecutiveHours = 1;
+        this.logger.log(`Reset transparency reward for ${stream.streamer.username} after pause timeout`);
       }
     }
-    // Optionally, notify the streamer as well (for confirmation)
-    socket.send(
+  }, 90000); // 1.5 minuut
+
+  this.logger.log(`Stream ${streamId} paused`);
+}
+
+@SubscribeMessage('resume-stream')
+async handleResumeStream(
+  @MessageBody() data: { streamId: string },
+  @ConnectedSocket() socket: WebSocket,
+) {
+  const { streamId } = data;
+  const stream = await this.mediasoupService.getStreamInfo(streamId);
+  if (!stream) return;
+
+  // Mark stream as resumed
+  stream.streamer.isStreaming = true;
+
+  // Notify all viewers
+  for (const viewer of stream.viewers.values()) {
+    viewer.socket.send(
       JSON.stringify({
         event: 'stream-resumed',
         data: { streamId },
       }),
     );
-    this.logger.log(`[RESUME] Stream ${streamId} resumed`);
   }
+
+  this.logger.log(`Stream ${streamId} resumed`);
+}
 }

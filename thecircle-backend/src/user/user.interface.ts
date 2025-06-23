@@ -1,3 +1,4 @@
+// src/user/user.interface.ts
 import { Document } from 'mongoose';
 
 export interface IUserCredentials{
@@ -10,6 +11,7 @@ export interface IUser extends IUserCredentials{
   userName: String;
   birthdate: Date;
   followerCount: Number;
+  satoshis?: number;
 }
 
 export interface IUserIdentity{

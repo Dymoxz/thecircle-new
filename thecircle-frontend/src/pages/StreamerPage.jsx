@@ -12,11 +12,13 @@ import {
     SwitchCamera,
     Video,
     VideoOff,
+    EyeOff,
 } from "lucide-react";
 import * as mediasoupClient from "mediasoup-client";
 import Chat from "../component/chat";
 import {jwtDecode} from "jwt-decode";
 import {TagDialog} from "../component/tagDialog.jsx";
+
 // WebSocket URL configuration
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const WS_URL = `${wsProtocol}//${window.location.hostname}:3001`;
@@ -54,7 +56,12 @@ const StreamerPage = () => {
     const [showPauseOverlay, setShowPauseOverlay] = useState(false);
     const [videoRotation, setVideoRotation] = useState(0);
     const [user, setUser] = useState({});
-
+    const [isTransparent, setIsTransparent] = useState(false);
+    const [transparencyReward, setTransparencyReward] = useState({
+        currentRate: 0,
+        totalEarned: 0,
+        consecutiveMinutes: 0
+    });
     const [isMirrored, setIsMirrored] = useState(false);
     const localVideoRef = useRef(null);
     const socketRef = useRef(null);
@@ -76,7 +83,6 @@ const StreamerPage = () => {
     const [username, setUsername] = useState("streamer");
     const [streamTags, setStreamTags] = useState([]);
     const [showTagDialog, setShowTagDialog] = useState(false);
-
 
     useEffect(() => {
         // Fetch user data from localStorage or API
@@ -182,6 +188,20 @@ const StreamerPage = () => {
                         if (localVideoRef.current) {
                             localVideoRef.current.play();
                         }
+                        break;
+                    }
+                    case "transparency-reward": {
+                        console.log("Received transparency reward:", msg.data);
+                        setTransparencyReward(prev => ({
+                            ...prev,
+                            currentRate: msg.data.currentRate,
+                            totalEarned: msg.data.totalEarned,
+                            consecutiveMinutes: msg.data.consecutiveMinutes
+                        }));
+                        break;
+                    }
+                    case "transparency-set": {
+                        setIsTransparent(msg.data.transparent);
                         break;
                     }
                     default:
@@ -404,7 +424,6 @@ const StreamerPage = () => {
 
             setStreamTags(tagArr);
 
-
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: {...VIDEO_CONSTRAINTS, facingMode: currentCamera},
                 audio: AUDIO_CONSTRAINTS,
@@ -477,80 +496,86 @@ const StreamerPage = () => {
         }
     };
 
-    const handleStopStream = () => {
-        if (
-            socketRef.current &&
-            socketRef.current.readyState === WebSocket.OPEN
-        ) {
-            socketRef.current.send(
-                JSON.stringify({
-                    event: "end-stream",
-                    data: {streamId: streamerId},
-                })
-            );
-        }
+    const handleStopStream = async () => {
+        try {
+            if (socketRef.current?.readyState === WebSocket.OPEN) {
+                socketRef.current.send(
+                    JSON.stringify({
+                        event: "end-stream",
+                        data: { streamId: streamerId },
+                    })
+                );
+            }
 
-        if (localStreamRef.current) {
-            localStreamRef.current.getTracks().forEach((track) => track.stop());
-        }
-        localStreamRef.current = null;
+            // Show earned satoshis confirmation
+            if (transparencyReward.totalEarned > 0) {
+                alert(`Stream ended! You earned ${transparencyReward.totalEarned} satoshis.`);
+            }
 
-        if (localVideoRef.current) localVideoRef.current.srcObject = null;
+            // Reset reward state
+            setTransparencyReward({
+                currentRate: 0,
+                totalEarned: 0,
+                consecutiveMinutes: 0
+            });
 
-        // Close mediasoup resources
-        if (audioProducerRef.current) {
-            audioProducerRef.current.close();
-            audioProducerRef.current = null;
-        }
-        if (videoProducerRef.current) {
-            videoProducerRef.current.close();
-            videoProducerRef.current = null;
-        }
-        if (sendTransportRef.current) {
-            sendTransportRef.current.close();
-            sendTransportRef.current = null;
-        }
-        if (deviceRef.current) {
-            deviceRef.current = null;
-        }
+            if (localStreamRef.current) {
+                localStreamRef.current.getTracks().forEach((track) => track.stop());
+            }
+            localStreamRef.current = null;
 
-        setIsStreaming(false);
-        setIsPaused(false);
-        setViewerCount(0);
-        setStreamDuration(0);
-        streamStartTime.current = null;
+            if (localVideoRef.current) localVideoRef.current.srcObject = null;
+
+            // Close mediasoup resources
+            if (audioProducerRef.current) {
+                audioProducerRef.current.close();
+                audioProducerRef.current = null;
+            }
+            if (videoProducerRef.current) {
+                videoProducerRef.current.close();
+                videoProducerRef.current = null;
+            }
+            if (sendTransportRef.current) {
+                sendTransportRef.current.close();
+                sendTransportRef.current = null;
+            }
+            if (deviceRef.current) {
+                deviceRef.current = null;
+            }
+
+            setIsStreaming(false);
+            setIsPaused(false);
+            setViewerCount(0);
+            setStreamDuration(0);
+            streamStartTime.current = null;
+        } catch (error) {
+            console.error("Error stopping stream:", error);
+        }
     };
 
     const handlePauseStream = () => {
         if (!localStreamRef.current) return;
 
         const nextPausedState = !isPaused;
-        const tracks = localStreamRef.current.getTracks();
+        setIsPaused(nextPausedState);
+        
+        // Show warning about 1.5 minute timeout
+        if (nextPausedState) {
+            alert("If paused for more than 1.5 minutes, your reward rate will reset to 1 sat/min.");
+        }
 
-        tracks.forEach((track) => {
+        const tracks = localStreamRef.current.getTracks();
+        tracks.forEach(track => {
             track.enabled = !nextPausedState;
         });
 
-        if (
-            socketRef.current &&
-            socketRef.current.readyState === WebSocket.OPEN
-        ) {
-            const streamId = `stream-${streamerId}`;
-            if (nextPausedState) {
-                socketRef.current.send(
-                    JSON.stringify({
-                        event: "pause-stream",
-                        data: {streamId: streamerId},
-                    })
-                );
-            } else {
-                socketRef.current.send(
-                    JSON.stringify({
-                        event: "resume-stream",
-                        data: {streamId: streamerId},
-                    })
-                );
-            }
+        if (socketRef.current?.readyState === WebSocket.OPEN) {
+            socketRef.current.send(
+                JSON.stringify({
+                    event: nextPausedState ? "pause-stream" : "resume-stream",
+                    data: { streamId: streamerId }
+                })
+            );
         }
     };
 
@@ -584,6 +609,7 @@ const StreamerPage = () => {
                 localStreamRef.current.addTrack(currentVideoTrack);
         }
     };
+
     const toggleMute = () => {
         if (!localStreamRef.current) return;
         const audioTrack = localStreamRef.current.getAudioTracks()[0];
@@ -599,6 +625,24 @@ const StreamerPage = () => {
         if (videoTrack) {
             videoTrack.enabled = isVideoOff;
             setIsVideoOff(!isVideoOff);
+        }
+    };
+
+    const handleToggleTransparency = () => {
+        const newTransparencyState = !isTransparent;
+        setIsTransparent(newTransparencyState);
+        
+        console.log("Toggling transparency to:", newTransparencyState);
+        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+            socketRef.current.send(
+                JSON.stringify({
+                    event: "set-transparency",
+                    data: {
+                        streamId: streamerId,
+                        transparent: newTransparencyState
+                    }
+                })
+            );
         }
     };
 
@@ -644,9 +688,7 @@ const StreamerPage = () => {
                 onSave={(tags) => handleStartStream(tags)}
             />
 
-
             {/* --- CONTROLS AND INFO --- */}
-            {/* All UI controls and overlays below should have z-10 or higher to be above the video/blur */}
             {isStreaming && (
                 <div
                     className="absolute top-4 left-4 flex items-center space-x-4 text-sm bg-neutral-900/30 backdrop-blur-xl p-2 pl-3 rounded-3xl border border-neutral-100/10 shadow-lg z-10">
@@ -654,8 +696,8 @@ const StreamerPage = () => {
                         <div className="w-2 h-2 bg-white rounded-full animate-ping absolute opacity-75"></div>
                         <div className="w-2 h-2 bg-white rounded-full"></div>
                         <span className="font-semibold uppercase tracking-wider text-xs">
-							Live
-						</span>
+                            Live
+                        </span>
                     </div>
                     <div className="flex items-center space-x-2 text-neutral-200 pr-2">
                         <Eye className="w-5 h-5"/>
@@ -667,18 +709,17 @@ const StreamerPage = () => {
                 </div>
             )}
 
-
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center">
                 {!isStreaming ? (
                     <button
-onClick={() => setShowTagDialog(true)}
-disabled={!isWsConnected}
+                        onClick={() => setShowTagDialog(true)}
+                        disabled={!isWsConnected}
                         className="bg-teal-500 mb-4 hover:bg-teal-600 disabled:bg-neutral-600 disabled:cursor-not-allowed text-neutral-900 py-3 px-8 rounded-2xl font-semibold transition-all duration-300 ease-in-out flex items-center justify-center space-x-2 transform hover:scale-105 active:scale-100 shadow-lg z-10"
                     >
                         <Play className="w-6 h-6 "/>
                         <span>
-							{isWsConnected ? "Start Stream" : "Connecting..."}
-						</span>
+                            {isWsConnected ? "Start Stream" : "Connecting..."}
+                        </span>
                     </button>
                 ) : (
                     <div
@@ -739,6 +780,20 @@ disabled={!isWsConnected}
                         >
                             <RotateCcw className="w-6 h-6"/>
                         </ControlButton>
+                        <ControlButton
+                            onClick={handleToggleTransparency}
+                            className={
+                                isTransparent
+                                    ? "bg-purple-500/80 hover:bg-purple-500 text-white"
+                                    : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
+                            }
+                        >
+                            {isTransparent ? (
+                                <Eye className="w-6 h-6"/>
+                            ) : (
+                                <EyeOff className="w-6 h-6"/>
+                            )}
+                        </ControlButton>
                         <div className="w-px h-8 bg-neutral-100/10 mx-2"></div>
                         <ControlButton
                             onClick={handlePauseStream}
@@ -783,30 +838,40 @@ disabled={!isWsConnected}
                                         : "bg-neutral-700 text-neutral-300"
                                 }`}
                             >
-								{isStreaming
+                                {isStreaming
                                     ? isPaused
                                         ? "Paused"
                                         : "Online"
                                     : "Offline"}
-							</span>
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-neutral-400">Transparency</span>
+                            <span className={`font-semibold px-2 py-0.5 rounded-md text-xs ${
+                                isTransparent
+                                    ? "bg-purple-500/20 text-purple-300"
+                                    : "bg-neutral-700 text-neutral-300"
+                            }`}>
+                                {isTransparent ? "Active" : "Inactive"}
+                            </span>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="text-neutral-400">Camera</span>
                             <span className="capitalize">
-								{currentCamera === "user" ? "Front" : "Back"}
-							</span>
+                                {currentCamera === "user" ? "Front" : "Back"}
+                            </span>
                         </div>
                         <div>
                             <span className="text-neutral-400">Tags</span>
                             <div className="flex flex-wrap gap-2 mt-1">
-                                {streamTags?.length ? (                       // <-- safe check
+                                {streamTags?.length ? (
                                     streamTags.map((tag, i) => (
                                         <span
                                             key={i}
                                             className="bg-teal-700/30 text-teal-200 px-2 py-0.5 rounded-full text-xs"
                                         >
-        {tag}
-      </span>
+                                            {tag}
+                                        </span>
                                     ))
                                 ) : (
                                     <span className="text-neutral-500 text-xs">No tags</span>
