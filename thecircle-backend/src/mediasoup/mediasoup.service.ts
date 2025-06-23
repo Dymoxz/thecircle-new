@@ -2,14 +2,9 @@ import {
   Injectable,
   Logger,
   OnModuleDestroy,
-  OnModuleInit,
 } from '@nestjs/common';
 import * as mediasoup from 'mediasoup';
-import * as fs from 'fs';
-import * as path from 'path';
-import { spawn } from 'child_process';
 import * as os from 'os';
-import { UserService } from '../user/user.service';
 
 // Types for mediasoup
 type MediasoupWorker = {
@@ -33,8 +28,6 @@ type StreamerInfo = {
   transport: TransportInfo;
   streamId: string;
   isStreaming: boolean;
-  recordingProcess?: any;
-  recordingPath?: string;
   producers: Map<string, mediasoup.types.Producer>;
 };
 
@@ -51,7 +44,6 @@ type StreamInfo = {
   streamer: StreamerInfo;
   viewers: Map<string, ViewerInfo>;
   router: mediasoup.types.Router;
-  recordingPath: string;
   tags?: string[];
   viewerCount?: number;
 };
@@ -146,14 +138,6 @@ export class MediasoupService implements OnModuleDestroy {
           },
         ],
       },
-      recordingOptions: {
-        outputPath: './recordings',
-        videoCodec: 'libx264',
-        audioCodec: 'aac',
-        videoBitrate: '2000k',
-        audioBitrate: '128k',
-        format: 'mp4',
-      },
     };
   }
 
@@ -161,7 +145,6 @@ export class MediasoupService implements OnModuleDestroy {
     const localIp = this.getLocalIpAddress();
     this.logger.log(`Detected local IP address: ${localIp}`);
     await this.createWorkers();
-    this.ensureRecordingDirectory();
   }
 
   async onModuleDestroy() {
@@ -206,14 +189,6 @@ export class MediasoupService implements OnModuleDestroy {
     return worker;
   }
 
-  private ensureRecordingDirectory() {
-    if (!fs.existsSync(this.getConfig().recordingOptions.outputPath)) {
-      fs.mkdirSync(this.getConfig().recordingOptions.outputPath, {
-        recursive: true,
-      });
-    }
-  }
-
   async createStream(
     streamId: string,
     streamerId: string,
@@ -243,10 +218,6 @@ export class MediasoupService implements OnModuleDestroy {
       },
       viewers: new Map(),
       router,
-      recordingPath: path.join(
-        this.getConfig().recordingOptions.outputPath,
-        `${streamId}.${this.getConfig().recordingOptions.format}`,
-      ),
       tags: tags || [],
       viewerCount: viewerCount || 0,
     };
@@ -381,10 +352,6 @@ export class MediasoupService implements OnModuleDestroy {
     if (!stream.streamer.isStreaming) {
       stream.streamer.isStreaming = true;
       this.logger.log(`Stream ${streamId} is now live.`);
-    }
-
-    if (!stream.streamer.recordingProcess) {
-      await this.startRecording(stream);
     }
 
     this.logger.log(
@@ -551,9 +518,6 @@ export class MediasoupService implements OnModuleDestroy {
       return;
     }
 
-    // Stop recording
-    await this.stopRecording(stream);
-
     // Close all viewers
     for (const viewerId of stream.viewers.keys()) {
       await this.removeViewer(streamId, viewerId);
@@ -599,68 +563,6 @@ export class MediasoupService implements OnModuleDestroy {
 
   async getStreamInfo(streamId: string): Promise<StreamInfo | null> {
     return this.streams.get(streamId) || null;
-  }
-
-  private async startRecording(stream: StreamInfo): Promise<void> {
-    if (stream.streamer.recordingProcess) {
-      return; // Already recording
-    }
-
-    const { recordingOptions } = this.getConfig();
-
-    // For now, we'll create a simple recording process
-    // In a real implementation, you'd want to pipe the actual RTP streams
-    const ffmpegArgs = [
-      '-f',
-      'lavfi',
-      '-i',
-      'testsrc2=size=1280x720:rate=30',
-      '-f',
-      'lavfi',
-      '-i',
-      'sine=frequency=1000:duration=0',
-      '-c:v',
-      recordingOptions.videoCodec,
-      '-c:a',
-      recordingOptions.audioCodec,
-      '-b:v',
-      recordingOptions.videoBitrate,
-      '-b:a',
-      recordingOptions.audioBitrate,
-      '-f',
-      recordingOptions.format,
-      stream.recordingPath,
-    ];
-
-    const recordingProcess = spawn('ffmpeg', ffmpegArgs, {
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
-    stream.streamer.recordingProcess = recordingProcess;
-    stream.streamer.recordingPath = stream.recordingPath;
-
-    recordingProcess.on('error', (error) => {
-      this.logger.error(
-        `Recording error for stream ${stream.streamId}:`,
-        error,
-      );
-    });
-
-    recordingProcess.on('exit', (code) => {
-      this.logger.log(
-        `Recording process exited with code ${code} for stream ${stream.streamId}`,
-      );
-    });
-
-    this.logger.log(`Recording started for stream ${stream.streamId}`);
-  }
-
-  private async stopRecording(stream: StreamInfo): Promise<void> {
-    if (stream.streamer.recordingProcess) {
-      stream.streamer.recordingProcess.kill('SIGTERM');
-      stream.streamer.recordingProcess = null;
-      this.logger.log(`Recording stopped for stream ${stream.streamId}`);
-    }
   }
 
   async getRtpCapabilities(streamId: string): Promise<any> {
