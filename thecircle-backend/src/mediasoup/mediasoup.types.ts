@@ -1,4 +1,3 @@
-// src/mediasoup/mediasoup.types.ts
 import { types as mediasoupTypes } from 'mediasoup';
 
 export interface MediasoupWorker {
@@ -22,8 +21,6 @@ export interface StreamerInfo {
   streamId: string;
   streamerID: string;
   isStreaming: boolean;
-  recordingProcess?: any; // FFmpeg process
-  recordingPath?: string;
   username: string;
 }
 
@@ -40,7 +37,6 @@ export interface StreamInfo {
   streamer: StreamerInfo;
   viewers: Map<string, ViewerInfo>;
   router: mediasoupTypes.Router;
-  recordingPath: string;
 }
 
 export interface RtpCapabilities {
@@ -70,21 +66,14 @@ export interface ConsumerOptions {
   appData?: any;
 }
 
-export interface RecordingConfig {
-  outputPath: string;
-  videoCodec: string;
-  audioCodec: string;
-  videoBitrate: string;
-  audioBitrate: string;
-  format: string;
-}
-  // Voeg toe aan je interfaces (bijv. in mediasoup.types.ts)
+
+
 export interface TransparencyReward {
   userId: string;
-  currentHourlyRate: number; // in satoshis
+  currentHourlyRate: number;
   consecutiveHours: number;
   lastActiveTimestamp: number;
-  totalEarned: number; // in satoshis
+  totalEarned: number;
 }
 
 export interface MediasoupConfig {
@@ -105,7 +94,4 @@ export interface MediasoupConfig {
     preferUdp: boolean;
     initialAvailableOutgoingBitrate: number;
   };
-  recordingOptions: RecordingConfig;
-
-
 }

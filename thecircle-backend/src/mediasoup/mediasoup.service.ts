@@ -2,12 +2,8 @@ import {
   Injectable,
   Logger,
   OnModuleDestroy,
-  OnModuleInit,
 } from '@nestjs/common';
 import * as mediasoup from 'mediasoup';
-import * as fs from 'fs';
-import * as path from 'path';
-import { spawn } from 'child_process';
 import * as os from 'os';
 import { UserService } from '../user/user.service';
 import { TransparencyReward } from './mediasoup.types';
@@ -34,8 +30,6 @@ export interface StreamerInfo {
   transport: TransportInfo;
   streamId: string;
   isStreaming: boolean;
-  recordingProcess?: any;
-  recordingPath?: string;
   producers: Map<string, mediasoup.types.Producer>;
   isTransparent: boolean; // Voeg dit toe
   lastTransparencyCheck: number; // Voeg dit toe
@@ -54,7 +48,6 @@ type StreamInfo = {
   streamer: StreamerInfo;
   viewers: Map<string, ViewerInfo>;
   router: mediasoup.types.Router;
-  recordingPath: string;
   tags?: string[];
   viewerCount?: number;
 };
@@ -152,14 +145,6 @@ export class MediasoupService implements OnModuleDestroy {
             ],
           },
         ],
-      },
-      recordingOptions: {
-        outputPath: './recordings',
-        videoCodec: 'libx264',
-        audioCodec: 'aac',
-        videoBitrate: '2000k',
-        audioBitrate: '128k',
-        format: 'mp4',
       },
     };
   }
@@ -305,14 +290,6 @@ private checkTransparencyRewards() {
     return worker;
   }
 
-  private ensureRecordingDirectory() {
-    if (!fs.existsSync(this.getConfig().recordingOptions.outputPath)) {
-      fs.mkdirSync(this.getConfig().recordingOptions.outputPath, {
-        recursive: true,
-      });
-    }
-  }
-
   async createStream(
     streamId: string,
     streamerId: string,
@@ -346,10 +323,6 @@ private checkTransparencyRewards() {
       },
       viewers: new Map(),
       router,
-      recordingPath: path.join(
-        this.getConfig().recordingOptions.outputPath,
-        `${streamId}.${this.getConfig().recordingOptions.format}`,
-      ),
       tags: tags || [],
       viewerCount: viewerCount || 0,
 
@@ -366,7 +339,6 @@ private checkTransparencyRewards() {
     streamerId: string,
     clientId?: string,
   ): Promise<any> {
-    console.log (this.streams)
     const stream = this.streams.get(streamerId);
     if (!stream) {
       throw new Error(`Stream ${streamId} not found`);
@@ -423,8 +395,7 @@ private checkTransparencyRewards() {
     dtlsParameters: any,
     isStreamer: boolean,
   ): Promise<void> {
-    console.log('[CONNECT] connectTransport called with:', { streamId, transportId, isStreamer });
-    
+
     const stream = this.streams.get(streamId);
     if (!stream) {
       console.log('[CONNECT] Stream not found:', streamId);
@@ -482,16 +453,9 @@ private checkTransparencyRewards() {
 
     stream.streamer.producers.set(kind, producer);
 
-
     if (!stream.streamer.isStreaming) {
       stream.streamer.isStreaming = true;
       this.logger.log(`Stream ${streamId} is now live.`);
-
-    }
-
-
-    if (!stream.streamer.recordingProcess) {
-      await this.startRecording(stream);
     }
 
     this.logger.log(
@@ -670,9 +634,6 @@ private checkTransparencyRewards() {
       this.transparencyRewards.delete(stream.streamer.id);
     }
 
-    // Stop recording
-    await this.stopRecording(stream);
-
     // Close all viewers
     for (const viewerId of stream.viewers.keys()) {
       await this.removeViewer(streamId, viewerId);
@@ -718,68 +679,6 @@ private checkTransparencyRewards() {
 
   async getStreamInfo(streamId: string): Promise<StreamInfo | null> {
     return this.streams.get(streamId) || null;
-  }
-
-  private async startRecording(stream: StreamInfo): Promise<void> {
-    if (stream.streamer.recordingProcess) {
-      return; // Already recording
-    }
-
-    const { recordingOptions } = this.getConfig();
-
-    // For now, we'll create a simple recording process
-    // In a real implementation, you'd want to pipe the actual RTP streams
-    const ffmpegArgs = [
-      '-f',
-      'lavfi',
-      '-i',
-      'testsrc2=size=1280x720:rate=30',
-      '-f',
-      'lavfi',
-      '-i',
-      'sine=frequency=1000:duration=0',
-      '-c:v',
-      recordingOptions.videoCodec,
-      '-c:a',
-      recordingOptions.audioCodec,
-      '-b:v',
-      recordingOptions.videoBitrate,
-      '-b:a',
-      recordingOptions.audioBitrate,
-      '-f',
-      recordingOptions.format,
-      stream.recordingPath,
-    ];
-
-    const recordingProcess = spawn('ffmpeg', ffmpegArgs, {
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
-    stream.streamer.recordingProcess = recordingProcess;
-    stream.streamer.recordingPath = stream.recordingPath;
-
-    recordingProcess.on('error', (error) => {
-      this.logger.error(
-        `Recording error for stream ${stream.streamId}:`,
-        error,
-      );
-    });
-
-    recordingProcess.on('exit', (code) => {
-      this.logger.log(
-        `Recording process exited with code ${code} for stream ${stream.streamId}`,
-      );
-    });
-
-    this.logger.log(`Recording started for stream ${stream.streamId}`);
-  }
-
-  private async stopRecording(stream: StreamInfo): Promise<void> {
-    if (stream.streamer.recordingProcess) {
-      stream.streamer.recordingProcess.kill('SIGTERM');
-      stream.streamer.recordingProcess = null;
-      this.logger.log(`Recording stopped for stream ${stream.streamId}`);
-    }
   }
 
   async getRtpCapabilities(streamId: string): Promise<any> {

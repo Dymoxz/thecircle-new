@@ -1,4 +1,4 @@
-import { Document, ObjectId } from 'mongoose';
+import { ObjectId } from 'mongoose';
 
 export interface IChat {
   sender: string;
