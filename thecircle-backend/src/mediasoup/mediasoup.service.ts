@@ -235,6 +235,8 @@ export class MediasoupService implements OnModuleDestroy {
                         } catch (e) {
                             this.logger.error(`Error sending reward update: ${e.message}`);
                         }
+                    } else {
+                        this.logger.log(`Stream ${streamId} is not transparent or not streaming, skipping reward update.`);
                     }
                 } catch (e) {
                     this.logger.error(`Error processing transparency for stream ${streamId}: ${e.message}`);
