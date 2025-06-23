@@ -834,4 +834,30 @@ export class MediasoupGateway
         //   `[FRAME-HASH] Relayed frame hash from ${senderId} in stream ${streamId}: ${frameHash}`,
         // );
     }
+
+    @SubscribeMessage('set-transparency')
+    async handleSetTransparency(
+        @MessageBody() data: { streamId: string; transparent: boolean },
+        @ConnectedSocket() socket: WebSocket,
+    ) {
+        const {streamId, transparent} = data;
+        try {
+            await this.mediasoupService.setTransparency(streamId, transparent);
+            this.logger.log(`[TRANSPARENCY] Set transparency to ${transparent} for streamId=${streamId}`);
+            socket.send(
+                JSON.stringify({
+                    event: 'transparency-set',
+                    data: {streamId, transparent},
+                })
+            );
+        } catch (error) {
+            this.logger.error(`Error setting transparency: ${error.message}`);
+            socket.send(
+                JSON.stringify({
+                    event: 'error',
+                    data: {message: 'Failed to set transparency'},
+                })
+            );
+        }
+    }
 }

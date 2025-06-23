@@ -1,8 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
-import { v4 as uuidv4 } from "uuid";
+import React, {useEffect, useRef, useState} from "react";
 import {
     Eye,
-    MessageSquare,
     FlipHorizontal,
     Mic,
     MicOff,
@@ -13,9 +11,7 @@ import {
     Square,
     SwitchCamera,
     Video,
-    Settings,
-    VideoOff,
-    EyeOff
+    VideoOff
 } from "lucide-react";
 import * as mediasoupClient from "mediasoup-client";
 import Chat from "../component/chat";
@@ -26,14 +22,14 @@ const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const WS_URL = `${wsProtocol}//${window.location.hostname}:3001`;
 
 // --- Helper Component for Styled Buttons ---
-const ControlButton = ({ onClick, children, className = "", ...props }) => (
-	<button
-		onClick={onClick}
-		className={`p-3 rounded-2xl backdrop-blur-lg transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 ${className}`}
-		{...props}
-	>
-		{children}
-	</button>
+const ControlButton = ({onClick, children, className = "", ...props}) => (
+    <button
+        onClick={onClick}
+        className={`p-3 rounded-2xl backdrop-blur-lg transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 ${className}`}
+        {...props}
+    >
+        {children}
+    </button>
 );
 
 const VIDEO_CONSTRAINTS = {
@@ -58,7 +54,7 @@ const StreamerPage = () => {
     const [showPauseOverlay, setShowPauseOverlay] = useState(false);
     const [videoRotation, setVideoRotation] = useState(0);
     const [user, setUser] = useState({});
-    const [isTransparent, setIsTransparent] = useState(false);
+    const [isTransparent, setIsTransparent] = useState(true);
     const [transparencyReward, setTransparencyReward] = useState({
         currentRate: 0,
         totalEarned: 0,
@@ -72,134 +68,134 @@ const StreamerPage = () => {
     const streamStartTime = useRef(null);
     const durationInterval = useRef(null);
 
-	// Mediasoup refs
-	const deviceRef = useRef(null);
-	const sendTransportRef = useRef(null);
-	const audioProducerRef = useRef(null);
-	const videoProducerRef = useRef(null);
+    // Mediasoup refs
+    const deviceRef = useRef(null);
+    const sendTransportRef = useRef(null);
+    const audioProducerRef = useRef(null);
+    const videoProducerRef = useRef(null);
 
-	const token = localStorage.getItem("jwt_token");
-	const userfromjwt = jwtDecode(token);
-	const streamerId = userfromjwt.sub;
-	const streamId = streamerId;
-	const [username, setUsername] = useState("streamer");
-	const [streamTags, setStreamTags] = useState([]);
-	const [showTagDialog, setShowTagDialog] = useState(false);
+    const token = localStorage.getItem("jwt_token");
+    const userfromjwt = jwtDecode(token);
+    const streamerId = userfromjwt.sub;
+    const streamId = streamerId;
+    const [username, setUsername] = useState("streamer");
+    const [streamTags, setStreamTags] = useState([]);
+    const [showTagDialog, setShowTagDialog] = useState(false);
 
-	useEffect(() => {
-		// Fetch user data from localStorage or API
-		fetch(`https://localhost:3002/api/user/${streamerId}`, {
-			method: "GET",
-			headers: {
-				Authorization: `Bearer ${token}`,
-				"Content-Type": "application/json",
-			},
-		})
-			.then((response) => response.json())
-			.then((data) => {
-				console.log("Fetched user data:", data);
-				if (data && data.userName) {
-					setUser(data);
-					setUsername(data.userName);
-				} else {
-					setUser({});
-					setUsername("streamer");
-					console.error("User data missing or malformed:", data);
-				}
-			});
-	}, [streamerId]);
+    useEffect(() => {
+        // Fetch user data from localStorage or API
+        fetch(`https://localhost:3002/api/user/${streamerId}`, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+            },
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                console.log("Fetched user data:", data);
+                if (data && data.userName) {
+                    setUser(data);
+                    setUsername(data.userName);
+                } else {
+                    setUser({});
+                    setUsername("streamer");
+                    console.error("User data missing or malformed:", data);
+                }
+            });
+    }, [streamerId]);
 
-	useEffect(() => {
-		document.title = "StreamHub - Stream";
-		return () => {
-			document.title = "StreamHub";
-		};
-	}, []);
+    useEffect(() => {
+        document.title = "StreamHub - Stream";
+        return () => {
+            document.title = "StreamHub";
+        };
+    }, []);
 
-	const formatDuration = (seconds) => {
-		const hours = Math.floor(seconds / 3600);
-		const minutes = Math.floor((seconds % 3600) / 60);
-		const secs = seconds % 60;
-		if (hours > 0) {
-			return `${hours}:${minutes.toString().padStart(2, "0")}:${secs
-				.toString()
-				.padStart(2, "0")}`;
-		}
-		return `${minutes}:${secs.toString().padStart(2, "0")}`;
-	};
+    const formatDuration = (seconds) => {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        if (hours > 0) {
+            return `${hours}:${minutes.toString().padStart(2, "0")}:${secs
+                .toString()
+                .padStart(2, "0")}`;
+        }
+        return `${minutes}:${secs.toString().padStart(2, "0")}`;
+    };
 
-	useEffect(() => {
-		socketRef.current = new WebSocket(WS_URL);
-		const socket = socketRef.current;
+    useEffect(() => {
+        socketRef.current = new WebSocket(WS_URL);
+        const socket = socketRef.current;
 
-		socket.onopen = () => setIsWsConnected(true);
-		socket.onclose = () => setIsWsConnected(false);
-		socket.onerror = (err) => console.error("[WS] Error:", err);
+        socket.onopen = () => setIsWsConnected(true);
+        socket.onclose = () => setIsWsConnected(false);
+        socket.onerror = (err) => console.error("[WS] Error:", err);
 
-		socket.onmessage = async (event) => {
-			try {
-				const msg = JSON.parse(event.data);
-				switch (msg.event) {
-					case "viewer-joined": {
-						const { viewerId } = msg.data;
-						if (viewerId) {
-							setViewerCount((prev) => prev + 1);
-						}
-						break;
-					}
-					case "viewer-left": {
-						const { viewerId } = msg.data;
-						if (viewerId) {
-							setViewerCount((prev) => Math.max(prev - 1, 0));
-							console.log(viewerCount);
-						}
-						break;
-					}
-					case "rtp-capabilities": {
-						const { rtpCapabilities } = msg.data;
-						if (deviceRef.current) {
-							deviceRef.current.load({
-								routerRtpCapabilities: rtpCapabilities,
-							});
-						}
-						break;
-					}
-					case "transport-created": {
-						const { transport } = msg.data;
-						await createSendTransport(transport);
-						// After transport is created, produce the tracks
-						await produceTracks();
-						break;
-					}
-					case "transport-connected": {
-						console.log("Transport connected");
-						break;
-					}
-					case "produced": {
-						const { producer } = msg.data;
-						console.log("Producer created:", producer);
-						break;
-					}
-					case "error": {
-						console.error("Server error:", msg.data.message);
-						break;
-					}
-					case "stream-paused": {
-						setShowPauseOverlay(true);
-						setIsPaused(true);
-						if (localVideoRef.current) {
-							localVideoRef.current.pause();
-						}
-						break;
-					}
-					case "stream-resumed": {
-						setShowPauseOverlay(false);
-						setIsPaused(false);
-						if (localVideoRef.current) {
-							localVideoRef.current.play();
-						}
-						break;
-					}
+        socket.onmessage = async (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                switch (msg.event) {
+                    case "viewer-joined": {
+                        const {viewerId} = msg.data;
+                        if (viewerId) {
+                            setViewerCount((prev) => prev + 1);
+                        }
+                        break;
+                    }
+                    case "viewer-left": {
+                        const {viewerId} = msg.data;
+                        if (viewerId) {
+                            setViewerCount((prev) => Math.max(prev - 1, 0));
+                            console.log(viewerCount);
+                        }
+                        break;
+                    }
+                    case "rtp-capabilities": {
+                        const {rtpCapabilities} = msg.data;
+                        if (deviceRef.current) {
+                            deviceRef.current.load({
+                                routerRtpCapabilities: rtpCapabilities,
+                            });
+                        }
+                        break;
+                    }
+                    case "transport-created": {
+                        const {transport} = msg.data;
+                        await createSendTransport(transport);
+                        // After transport is created, produce the tracks
+                        await produceTracks();
+                        break;
+                    }
+                    case "transport-connected": {
+                        console.log("Transport connected");
+                        break;
+                    }
+                    case "produced": {
+                        const {producer} = msg.data;
+                        console.log("Producer created:", producer);
+                        break;
+                    }
+                    case "error": {
+                        console.error("Server error:", msg.data.message);
+                        break;
+                    }
+                    case "stream-paused": {
+                        setShowPauseOverlay(true);
+                        setIsPaused(true);
+                        if (localVideoRef.current) {
+                            localVideoRef.current.pause();
+                        }
+                        break;
+                    }
+                    case "stream-resumed": {
+                        setShowPauseOverlay(false);
+                        setIsPaused(false);
+                        if (localVideoRef.current) {
+                            localVideoRef.current.play();
+                        }
+                        break;
+                    }
                     case "transparency-reward": {
                         console.log("Received transparency reward:", msg.data);
                         setTransparencyReward(prev => ({
@@ -214,228 +210,228 @@ const StreamerPage = () => {
                         setIsTransparent(msg.data.transparent);
                         break;
                     }
-					default:
-						break;
-				}
-			} catch (err) {
-				console.error("WebSocket message handling error:", err);
-			}
-		};
+                    default:
+                        break;
+                }
+            } catch (err) {
+                console.error("WebSocket message handling error:", err);
+            }
+        };
 
-		return () => {
-			socket.close();
-			if (localStreamRef.current) {
-				localStreamRef.current
-					.getTracks()
-					.forEach((track) => track.stop());
-			}
-			clearInterval(durationInterval.current);
-		};
-	}, []);
+        return () => {
+            socket.close();
+            if (localStreamRef.current) {
+                localStreamRef.current
+                    .getTracks()
+                    .forEach((track) => track.stop());
+            }
+            clearInterval(durationInterval.current);
+        };
+    }, []);
 
-	useEffect(() => {
-		if (isStreaming && !isPaused) {
-			durationInterval.current = setInterval(() => {
-				if (streamStartTime.current) {
-					setStreamDuration(
-						Math.floor(
-							(Date.now() - streamStartTime.current) / 1000
-						)
-					);
-				}
-			}, 1000);
-		} else {
-			clearInterval(durationInterval.current);
-		}
-		return () => clearInterval(durationInterval.current);
-	}, [isStreaming, isPaused]);
+    useEffect(() => {
+        if (isStreaming && !isPaused) {
+            durationInterval.current = setInterval(() => {
+                if (streamStartTime.current) {
+                    setStreamDuration(
+                        Math.floor(
+                            (Date.now() - streamStartTime.current) / 1000
+                        )
+                    );
+                }
+            }, 1000);
+        } else {
+            clearInterval(durationInterval.current);
+        }
+        return () => clearInterval(durationInterval.current);
+    }, [isStreaming, isPaused]);
 
-	const produceTracks = async () => {
-		try {
-			if (!localStreamRef.current || !sendTransportRef.current) {
-				console.error("No local stream or transport available");
-				return;
-			}
+    const produceTracks = async () => {
+        try {
+            if (!localStreamRef.current || !sendTransportRef.current) {
+                console.error("No local stream or transport available");
+                return;
+            }
 
-			const stream = localStreamRef.current;
-			const sendTransport = sendTransportRef.current;
+            const stream = localStreamRef.current;
+            const sendTransport = sendTransportRef.current;
 
-			// Produce video track
-			const videoTrack = stream.getVideoTracks()[0];
-			if (videoTrack) {
-				console.log("Producing video track");
-				const videoProducer = await sendTransport.produce({
-					track: videoTrack,
-				});
-				videoProducerRef.current = videoProducer;
-				console.log("Video producer created:", videoProducer.id);
-			}
+            // Produce video track
+            const videoTrack = stream.getVideoTracks()[0];
+            if (videoTrack) {
+                console.log("Producing video track");
+                const videoProducer = await sendTransport.produce({
+                    track: videoTrack,
+                });
+                videoProducerRef.current = videoProducer;
+                console.log("Video producer created:", videoProducer.id);
+            }
 
-			// Produce audio track
-			const audioTrack = stream.getAudioTracks()[0];
-			if (audioTrack) {
-				console.log("Producing audio track");
-				const audioProducer = await sendTransport.produce({
-					track: audioTrack,
-				});
-				audioProducerRef.current = audioProducer;
-				console.log("Audio producer created:", audioProducer.id);
-			}
-		} catch (error) {
-			console.error("Error producing tracks:", error);
-		}
-	};
+            // Produce audio track
+            const audioTrack = stream.getAudioTracks()[0];
+            if (audioTrack) {
+                console.log("Producing audio track");
+                const audioProducer = await sendTransport.produce({
+                    track: audioTrack,
+                });
+                audioProducerRef.current = audioProducer;
+                console.log("Audio producer created:", audioProducer.id);
+            }
+        } catch (error) {
+            console.error("Error producing tracks:", error);
+        }
+    };
 
-	const createSendTransport = async (transportOptions) => {
-		try {
-			const device = new mediasoupClient.Device();
-			deviceRef.current = device;
+    const createSendTransport = async (transportOptions) => {
+        try {
+            const device = new mediasoupClient.Device();
+            deviceRef.current = device;
 
-			// Load device with router RTP capabilities
-			const rtpCapabilities = await getRtpCapabilities();
-			await device.load({ routerRtpCapabilities: rtpCapabilities });
+            // Load device with router RTP capabilities
+            const rtpCapabilities = await getRtpCapabilities();
+            await device.load({routerRtpCapabilities: rtpCapabilities});
 
-			const sendTransport = device.createSendTransport(transportOptions);
-			sendTransportRef.current = sendTransport;
+            const sendTransport = device.createSendTransport(transportOptions);
+            sendTransportRef.current = sendTransport;
 
-			sendTransport.on(
-				"connect",
-				async ({ dtlsParameters }, callback, errback) => {
-					try {
-						await connectTransport(dtlsParameters);
-						callback();
-					} catch (error) {
-						errback(error);
-					}
-				}
-			);
+            sendTransport.on(
+                "connect",
+                async ({dtlsParameters}, callback, errback) => {
+                    try {
+                        await connectTransport(dtlsParameters);
+                        callback();
+                    } catch (error) {
+                        errback(error);
+                    }
+                }
+            );
 
-			sendTransport.on(
-				"produce",
-				async ({ kind, rtpParameters }, callback, errback) => {
-					try {
-						const producer = await produce(kind, rtpParameters);
-						callback({ id: producer.id });
-					} catch (error) {
-						errback(error);
-					}
-				}
-			);
+            sendTransport.on(
+                "produce",
+                async ({kind, rtpParameters}, callback, errback) => {
+                    try {
+                        const producer = await produce(kind, rtpParameters);
+                        callback({id: producer.id});
+                    } catch (error) {
+                        errback(error);
+                    }
+                }
+            );
 
-			return sendTransport;
-		} catch (error) {
-			console.error("Error creating send transport:", error);
-			throw error;
-		}
-	};
+            return sendTransport;
+        } catch (error) {
+            console.error("Error creating send transport:", error);
+            throw error;
+        }
+    };
 
-	const getRtpCapabilities = async () => {
-		socketRef.current.send(
-			JSON.stringify({
-				event: "get-rtp-capabilities",
-				data: { streamId: streamerId },
-			})
-		);
+    const getRtpCapabilities = async () => {
+        socketRef.current.send(
+            JSON.stringify({
+                event: "get-rtp-capabilities",
+                data: {streamId: streamerId},
+            })
+        );
 
-		return new Promise((resolve, reject) => {
-			const timeout = setTimeout(
-				() => reject(new Error("Timeout getting RTP capabilities")),
-				5000
-			);
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(
+                () => reject(new Error("Timeout getting RTP capabilities")),
+                5000
+            );
 
-			const originalOnMessage = socketRef.current.onmessage;
-			socketRef.current.onmessage = (event) => {
-				const msg = JSON.parse(event.data);
-				if (msg.event === "rtp-capabilities") {
-					clearTimeout(timeout);
-					socketRef.current.onmessage = originalOnMessage;
-					resolve(msg.data.rtpCapabilities);
-				}
-			};
-		});
-	};
+            const originalOnMessage = socketRef.current.onmessage;
+            socketRef.current.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.event === "rtp-capabilities") {
+                    clearTimeout(timeout);
+                    socketRef.current.onmessage = originalOnMessage;
+                    resolve(msg.data.rtpCapabilities);
+                }
+            };
+        });
+    };
 
-	const connectTransport = async (dtlsParameters) => {
-		socketRef.current.send(
-			JSON.stringify({
-				event: "connect-transport",
-				data: {
-					streamId: streamerId,
-					transportId: sendTransportRef.current.id,
-					dtlsParameters,
-					isStreamer: true,
-				},
-			})
-		);
+    const connectTransport = async (dtlsParameters) => {
+        socketRef.current.send(
+            JSON.stringify({
+                event: "connect-transport",
+                data: {
+                    streamId: streamerId,
+                    transportId: sendTransportRef.current.id,
+                    dtlsParameters,
+                    isStreamer: true,
+                },
+            })
+        );
 
-		return new Promise((resolve, reject) => {
-			const timeout = setTimeout(
-				() => reject(new Error("Timeout connecting transport")),
-				5000
-			);
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(
+                () => reject(new Error("Timeout connecting transport")),
+                5000
+            );
 
-			const originalOnMessage = socketRef.current.onmessage;
-			socketRef.current.onmessage = (event) => {
-				const msg = JSON.parse(event.data);
-				if (msg.event === "transport-connected") {
-					clearTimeout(timeout);
-					socketRef.current.onmessage = originalOnMessage;
-					resolve();
-				} else if (msg.event === "error") {
-					clearTimeout(timeout);
-					socketRef.current.onmessage = originalOnMessage;
-					reject(new Error(msg.data.message));
-				}
-			};
-		});
-	};
+            const originalOnMessage = socketRef.current.onmessage;
+            socketRef.current.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.event === "transport-connected") {
+                    clearTimeout(timeout);
+                    socketRef.current.onmessage = originalOnMessage;
+                    resolve();
+                } else if (msg.event === "error") {
+                    clearTimeout(timeout);
+                    socketRef.current.onmessage = originalOnMessage;
+                    reject(new Error(msg.data.message));
+                }
+            };
+        });
+    };
 
-	const produce = async (kind, rtpParameters) => {
-		const streamId = `stream-${streamerId}`;
-		socketRef.current.send(
-			JSON.stringify({
-				event: "produce",
-				data: {
-					streamId: streamerId,
-					transportId: sendTransportRef.current.id,
-					kind,
-					rtpParameters,
-				},
-			})
-		);
+    const produce = async (kind, rtpParameters) => {
+        const streamId = `stream-${streamerId}`;
+        socketRef.current.send(
+            JSON.stringify({
+                event: "produce",
+                data: {
+                    streamId: streamerId,
+                    transportId: sendTransportRef.current.id,
+                    kind,
+                    rtpParameters,
+                },
+            })
+        );
 
-		return new Promise((resolve, reject) => {
-			const timeout = setTimeout(
-				() => reject(new Error("Timeout producing")),
-				5000
-			);
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(
+                () => reject(new Error("Timeout producing")),
+                5000
+            );
 
-			const originalOnMessage = socketRef.current.onmessage;
-			socketRef.current.onmessage = (event) => {
-				const msg = JSON.parse(event.data);
-				if (msg.event === "produced") {
-					clearTimeout(timeout);
-					socketRef.current.onmessage = originalOnMessage;
-					resolve(msg.data.producer);
-				} else if (msg.event === "error") {
-					clearTimeout(timeout);
-					socketRef.current.onmessage = originalOnMessage;
-					reject(new Error(msg.data.message));
-				}
-			};
-		});
-	};
+            const originalOnMessage = socketRef.current.onmessage;
+            socketRef.current.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.event === "produced") {
+                    clearTimeout(timeout);
+                    socketRef.current.onmessage = originalOnMessage;
+                    resolve(msg.data.producer);
+                } else if (msg.event === "error") {
+                    clearTimeout(timeout);
+                    socketRef.current.onmessage = originalOnMessage;
+                    reject(new Error(msg.data.message));
+                }
+            };
+        });
+    };
 
-	const handleStartStream = async (tags) => {
-		try {
-			const tagArr = Array.isArray(tags)
-				? tags.filter(Boolean)
-				: tags
-						.split(",")
-						.map((t) => t.trim())
-						.filter(Boolean);
+    const handleStartStream = async (tags) => {
+        try {
+            const tagArr = Array.isArray(tags)
+                ? tags.filter(Boolean)
+                : tags
+                    .split(",")
+                    .map((t) => t.trim())
+                    .filter(Boolean);
 
-			setStreamTags(tagArr);
+            setStreamTags(tagArr);
 
 
             const stream = await navigator.mediaDevices.getUserMedia({
@@ -445,70 +441,84 @@ const StreamerPage = () => {
             localStreamRef.current = stream;
             if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
-			const streamId = `stream-${streamerId}`;
-			// Send register event
-			socketRef.current.send(
-				JSON.stringify({
-					event: "register",
-					data: {
-						id: streamerId,
-						clientType: "streamer",
-						streamId,
-						streamerId: streamerId,
-						username: username || "streamer",
-						tags: tagArr,
-					},
-				})
-			);
+            const streamId = `stream-${streamerId}`;
+            // Send register event
+            socketRef.current.send(
+                JSON.stringify({
+                    event: "register",
+                    data: {
+                        id: streamerId,
+                        clientType: "streamer",
+                        streamId,
+                        streamerId: streamerId,
+                        username: username || "streamer",
+                        tags: tagArr,
+                    },
+                })
+            );
 
-			// Wait for 'registered' confirmation before creating transport
-			await new Promise((resolve, reject) => {
-				const timeout = setTimeout(
-					() =>
-						reject(
-							new Error(
-								"Timeout waiting for registration confirmation"
-							)
-						),
-					5000
-				);
-				const originalOnMessage = socketRef.current.onmessage;
-				socketRef.current.onmessage = (event) => {
-					try {
-						const msg = JSON.parse(event.data);
-						if (
-							msg.event === "registered" &&
-							msg.data?.clientType === "streamer"
-						) {
-							clearTimeout(timeout);
-							socketRef.current.onmessage = originalOnMessage;
-							resolve();
-						} else if (msg.event === "error") {
-							clearTimeout(timeout);
-							socketRef.current.onmessage = originalOnMessage;
-							reject(new Error(msg.data.message));
-						}
-					} catch (err) {
-						// Ignore parse errors
-					}
-				};
-			});
+            // Wait for 'registered' confirmation before creating transport
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(
+                    () =>
+                        reject(
+                            new Error(
+                                "Timeout waiting for registration confirmation"
+                            )
+                        ),
+                    5000
+                );
+                const originalOnMessage = socketRef.current.onmessage;
+                socketRef.current.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (
+                            msg.event === "registered" &&
+                            msg.data?.clientType === "streamer"
+                        ) {
+                            clearTimeout(timeout);
+                            socketRef.current.onmessage = originalOnMessage;
+                            resolve();
+                        } else if (msg.event === "error") {
+                            clearTimeout(timeout);
+                            socketRef.current.onmessage = originalOnMessage;
+                            reject(new Error(msg.data.message));
+                        }
+                    } catch (err) {
+                        // Ignore parse errors
+                    }
+                };
+            });
 
-			// Now create transport
-			socketRef.current.send(
-				JSON.stringify({
-					event: "create-transport",
-					data: { streamId, isStreamer: true, streamerId },
-				})
-			);
+            // Now create transport
+            socketRef.current.send(
+                JSON.stringify({
+                    event: "create-transport",
+                    data: {streamId, isStreamer: true, streamerId},
+                })
+            );
 
-			setIsStreaming(true);
-			streamStartTime.current = Date.now();
-		} catch (err) {
-			console.error("Could not access camera/mic:", err);
-			alert("Could not access camera/mic: " + err.message);
-		}
-	};
+            setIsStreaming(true);
+            streamStartTime.current = Date.now();
+        } catch (err) {
+            console.error("Could not access camera/mic:", err);
+            alert("Could not access camera/mic: " + err.message);
+        }
+
+
+        console.log("Toggling transparency to: true");
+        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+            socketRef.current.send(
+                JSON.stringify({
+                    event: "set-transparency",
+                    data: {
+                        streamId: streamerId,
+                        transparent: true
+                    }
+                })
+            );
+        }
+    };
 
     const handleStopStream = async () => {
         try {
@@ -516,7 +526,7 @@ const StreamerPage = () => {
                 socketRef.current.send(
                     JSON.stringify({
                         event: "end-stream",
-                        data: { streamId: streamerId },
+                        data: {streamId: streamerId},
                     })
                 );
             }
@@ -538,24 +548,24 @@ const StreamerPage = () => {
             }
             localStreamRef.current = null;
 
-        if (localVideoRef.current) localVideoRef.current.srcObject = null;
+            if (localVideoRef.current) localVideoRef.current.srcObject = null;
 
-        // Close mediasoup resources
-        if (audioProducerRef.current) {
-            audioProducerRef.current.close();
-            audioProducerRef.current = null;
-        }
-        if (videoProducerRef.current) {
-            videoProducerRef.current.close();
-            videoProducerRef.current = null;
-        }
-        if (sendTransportRef.current) {
-            sendTransportRef.current.close();
-            sendTransportRef.current = null;
-        }
-        if (deviceRef.current) {
-            deviceRef.current = null;
-        }
+            // Close mediasoup resources
+            if (audioProducerRef.current) {
+                audioProducerRef.current.close();
+                audioProducerRef.current = null;
+            }
+            if (videoProducerRef.current) {
+                videoProducerRef.current.close();
+                videoProducerRef.current = null;
+            }
+            if (sendTransportRef.current) {
+                sendTransportRef.current.close();
+                sendTransportRef.current = null;
+            }
+            if (deviceRef.current) {
+                deviceRef.current = null;
+            }
 
             setIsStreaming(false);
             setIsPaused(false);
@@ -567,149 +577,153 @@ const StreamerPage = () => {
         }
     };
 
-	function captureFrame(videoElement) {
-		const canvas = document.createElement("canvas");
-		canvas.width = videoElement.videoWidth;
-		canvas.height = videoElement.videoHeight;
-		const ctx = canvas.getContext("2d");
-		ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-		return canvas;
-	}
+    function captureFrame(videoElement) {
+        const canvas = document.createElement("canvas");
+        canvas.width = videoElement.videoWidth;
+        canvas.height = videoElement.videoHeight;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+        return canvas;
+    }
 
-	async function getFrameHash(canvas) {
-		const blob = await new Promise((resolve) =>
-			canvas.toBlob(resolve, "image/png")
-		);
-		const arrayBuffer = await blob.arrayBuffer();
-		const hashBuffer = await window.crypto.subtle.digest(
-			"SHA-256",
-			arrayBuffer
-		);
-		return new Uint8Array(hashBuffer);
-	}
+    async function getFrameHash(canvas) {
+        const blob = await new Promise((resolve) =>
+            canvas.toBlob(resolve, "image/png")
+        );
+        const arrayBuffer = await blob.arrayBuffer();
+        const hashBuffer = await window.crypto.subtle.digest(
+            "SHA-256",
+            arrayBuffer
+        );
+        return new Uint8Array(hashBuffer);
+    }
 
-	async function signFrameHash(privateKey, frameHash) {
-		const signature = await window.crypto.subtle.sign(
-			{ name: "RSASSA-PKCS1-v1_5" },
-			privateKey,
-			frameHash
-		);
-		return btoa(String.fromCharCode(...new Uint8Array(signature)));
-	}
+    async function signFrameHash(privateKey, frameHash) {
+        const signature = await window.crypto.subtle.sign(
+            {name: "RSASSA-PKCS1-v1_5"},
+            privateKey,
+            frameHash
+        );
+        return btoa(String.fromCharCode(...new Uint8Array(signature)));
+    }
 
-	const keyPairRef = useRef(null);
+    const keyPairRef = useRef(null);
 
-	useEffect(() => {
-		async function loadKeyPair() {
-			if (!keyPairRef.current) {
-				const pair = await window.crypto.subtle.generateKey(
-					{
-						name: "RSASSA-PKCS1-v1_5",
-						modulusLength: 2048,
-						publicExponent: new Uint8Array([1, 0, 1]),
-						hash: "SHA-256",
-					},
-					true,
-					["sign", "verify"]
-				);
-				keyPairRef.current = pair;
-			}
-		}
-		loadKeyPair();
-	}, []);
+    useEffect(() => {
+        async function loadKeyPair() {
+            if (!keyPairRef.current) {
+                const pair = await window.crypto.subtle.generateKey(
+                    {
+                        name: "RSASSA-PKCS1-v1_5",
+                        modulusLength: 2048,
+                        publicExponent: new Uint8Array([1, 0, 1]),
+                        hash: "SHA-256",
+                    },
+                    true,
+                    ["sign", "verify"]
+                );
+                keyPairRef.current = pair;
+            }
+        }
 
-	useEffect(() => {
-		let intervalId;
-		async function sendFrameHashMediasoup() {
-			if (
-				isStreaming &&
-				localVideoRef.current &&
-				!isPaused &&
-				!isVideoOff &&
-				socketRef.current &&
-				socketRef.current.readyState === WebSocket.OPEN
-			) {
-				const canvas = captureFrame(localVideoRef.current);
-				const frameHash = getDownscaledFrameHash(canvas, 8);
-				const timestamp = new Date().toISOString();
-				socketRef.current.send(
-					JSON.stringify({
-						event: "frame-hash",
-						data: {
-							streamId,
-							senderId: streamerId,
-							frameHash: frameHash,
-							timestamp,
-						},
-					})
-				);
-				console.log(
-					"[Streamer] Sent frame hash via mediasoup event:",
-					frameHash
-				);
-			}
-		}
-		if (isStreaming) {
-			intervalId = setInterval(sendFrameHashMediasoup, 1000);
-		}
-		return () => clearInterval(intervalId);
-	}, [isStreaming, isPaused, isVideoOff]);
+        loadKeyPair();
+    }, []);
 
-	const extractFramefromStream = (stream) => {
-		if (!stream || !stream.getVideoTracks().length) {
-			console.error("No video track found in the stream");
-			return null;
-		}
+    useEffect(() => {
+        let intervalId;
 
-		const videoTrack = stream.getVideoTracks()[0];
-		const imageCapture = new ImageCapture(videoTrack);
+        async function sendFrameHashMediasoup() {
+            if (
+                isStreaming &&
+                localVideoRef.current &&
+                !isPaused &&
+                !isVideoOff &&
+                socketRef.current &&
+                socketRef.current.readyState === WebSocket.OPEN
+            ) {
+                const canvas = captureFrame(localVideoRef.current);
+                const frameHash = getDownscaledFrameHash(canvas, 8);
+                const timestamp = new Date().toISOString();
+                socketRef.current.send(
+                    JSON.stringify({
+                        event: "frame-hash",
+                        data: {
+                            streamId,
+                            senderId: streamerId,
+                            frameHash: frameHash,
+                            timestamp,
+                        },
+                    })
+                );
+                console.log(
+                    "[Streamer] Sent frame hash via mediasoup event:",
+                    frameHash
+                );
+            }
+        }
 
-		return imageCapture;
-	};
+        if (isStreaming) {
+            intervalId = setInterval(sendFrameHashMediasoup, 1000);
+        }
+        return () => clearInterval(intervalId);
+    }, [isStreaming, isPaused, isVideoOff]);
 
-	const createDigitalSignature = async (stream) => {
-		if (!stream || !stream.getVideoTracks().length) {
-			console.error("No video track found in the stream");
-			return null;
-		}
-		const imageCapture = extractFramefromStream(stream);
-		if (!imageCapture) {
-			console.error("Could not extract frame from stream");
-			return null;
-		}
-		try {
-			const frame = await imageCapture.grabFrame();
-			const canvas = document.createElement("canvas");
-			canvas.width = frame.width;
-			canvas.height = frame.height;
-			const ctx = canvas.getContext("2d");
-			ctx.drawImage(frame, 0, 0, frame.width, frame.height);
-			const imageData = ctx.getImageData(0, 0, frame.width, frame.height);
-			const data = imageData.data;
-			const hashBuffer = await crypto.subtle.digest(
-				"SHA-256",
-				new Uint8Array(data)
-			);
-			const hashArray = Array.from(new Uint8Array(hashBuffer));
-			const hashHex = hashArray
-				.map((b) => b.toString(16).padStart(2, "0"))
-				.join("");
-			return hashHex;
-		} catch (error) {
-			console.error("Error creating digital signature:", error);
-			return null;
-		}
-	};
+    const extractFramefromStream = (stream) => {
+        if (!stream || !stream.getVideoTracks().length) {
+            console.error("No video track found in the stream");
+            return null;
+        }
 
-	const handlePauseStream = () => {
-		if (!localStreamRef.current) return;
+        const videoTrack = stream.getVideoTracks()[0];
+        const imageCapture = new ImageCapture(videoTrack);
+
+        return imageCapture;
+    };
+
+    const createDigitalSignature = async (stream) => {
+        if (!stream || !stream.getVideoTracks().length) {
+            console.error("No video track found in the stream");
+            return null;
+        }
+        const imageCapture = extractFramefromStream(stream);
+        if (!imageCapture) {
+            console.error("Could not extract frame from stream");
+            return null;
+        }
+        try {
+            const frame = await imageCapture.grabFrame();
+            const canvas = document.createElement("canvas");
+            canvas.width = frame.width;
+            canvas.height = frame.height;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(frame, 0, 0, frame.width, frame.height);
+            const imageData = ctx.getImageData(0, 0, frame.width, frame.height);
+            const data = imageData.data;
+            const hashBuffer = await crypto.subtle.digest(
+                "SHA-256",
+                new Uint8Array(data)
+            );
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray
+                .map((b) => b.toString(16).padStart(2, "0"))
+                .join("");
+            return hashHex;
+        } catch (error) {
+            console.error("Error creating digital signature:", error);
+            return null;
+        }
+    };
+
+    const handlePauseStream = () => {
+        if (!localStreamRef.current) return;
 
         const nextPausedState = !isPaused;
         setIsPaused(nextPausedState);
 
-        // Show warning about 1.5 minute timeout
         if (nextPausedState) {
-            alert("If paused for more than 1.5 hours, your reward rate will reset to 1 sat/hour.");
+            setShowPauseOverlay(true);
+        } else {
+            setShowPauseOverlay(false);
         }
 
         const tracks = localStreamRef.current.getTracks();
@@ -740,70 +754,59 @@ const StreamerPage = () => {
         }
     };
 
-	const handleFlipCamera = async () => {
-		if (!isStreaming || !localStreamRef.current) return;
+    const handleFlipCamera = async () => {
+        if (!isStreaming || !localStreamRef.current) return;
 
-		const currentVideoTrack = localStreamRef.current.getVideoTracks()[0];
-		if (currentVideoTrack) currentVideoTrack.stop();
+        const currentVideoTrack = localStreamRef.current.getVideoTracks()[0];
+        if (currentVideoTrack) currentVideoTrack.stop();
 
-		const newFacingMode = currentCamera === "user" ? "environment" : "user";
-		try {
-			const newStream = await navigator.mediaDevices.getUserMedia({
-				video: { ...VIDEO_CONSTRAINTS, facingMode: newFacingMode },
-			});
-			const newVideoTrack = newStream.getVideoTracks()[0];
-			const audioTrack = localStreamRef.current.getAudioTracks()[0];
-			localStreamRef.current = new MediaStream([
-				newVideoTrack,
-				audioTrack,
-			]);
+        const newFacingMode = currentCamera === "user" ? "environment" : "user";
+        try {
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                video: {...VIDEO_CONSTRAINTS, facingMode: newFacingMode},
+            });
+            const newVideoTrack = newStream.getVideoTracks()[0];
+            const audioTrack = localStreamRef.current.getAudioTracks()[0];
+            localStreamRef.current = new MediaStream([
+                newVideoTrack,
+                audioTrack,
+            ]);
 
-			// Replace video producer if it exists
-			if (videoProducerRef.current && sendTransportRef.current) {
-				videoProducerRef.current.replaceTrack({ track: newVideoTrack });
-			}
+            // Replace video producer if it exists
+            if (videoProducerRef.current && sendTransportRef.current) {
+                videoProducerRef.current.replaceTrack({track: newVideoTrack});
+            }
 
-			setCurrentCamera(newFacingMode);
-		} catch (err) {
-			console.error("Could not flip camera:", err);
-			if (currentVideoTrack)
-				localStreamRef.current.addTrack(currentVideoTrack);
-		}
-	};
-	const toggleMute = () => {
-		if (!localStreamRef.current) return;
-		const audioTrack = localStreamRef.current.getAudioTracks()[0];
-		if (audioTrack) {
-			audioTrack.enabled = isMuted;
-			setIsMuted(!isMuted);
-		}
-	};
+            setCurrentCamera(newFacingMode);
+        } catch (err) {
+            console.error("Could not flip camera:", err);
+            if (currentVideoTrack)
+                localStreamRef.current.addTrack(currentVideoTrack);
+        }
+    };
+    const toggleMute = () => {
+        if (!localStreamRef.current) return;
+        const audioTrack = localStreamRef.current.getAudioTracks()[0];
+        if (audioTrack) {
+            audioTrack.enabled = isMuted;
+            setIsMuted(!isMuted);
+        }
+    };
 
-	const toggleVideo = () => {
-		if (!localStreamRef.current) return;
-		const videoTrack = localStreamRef.current.getVideoTracks()[0];
-		if (videoTrack) {
-			videoTrack.enabled = isVideoOff;
-			setIsVideoOff(!isVideoOff);
-		}
-	};
+    const toggleVideo = () => {
+        if (!localStreamRef.current) return;
+        const videoTrack = localStreamRef.current.getVideoTracks()[0];
+        if (videoTrack) {
+            videoTrack.enabled = isVideoOff;
+            setIsVideoOff(!isVideoOff);
+        }
+    };
 
     const handleToggleTransparency = () => {
         const newTransparencyState = !isTransparent;
         setIsTransparent(newTransparencyState);
 
-        console.log("Toggling transparency to:", newTransparencyState);
-        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-            socketRef.current.send(
-                JSON.stringify({
-                    event: "set-transparency",
-                    data: {
-                        streamId: streamerId,
-                        transparent: newTransparencyState
-                    }
-                })
-            );
-        }
+
     };
 
     return (
@@ -837,16 +840,20 @@ const StreamerPage = () => {
                                 Your stream is currently paused for viewers.
                                 We'll be back soon!
                             </p>
+
+                            <p className="text-orange-200 max-w-md text-xs mt-4">
+                                If paused for more than 1.5 hours, your reward rate will reset to 1 sat/hour.
+                            </p>
                         </div>
                     </div>
                 )}
             </div>
 
-			<TagDialog
-				open={showTagDialog}
-				onClose={() => setShowTagDialog(false)}
-				onSave={(tags) => handleStartStream(tags)}
-			/>
+            <TagDialog
+                open={showTagDialog}
+                onClose={() => setShowTagDialog(false)}
+                onSave={(tags) => handleStartStream(tags)}
+            />
 
             {/* --- CONTROLS AND INFO --- */}
             {isStreaming && (
@@ -873,8 +880,8 @@ const StreamerPage = () => {
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center">
                 {!isStreaming ? (
                     <button
-onClick={() => setShowTagDialog(true)}
-disabled={!isWsConnected}
+                        onClick={() => setShowTagDialog(true)}
+                        disabled={!isWsConnected}
                         className="bg-teal-500 mb-4 hover:bg-teal-600 disabled:bg-neutral-600 disabled:cursor-not-allowed text-neutral-900 py-3 px-8 rounded-2xl font-semibold transition-all duration-300 ease-in-out flex items-center justify-center space-x-2 transform hover:scale-105 active:scale-100 shadow-lg z-10"
                     >
                         <Play className="w-6 h-6 "/>
@@ -941,20 +948,20 @@ disabled={!isWsConnected}
                         >
                             <RotateCcw className="w-6 h-6"/>
                         </ControlButton>
-                        <ControlButton
-                            onClick={handleToggleTransparency}
-                            className={
-                                isTransparent
-                                    ? "bg-purple-500/80 hover:bg-purple-500 text-white"
-                                    : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
-                            }
-                        >
-                            {isTransparent ? (
-                                <Eye className="w-6 h-6"/>
-                            ) : (
-                                <EyeOff className="w-6 h-6"/>
-                            )}
-                        </ControlButton>
+                        {/*<ControlButton*/}
+                        {/*    onClick={handleToggleTransparency}*/}
+                        {/*    className={*/}
+                        {/*        isTransparent*/}
+                        {/*            ? "bg-purple-500/80 hover:bg-purple-500 text-white"*/}
+                        {/*            : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"*/}
+                        {/*    }*/}
+                        {/*>*/}
+                        {/*    {isTransparent ? (*/}
+                        {/*        <Eye className="w-6 h-6"/>*/}
+                        {/*    ) : (*/}
+                        {/*        <EyeOff className="w-6 h-6"/>*/}
+                        {/*    )}*/}
+                        {/*</ControlButton>*/}
                         <div className="w-px h-8 bg-neutral-100/10 mx-2"></div>
                         <ControlButton
                             onClick={handlePauseStream}
@@ -980,31 +987,32 @@ disabled={!isWsConnected}
                 )}
             </div>
 
-			<div className="absolute top-4 right-4 w-80 space-y-4 hidden lg:flex flex-col max-h-[calc(100vh-2rem)] z-20">
-				<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 p-4 rounded-2xl">
-					<h3 className="font-semibold mb-4 flex items-center text-lg">
-						<Monitor className="w-5 h-5 mr-3 text-teal-400" />
-						Stream Info
-					</h3>
-					<div className="space-y-3 text-sm">
-						<div className="flex justify-between items-center">
-							<span className="text-neutral-400">Status</span>
-							<span
-								className={`font-semibold px-2 py-0.5 rounded-md text-xs ${
-									isStreaming
-										? isPaused
-											? "bg-yellow-500/20 text-yellow-300"
-											: "bg-teal-500/20 text-teal-300"
-										: "bg-neutral-700 text-neutral-300"
-								}`}
-							>
+            <div
+                className="absolute top-4 right-4 w-80 space-y-4 hidden lg:flex flex-col max-h-[calc(100vh-2rem)] z-20">
+                <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 p-4 rounded-2xl">
+                    <h3 className="font-semibold mb-4 flex items-center text-lg">
+                        <Monitor className="w-5 h-5 mr-3 text-teal-400"/>
+                        Stream Info
+                    </h3>
+                    <div className="space-y-3 text-sm">
+                        <div className="flex justify-between items-center">
+                            <span className="text-neutral-400">Status</span>
+                            <span
+                                className={`font-semibold px-2 py-0.5 rounded-md text-xs ${
+                                    isStreaming
+                                        ? isPaused
+                                            ? "bg-yellow-500/20 text-yellow-300"
+                                            : "bg-teal-500/20 text-teal-300"
+                                        : "bg-neutral-700 text-neutral-300"
+                                }`}
+                            >
 								{isStreaming
-									? isPaused
-										? "Paused"
-										: "Online"
-									: "Offline"}
+                                    ? isPaused
+                                        ? "Paused"
+                                        : "Online"
+                                    : "Offline"}
 							</span>
-						</div>
+                        </div>
                         <div className="flex justify-between items-center">
                             <span className="text-neutral-400">Transparency</span>
                             <span className={`font-semibold px-2 py-0.5 rounded-md text-xs ${
@@ -1015,69 +1023,69 @@ disabled={!isWsConnected}
                                 {isTransparent ? "Active" : "Inactive"}
                             </span>
                         </div>
-						<div className="flex justify-between items-center">
-							<span className="text-neutral-400">Camera</span>
-							<span className="capitalize">
+                        <div className="flex justify-between items-center">
+                            <span className="text-neutral-400">Camera</span>
+                            <span className="capitalize">
 								{currentCamera === "user" ? "Front" : "Back"}
 							</span>
-						</div>
-						<div>
-							<span className="text-neutral-400">Tags</span>
-							<div className="flex flex-wrap gap-2 mt-1">
-								{streamTags?.length ? ( // <-- safe check
-									streamTags.map((tag, i) => (
-										<span
-											key={i}
-											className="bg-teal-700/30 text-teal-200 px-2 py-0.5 rounded-full text-xs"
-										>
+                        </div>
+                        <div>
+                            <span className="text-neutral-400">Tags</span>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                                {streamTags?.length ? ( // <-- safe check
+                                    streamTags.map((tag, i) => (
+                                        <span
+                                            key={i}
+                                            className="bg-teal-700/30 text-teal-200 px-2 py-0.5 rounded-full text-xs"
+                                        >
 											{tag}
 										</span>
-									))
-								) : (
-									<span className="text-neutral-500 text-xs">
+                                    ))
+                                ) : (
+                                    <span className="text-neutral-500 text-xs">
 										No tags
 									</span>
-								)}
-							</div>
-						</div>
-					</div>
-				</div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-				{/* --- CHAT PANEL --- */}
-				<Chat
-					streamId={streamId}
-					username={username}
-					socket={socketRef.current}
-					myStream={true}
-				/>
-			</div>
-		</div>
-	);
+                {/* --- CHAT PANEL --- */}
+                <Chat
+                    streamId={streamId}
+                    username={username}
+                    socket={socketRef.current}
+                    myStream={true}
+                />
+            </div>
+        </div>
+    );
 };
 
 export default StreamerPage;
 
 function getDownscaledFrameHash(canvas, size = 8) {
-	const downCanvas = document.createElement("canvas");
-	downCanvas.width = size;
-	downCanvas.height = size;
-	const ctx = downCanvas.getContext("2d");
-	ctx.drawImage(canvas, 0, 0, size, size);
-	const imgData = ctx.getImageData(0, 0, size, size).data;
-	let hash = "";
-	let total = 0;
-	const grays = [];
-	for (let i = 0; i < size * size; i++) {
-		const r = imgData[i * 4];
-		const g = imgData[i * 4 + 1];
-		const b = imgData[i * 4 + 2];
-		const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-		grays.push(gray);
-		total += gray;
-	}
-	const avg = total / (size * size);
-	for (let i = 0; i < grays.length; i++) {
-		hash += grays[i] > avg ? "1" : "0";
-	}
-	return hash;
+    const downCanvas = document.createElement("canvas");
+    downCanvas.width = size;
+    downCanvas.height = size;
+    const ctx = downCanvas.getContext("2d");
+    ctx.drawImage(canvas, 0, 0, size, size);
+    const imgData = ctx.getImageData(0, 0, size, size).data;
+    let hash = "";
+    let total = 0;
+    const grays = [];
+    for (let i = 0; i < size * size; i++) {
+        const r = imgData[i * 4];
+        const g = imgData[i * 4 + 1];
+        const b = imgData[i * 4 + 2];
+        const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+        grays.push(gray);
+        total += gray;
+    }
+    const avg = total / (size * size);
+    for (let i = 0; i < grays.length; i++) {
+        hash += grays[i] > avg ? "1" : "0";
+    }
+    return hash;
 }
