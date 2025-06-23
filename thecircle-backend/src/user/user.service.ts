@@ -41,4 +41,13 @@ export class UserService {
     const success = result.modifiedCount > 0;
     return success;
   }
+
+  async getPublicKey(obj: any): Promise<any> {
+    const result = await this.userModel.findOne(
+      { _id: new Types.ObjectId(obj.userId), 'publicKeys.deviceId': obj.deviceId },
+      { publicKeys: { $elemMatch: { deviceId: obj.deviceId } } },
+    );
+
+    return result ? result.publicKeys[0] : null;
+  }
 }

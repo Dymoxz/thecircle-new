@@ -609,10 +609,10 @@ const StreamerPage = () => {
 						},
 					})
 				);
-				console.log(
-					"[Streamer] Sent frame hash via mediasoup event:",
-					frameHash
-				);
+				// console.log(
+				// 	"[Streamer] Sent frame hash via mediasoup event:",
+				// 	frameHash
+				// );
 			}
 		}
 		if (isStreaming) {
@@ -966,6 +966,7 @@ disabled={!isWsConnected}
                 <Chat
                     streamId={streamId}
                     username={username}
+                    userId = {streamerId}
                     socket={socketRef.current}
                     myStream={true}
                 />

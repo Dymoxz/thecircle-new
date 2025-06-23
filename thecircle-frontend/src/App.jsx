@@ -21,7 +21,12 @@ import {
 } from "lucide-react";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import { jwtDecode } from "jwt-decode";
-import { setupDeviceKey } from "./services/keys.service.js";
+import {
+  exportPrivateKey,
+  getDevice,
+  getDeviceName,
+  setupDeviceKey,
+} from "./services/keys.service.js";
 
 const API_URL = "https://localhost:3001/api";
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";

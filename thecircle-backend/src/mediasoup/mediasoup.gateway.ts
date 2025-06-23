@@ -532,14 +532,15 @@ export class MediasoupGateway
     data: {
       streamId: string;
       senderId: string;
+      sender:string;
       message: string;
       timestamp: Date;
       signature: string;
-      publicKey: string;
+      deviceId: string;
     },
     @ConnectedSocket() socket: WebSocket,
   ) {
-    const { streamId, senderId, message, timestamp, signature, publicKey } =
+    const { streamId,sender, senderId, message, timestamp, signature, deviceId } =
       data;
 
     // Get stream info from mediasoupService
@@ -561,10 +562,11 @@ export class MediasoupGateway
             data: {
               streamId,
               senderId,
+              sender,
               message,
               timestamp,
               signature,
-              publicKey,
+              deviceId,
             },
           }),
         );

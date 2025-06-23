@@ -32,4 +32,9 @@ export class UserController {
   async registerPubKey(@Body() obj: any, @User() user: any): Promise<Boolean> {
     return this.userService.registerPubKey(obj, user.sub);
   }
+
+  @Post('getPublicKey')
+  async getPublicKey(@Body() obj: any): Promise<any> {
+    return this.userService.getPublicKey(obj);
+  }
 }
