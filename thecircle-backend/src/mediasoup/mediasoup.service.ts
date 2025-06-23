@@ -27,8 +27,10 @@ export interface StreamerInfo {
     streamId: string;
     isStreaming: boolean;
     producers: Map<string, mediasoup.types.Producer>;
-    isTransparent: boolean; // Voeg dit toe
-    lastTransparencyCheck: number; // Voeg dit toe
+    isTransparent: boolean;
+    lastTransparencyCheck: number;
+    videoRotation: number;
+    videoMirrored: boolean;
 }
 
 type ViewerInfo = {
@@ -46,6 +48,8 @@ type StreamInfo = {
     router: mediasoup.types.Router;
     tags?: string[];
     viewerCount?: number;
+    videoRotation?: number;
+    videoMirrored?: boolean;
 };
 
 @Injectable()
@@ -316,15 +320,17 @@ export class MediasoupService implements OnModuleDestroy {
                 streamId,
                 isStreaming: false,
                 producers: new Map(),
-                isTransparent: false,  // Explicitly initialized
-                lastTransparencyCheck: Date.now()  // Initialize with current time
-
+                isTransparent: false,
+                lastTransparencyCheck: Date.now(),
+                videoRotation: 0,
+                videoMirrored: false,
             },
             viewers: new Map(),
             router,
             tags: tags || [],
             viewerCount: viewerCount || 0,
-
+            videoRotation: 0,
+            videoMirrored: false,
         };
 
         this.streams.set(streamId, streamInfo);

@@ -232,8 +232,7 @@ const ViewerPage = () => {
 					break;
 				}
 				case "video-rotation": {
-					const { rotation } = msg.data;
-					setVideoRotation(rotation);
+					setVideoRotation(Number(msg.data.rotation) || 0);
 					break;
 				}
 				case "video-mirror": {

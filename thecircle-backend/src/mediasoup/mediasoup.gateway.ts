@@ -287,10 +287,23 @@ export class MediasoupGateway
                         data: {streamId: effectiveStreamId, clientType: 'viewer'},
                     }),
                 );
-
+                // Send current video rotation and mirroring state to the viewer
+                const stream = await this.mediasoupService.getStreamInfo(effectiveStreamId);
+                if (stream) {
+                    socket.send(
+                        JSON.stringify({
+                            event: 'video-rotation',
+                            data: { streamId: effectiveStreamId, rotation: stream.streamer.videoRotation ?? 0 },
+                        })
+                    );
+                    socket.send(
+                        JSON.stringify({
+                            event: 'video-mirror',
+                            data: { streamId: effectiveStreamId, mirrored: !!stream.streamer.videoMirrored },
+                        })
+                    );
+                }
                 // Notify streamer about new viewer
-                const stream =
-                    await this.mediasoupService.getStreamInfo(effectiveStreamId);
                 if (stream) {
                     stream.streamer.socket.send(
                         JSON.stringify({
@@ -872,6 +885,9 @@ export class MediasoupGateway
         // Get stream info from mediasoupService
         const stream = await this.mediasoupService.getStreamInfo(streamId);
         if (!stream) return;
+        // Store the new rotation
+        stream.streamer.videoRotation = rotation;
+        stream.videoRotation = rotation;
         // Relay to all viewers (not streamer)
         for (const [viewerId, viewer] of stream.viewers.entries()) {
             if (viewer.socket.readyState === WebSocket.OPEN) {
@@ -879,7 +895,7 @@ export class MediasoupGateway
                     JSON.stringify({
                         event: 'video-rotation',
                         data: { streamId, rotation },
-                    }),
+                    })
                 );
             }
         }
@@ -894,6 +910,9 @@ export class MediasoupGateway
         // Get stream info from mediasoupService
         const stream = await this.mediasoupService.getStreamInfo(streamId);
         if (!stream) return;
+        // Store the new mirroring state
+        stream.streamer.videoMirrored = mirrored;
+        stream.videoMirrored = mirrored;
         // Relay to all viewers (not streamer)
         for (const [viewerId, viewer] of stream.viewers.entries()) {
             if (viewer.socket.readyState === WebSocket.OPEN) {
