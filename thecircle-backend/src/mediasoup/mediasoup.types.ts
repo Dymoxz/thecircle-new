@@ -1,3 +1,4 @@
+// src/mediasoup/mediasoup.types.ts
 import { types as mediasoupTypes } from 'mediasoup';
 
 export interface MediasoupWorker {
@@ -77,6 +78,14 @@ export interface RecordingConfig {
   audioBitrate: string;
   format: string;
 }
+  // Voeg toe aan je interfaces (bijv. in mediasoup.types.ts)
+export interface TransparencyReward {
+  userId: string;
+  currentHourlyRate: number; // in satoshis
+  consecutiveHours: number;
+  lastActiveTimestamp: number;
+  totalEarned: number; // in satoshis
+}
 
 export interface MediasoupConfig {
   numWorkers: number;
@@ -97,4 +106,6 @@ export interface MediasoupConfig {
     initialAvailableOutgoingBitrate: number;
   };
   recordingOptions: RecordingConfig;
+
+
 }

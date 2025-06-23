@@ -1,3 +1,4 @@
+// src/user/user.service.ts
 import { Injectable } from '@nestjs/common';
 import { IUser } from './user.interface';
 import { InjectModel } from '@nestjs/mongoose/dist/common';
@@ -25,4 +26,10 @@ export class UserService {
     }
     return user;
   }
+  async updateSatoshis(userId: string, satoshis: number): Promise<void> {
+  await this.userModel.updateOne(
+    { _id: userId },
+    { $inc: { satoshis } }
+  ).exec();
+}
 }

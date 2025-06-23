@@ -1,3 +1,4 @@
+// src/user/user.schema.ts
 import { IUser } from './user.interface';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { IsMongoId } from 'class-validator';
@@ -38,6 +39,9 @@ export class User implements IUser {
     type: Number,
   })
   followerCount!: Number;
+
+  @Prop({ default: 0 })
+  satoshis: number;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

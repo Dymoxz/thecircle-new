@@ -10,6 +10,7 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import * as os from 'os';
 import { UserService } from '../user/user.service';
+import { TransparencyReward } from './mediasoup.types';
 
 // Types for mediasoup
 type MediasoupWorker = {
@@ -26,7 +27,7 @@ type TransportInfo = {
   consumers: Map<string, mediasoup.types.Consumer>;
 };
 
-type StreamerInfo = {
+export interface StreamerInfo {
   id: string;
   socket: any;
   username: string;
@@ -36,7 +37,9 @@ type StreamerInfo = {
   recordingProcess?: any;
   recordingPath?: string;
   producers: Map<string, mediasoup.types.Producer>;
-};
+  isTransparent: boolean; // Voeg dit toe
+  lastTransparencyCheck: number; // Voeg dit toe
+}
 
 type ViewerInfo = {
   id: string;
@@ -63,6 +66,10 @@ export class MediasoupService implements OnModuleDestroy {
   private streams = new Map<string, StreamInfo>();
   private currentWorkerIndex = 0;
   private viewerStreamsWatching = new Map<string, number>();
+
+    constructor(
+    private readonly userService: UserService
+  ) {}
 
   private getLocalIpAddress(): string {
     const interfaces = os.networkInterfaces();
@@ -156,12 +163,104 @@ export class MediasoupService implements OnModuleDestroy {
       },
     };
   }
+      // In mediasoup.service.ts
+    private transparencyRewards = new Map<string, TransparencyReward>();
+
+    // Methode om transparantie te updaten
+    private updateTransparency(userId: string): number {
+      const now = Date.now();
+      const oneHour = 60 * 60 * 1000; // 1 uur in milliseconden
+      const resetTimeout = 1.5 * oneHour; // 1.5 uur timeout
+
+      let reward = this.transparencyRewards.get(userId);
+
+      if (!reward) {
+        reward = {
+          userId,
+          currentHourlyRate: 1,
+          consecutiveHours: 1,
+          lastActiveTimestamp: now,
+          totalEarned: 0
+        };
+        this.transparencyRewards.set(userId, reward);
+      }
+
+      const timeSinceLastActive = now - reward.lastActiveTimestamp;
+
+      if (timeSinceLastActive > resetTimeout) {
+        // Meer dan 1.5 uur inactief, reset
+        reward.currentHourlyRate = 1;
+        reward.consecutiveHours = 1;
+      } else if (timeSinceLastActive >= oneHour) {
+        // Minstens 1 uur actief, verhoog beloning
+        reward.consecutiveHours++;
+        reward.currentHourlyRate = Math.min(Math.pow(2, reward.consecutiveHours - 1), 64); // Max 64 satoshis/uur
+      }
+
+      reward.lastActiveTimestamp = now;
+      reward.totalEarned += reward.currentHourlyRate;
+
+      this.transparencyRewards.set(userId, reward);
+      return reward.currentHourlyRate;
+    }
+
+    // Methode om beloning op te halen
+    public getTransparencyReward(userId: string): TransparencyReward | null {
+      return this.transparencyRewards.get(userId) || null;
+    }
+
+    private transparencyCheckInterval: NodeJS.Timeout;
 
   async onModuleInit() {
     const localIp = this.getLocalIpAddress();
     this.logger.log(`Detected local IP address: ${localIp}`);
     await this.createWorkers();
     this.ensureRecordingDirectory();
+
+      this.transparencyCheckInterval = setInterval(() => {
+        this.checkTransparencyRewards();
+      }, 60 * 60 * 1000); // Elk uur
+    }
+private checkTransparencyRewards() {
+  try {
+    this.logger.log('Transparency check interval running at: ' + new Date().toISOString());
+
+    for (const [streamId, stream] of this.streams.entries()) {
+      try {
+        this.logger.log(`Checking stream ${streamId} - Transparent: ${stream.streamer.isTransparent}, Streaming: ${stream.streamer.isStreaming}`);
+
+        if (stream.streamer.isTransparent && stream.streamer.isStreaming) {
+          const reward = this.updateTransparency(stream.streamer.id);
+          const rewardData = this.transparencyRewards.get(stream.streamer.id);
+
+          this.logger.log(`Transparency reward for ${stream.streamer.username}: ${reward} satoshis this hour`);
+
+          try {
+            if (stream.streamer.socket && stream.streamer.socket.readyState === WebSocket.OPEN) {
+              stream.streamer.socket.send(JSON.stringify({
+                event: 'transparency-reward',
+                data: {
+                  currentRate: reward,
+                  totalEarned: rewardData?.totalEarned || 0,
+                  consecutiveMinutes: rewardData?.consecutiveHours || 1
+                }
+              }));
+              this.logger.log(`Reward update sent to ${stream.streamer.username}`);
+            } else {
+              this.logger.warn(`Socket not ready for ${stream.streamer.username}`);
+            }
+          } catch (e) {
+            this.logger.error(`Error sending reward update: ${e.message}`);
+          }
+        }
+      } catch (e) {
+        this.logger.error(`Error processing transparency for stream ${streamId}: ${e.message}`);
+      }
+    }
+  } catch (e) {
+    this.logger.error(`Error in transparency check interval: ${e.message}`);
+  }
+
   }
 
   async onModuleDestroy() {
@@ -221,10 +320,11 @@ export class MediasoupService implements OnModuleDestroy {
     username: string,
     tags?: string[],
     viewerCount?: number,
+
   ): Promise<StreamInfo> {
     const worker = this.getNextWorker();
     const router = worker.router;
-
+    this.transparencyRewards.delete(streamerId);
     const streamInfo: StreamInfo = {
       streamId,
       streamer: {
@@ -240,6 +340,9 @@ export class MediasoupService implements OnModuleDestroy {
         streamId,
         isStreaming: false,
         producers: new Map(),
+        isTransparent: false,  // Explicitly initialized
+        lastTransparencyCheck: Date.now()  // Initialize with current time
+
       },
       viewers: new Map(),
       router,
@@ -249,12 +352,13 @@ export class MediasoupService implements OnModuleDestroy {
       ),
       tags: tags || [],
       viewerCount: viewerCount || 0,
+
     };
 
-    this.streams.set(streamId, streamInfo);
-    this.logger.log(`Stream created: ${streamId}`);
-    return streamInfo;
-  }
+  this.streams.set(streamId, streamInfo);
+  this.logger.log(`Stream created: ${streamId}`);
+  return streamInfo;
+}
 
   async createWebRtcTransport(
     streamId: string,
@@ -262,7 +366,7 @@ export class MediasoupService implements OnModuleDestroy {
     streamerId: string,
     clientId?: string,
   ): Promise<any> {
-    // console.log (this.streams)
+    console.log (this.streams)
     const stream = this.streams.get(streamerId);
     if (!stream) {
       throw new Error(`Stream ${streamId} not found`);
@@ -319,8 +423,8 @@ export class MediasoupService implements OnModuleDestroy {
     dtlsParameters: any,
     isStreamer: boolean,
   ): Promise<void> {
-    // console.log('[CONNECT] connectTransport called with:', { streamId, transportId, isStreamer });
-
+    console.log('[CONNECT] connectTransport called with:', { streamId, transportId, isStreamer });
+    
     const stream = this.streams.get(streamId);
     if (!stream) {
       console.log('[CONNECT] Stream not found:', streamId);
@@ -378,10 +482,13 @@ export class MediasoupService implements OnModuleDestroy {
 
     stream.streamer.producers.set(kind, producer);
 
+
     if (!stream.streamer.isStreaming) {
       stream.streamer.isStreaming = true;
       this.logger.log(`Stream ${streamId} is now live.`);
+
     }
+
 
     if (!stream.streamer.recordingProcess) {
       await this.startRecording(stream);
@@ -551,6 +658,18 @@ export class MediasoupService implements OnModuleDestroy {
       return;
     }
 
+    // Bereken en sla satoshis op
+    const reward = this.transparencyRewards.get(stream.streamer.id);
+    if (reward) {
+      try {
+        await this.userService.updateSatoshis(stream.streamer.id, reward.totalEarned);
+        this.logger.log(`Saved ${reward.totalEarned} satoshis for ${stream.streamer.username}`);
+      } catch (error) {
+        this.logger.error(`Error saving satoshis: ${error.message}`);
+      }
+      this.transparencyRewards.delete(stream.streamer.id);
+    }
+
     // Stop recording
     await this.stopRecording(stream);
 
@@ -671,4 +790,22 @@ export class MediasoupService implements OnModuleDestroy {
 
     return stream.router.rtpCapabilities;
   }
+  async setTransparency(streamId: string, transparent: boolean): Promise<void> {
+  const stream = this.streams.get(streamId);
+  if (!stream) {
+    throw new Error(`Stream ${streamId} not found`);
+  }
+
+  stream.streamer.isTransparent = transparent;
+  this.logger.log(`Transparency set to ${transparent} for stream ${streamId}`);
+
+  // Reset reward tracking when turning off transparency
+  if (!transparent) {
+    const reward = this.transparencyRewards.get(stream.streamer.id);
+    if (reward) {
+      reward.currentHourlyRate = 1;
+      reward.consecutiveHours = 1;
+    }
+  }
+}
 }
