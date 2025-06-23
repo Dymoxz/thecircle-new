@@ -48,7 +48,7 @@ const ViewerPage = () => {
 	const volumeSliderTimeoutRef = useRef(null);
 	const [user, setUser] = useState(null);
 	const [showMaxStreams, setShowMaxStreams] = useState(false);
-
+	const [latestTimestamp, setLatestTimestamp] = useState(null);
 	const remoteVideoRef = useRef(null);
 	const socketRef = useRef(null);
 	const token = localStorage.getItem("jwt_token");
@@ -60,6 +60,9 @@ const ViewerPage = () => {
 	const deviceRef = useRef(null);
 	const recvTransportRef = useRef(null);
 	const consumersRef = useRef(new Map());
+
+	const localFrameHashesRef = useRef([]); // Buffer of { hash, timestamp }
+	const MAX_HASH_BUFFER = 250; // Keep last 10 hashes (adjust as needed)
 
 	const streamInfo = {
 		streamerName: "CodeMaster_Dev",
@@ -142,12 +145,16 @@ const ViewerPage = () => {
 		socket.onmessage = async (event) => {
 			const msg = JSON.parse(event.data);
 			switch (msg.event) {
-				case "frame-hash":
-					console.log("[Viewer] FULL frame-hash event:", msg);
-					console.log("MESSAGE DATA", msg.data);
-					setLatestFrameHash(msg.data?.frameHash || null);
-					setLatestFrameSignature(msg.data?.signature || null);
+				case "frame-hash": {
+					const { frameHash, timestamp: streamerTimestamp } =
+						msg.data;
+					setLatestFrameHash(frameHash);
+					setLatestTimestamp(streamerTimestamp);
+					console.log("[MESSAGE] Received frame hash:", msg.data);
+					const streamerTime = new Date(streamerTimestamp).getTime();
+					// Compare to all local hashes in buffer within ±1s
 					break;
+				}
 				case "streams":
 					setStreams(msg.data.streams);
 					console.log("Received streams:", msg.data.streams);
@@ -235,7 +242,13 @@ const ViewerPage = () => {
 			consumersRef.current.clear();
 		};
 	}, [paramStreamId]);
-
+	function hammingDistance(a, b) {
+		let dist = 0;
+		for (let i = 0; i < a.length; i++) {	
+			if (a[i] !== b[i]) dist++;
+		}
+		return dist;
+	}
 	const createRecvTransport = async (transportOptions, streamId) => {
 		try {
 			const device = new mediasoupClient.Device();
@@ -850,6 +863,7 @@ const ViewerPage = () => {
 	const [latestFrameHash, setLatestFrameHash] = useState(null);
 	const [latestFrameSignature, setLatestFrameSignature] = useState(null);
 	const [frameVerified, setFrameVerified] = useState(null);
+	const latestFrameHashRef = useRef();
 
 	// Helper: Capture a frame from the video element
 	function captureFrame(videoElement) {
@@ -902,6 +916,9 @@ const ViewerPage = () => {
 	function hashesAreSimilar(hashA, hashB, tolerance = 4) {
 		if (!hashA || !hashB || hashA.length !== hashB.length) return false;
 		let diff = 0;
+		console.log(
+			`[Viewer] Comparing hashes: ${hashA} vs ${hashB} with tolerance ${tolerance}`
+		);
 		for (let i = 0; i < hashA.length; i++) {
 			if (hashA[i] !== hashB[i]) diff++;
 		}
@@ -912,9 +929,13 @@ const ViewerPage = () => {
 	}
 
 	useEffect(() => {
-		let intervalId;
-		function verifyFrame() {
-			// Always compare at a fixed interval, using the latest hashes
+		latestFrameHashRef.current = latestFrameHash;
+	}, [latestFrameHash]);
+
+	// Fill the buffer every 200ms
+	useEffect(() => {
+		let fillInterval;
+		function fillBuffer() {
 			if (
 				remoteVideoRef.current &&
 				!remoteVideoRef.current.paused &&
@@ -924,50 +945,46 @@ const ViewerPage = () => {
 			) {
 				const canvas = captureFrame(remoteVideoRef.current);
 				getFrameHash(canvas).then((frameHash) => {
-					console.log(
-						"[Viewer] frame hash (local):",
-						frameHash,
-						"length:",
-						frameHash.length
-					);
-					console.log(
-						"[Viewer] latest frame hash (from streamer):",
-						latestFrameHash,
-						"length:",
-						latestFrameHash && latestFrameHash.length
-					);
-					if (
-						latestFrameHash &&
-						frameHash &&
-						typeof latestFrameHash === "string" &&
-						typeof frameHash === "string" &&
-						frameHash.length === 64 &&
-						latestFrameHash.length === 64
-					) {
-						const similar = hashesAreSimilar(
-							frameHash,
-							latestFrameHash,
-							4
-						);
-						setFrameVerified(similar);
-						if (!similar) {
-							console.warn(
-								"[Viewer] Frame hashes differ (not similar enough)"
-							);
-						}
-					} else {
-						console.warn(
-							"[Viewer] Hashes missing or wrong length. Skipping comparison.",
-							{ frameHash, latestFrameHash }
-						);
-						setFrameVerified(null); // Show 'Verifying...' if hashes are not comparable
+					const now = Date.now();
+					localFrameHashesRef.current.push({ hash: frameHash, timestamp: now });
+					if (localFrameHashesRef.current.length > MAX_HASH_BUFFER) {
+						localFrameHashesRef.current.shift();
 					}
 				});
 			}
 		}
-		intervalId = setInterval(verifyFrame, 1000);
-		return () => clearInterval(intervalId);
-	}, [latestFrameHash]);
+		fillInterval = setInterval(fillBuffer, 500);
+		return () => clearInterval(fillInterval);
+	}, []);
+
+	// Verify every 1000ms
+	useEffect(() => {
+		let verifyInterval;
+		function verifyFrame() {
+			console.log("Local frames", localFrameHashesRef)
+			const streamerHash = latestFrameHashRef.current;
+			if (
+				streamerHash &&
+				typeof streamerHash === "string" &&
+				streamerHash.length === 64
+			) {
+				const match = localFrameHashesRef.current.find(
+					({ hash }) => hash && hammingDistance(hash, streamerHash) <= 8
+				
+				);
+				if (match) {
+					setFrameVerified(true);
+				} else {
+					console.log("UNVERIFIED frame hash:", streamerHash);
+					setFrameVerified(false);
+				}
+			} else {
+				setFrameVerified(null);
+			}
+		}
+		verifyInterval = setInterval(verifyFrame, 1000);
+		return () => clearInterval(verifyInterval);
+	}, []);
 
 	// --- Bottom Bar Controls ---
 	const handlePause = () => {

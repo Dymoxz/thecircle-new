@@ -834,4 +834,8 @@ export class MediasoupGateway
         //   `[FRAME-HASH] Relayed frame hash from ${senderId} in stream ${streamId}: ${frameHash}`,
         // );
     }
+    this.logger.log(
+      `[FRAME-HASH] Relayed frame hash from ${senderId} in stream ${streamId}: ${frameHash}`,
+    );
+  }
 }
