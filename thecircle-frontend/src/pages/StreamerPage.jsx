@@ -1019,16 +1019,16 @@ const StreamerPage = () => {
                                     : "Offline"}
 							</span>
                         </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-neutral-400">Transparency</span>
-                            <span className={`font-semibold px-2 py-0.5 rounded-md text-xs ${
-                                isTransparent
-                                    ? "bg-purple-500/20 text-purple-300"
-                                    : "bg-neutral-700 text-neutral-300"
-                            }`}>
-                                {isTransparent ? "Active" : "Inactive"}
-                            </span>
-                        </div>
+                        {/*<div className="flex justify-between items-center">*/}
+                        {/*    <span className="text-neutral-400">Transparency</span>*/}
+                        {/*    <span className={`font-semibold px-2 py-0.5 rounded-md text-xs ${*/}
+                        {/*        isTransparent*/}
+                        {/*            ? "bg-purple-500/20 text-purple-300"*/}
+                        {/*            : "bg-neutral-700 text-neutral-300"*/}
+                        {/*    }`}>*/}
+                        {/*        {isTransparent ? "Active" : "Inactive"}*/}
+                        {/*    </span>*/}
+                        {/*</div>*/}
                         <div className="flex justify-between items-center">
                             <span className="text-neutral-400">Camera</span>
                             <span className="capitalize">
