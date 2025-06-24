@@ -646,7 +646,7 @@ const HomePage = () => {
 									sub?.user && (
 										<li
 											key={sub._id}
-											className="flex items-center mb-3 p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"
+											className="flex items-center mb-3 p-2 rounded-3xl hover:bg-[#f3ece8]/50 transition-colors cursor-pointer"
 											onClick={() =>
 												navigate(
 													`/profile/${sub.user.userName}`,
