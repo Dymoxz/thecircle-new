@@ -49,19 +49,6 @@ const LoginPage = () => {
     return (
         <div className="min-h-screen w-screen bg-gradient-to-br from-[#7a1a1a] via-[#a83246] to-[#2d0a14] text-white flex items-center justify-center p-4 relative overflow-hidden font-oswald">
 
-            {/* Back Button */}
-            <button
-                onClick={handleBackToHome}
-                className="absolute top-6 left-6 z-20 group flex items-center space-x-2 text-white/70 hover:text-white transition-all duration-300"
-            >
-                <div className="w-10 h-10 bg-white/5 backdrop-blur-2xl border border-white/10 rounded-full flex items-center justify-center transition-all duration-300 group-hover:bg-white/10 group-hover:scale-105">
-                    <ArrowLeft className="w-5 h-5" />
-                </div>
-                <span className="text-sm font-light opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ fontFamily: 'sans-serif' }}>
-                    Back to Home
-                </span>
-            </button>
-
             {/* Main Login Container */}
             <div className="relative z-10 w-full max-w-lg">
 
