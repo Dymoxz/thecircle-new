@@ -10,18 +10,18 @@ if (!API_BASE_URL) {
 }
 
 const ProfilePage = () => {
-  const { userName: paramUserName } = useParams();
-  const navigate = useNavigate();
-  const [profile, setProfile] = useState(null);
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [subscribers, setSubscribers] = useState([]);
-  const [subscriptions, setSubscriptions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [viewedProfileName, setViewedProfileName] = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  
+    const { userName: paramUserName } = useParams();
+    const navigate = useNavigate();
+    const [profile, setProfile] = useState(null);
+    const [isSubscribed, setIsSubscribed] = useState(false);
+    const [subscribers, setSubscribers] = useState([]);
+    const [subscriptions, setSubscriptions] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [currentUser, setCurrentUser] = useState(null);
+    const [viewedProfileName, setViewedProfileName] = useState(null);
+    const [actionLoading, setActionLoading] = useState(false);
+
 
     // Effect to determine currentUser from JWT and which profile to view
     useEffect(() => {
@@ -31,214 +31,184 @@ const ProfilePage = () => {
             return;
         }
 
-    try {
-      const decodedToken = jwtDecode(token);
-      const loggedInUserName = decodedToken.userName;
-      setCurrentUser(loggedInUserName);
+        try {
+            const decodedToken = jwtDecode(token);
+            const loggedInUserName = decodedToken.userName;
+            setCurrentUser(loggedInUserName);
 
-      if (paramUserName) {
-        setViewedProfileName(paramUserName);
-      } else {
-        setViewedProfileName(loggedInUserName);
-      }
-    } catch (e) {
-      console.error("Failed to decode token or token invalid:", e);
-      localStorage.removeItem('jwt_token');
-      navigate('/login');
-    }
-  }, [paramUserName, navigate]);
+            if (paramUserName) {
+                setViewedProfileName(paramUserName);
+            } else {
+                setViewedProfileName(loggedInUserName);
+            }
+        } catch (e) {
+            console.error("Failed to decode token or token invalid:", e);
+            localStorage.removeItem('jwt_token');
+            navigate('/login');
+        }
+    }, [paramUserName, navigate]);
 
-  // Effect to fetch profile data
-  useEffect(() => {
-    const fetchProfileData = async () => {
-      if (!viewedProfileName || !currentUser) {
-        setLoading(false);
-        console.warn('Profile ID or current user ID not available yet. Skipping fetch.');
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const token = localStorage.getItem('jwt_token');
-        if (!token) {
-          throw new Error('Authentication token not found. Please log in.');
+    // Function to fetch profile data and related lists
+    const fetchProfileData = async () => { // KEY CHANGE 1: Moved and modified this into a dedicated function
+        if (!viewedProfileName || !currentUser) {
+            setLoading(false);
+            console.warn('Profile ID or current user ID not available yet. Skipping fetch.');
+            return;
         }
 
-        const headers = { 'Authorization': `Bearer ${token}` };
+        setLoading(true);
+        setError(null);
 
-        const [profileRes, subsRes, subscrRes, subCheckRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/profile/${viewedProfileName}`, { headers }),
-          fetch(`${API_BASE_URL}/profile/subscribers/${viewedProfileName}`, { headers }),
-          fetch(`${API_BASE_URL}/profile/subscriptions/${viewedProfileName}`, { headers }),
-          currentUser !== viewedProfileName ? fetch(`${API_BASE_URL}/profile/is-subscribed/${currentUser}/${viewedProfileName}`, { headers }) : Promise.resolve({ ok: true, json: () => ({ exists: false }) }),
-          new Promise(resolve => setTimeout(resolve, 500)) // 500ms minimum delay
-        ]);
+        try {
+            const token = localStorage.getItem('jwt_token');
+            if (!token) {
+                throw new Error('Authentication token not found. Please log in.');
+            }
 
-        // Process profile data
-        if (!profileRes.ok) {
-          const errorData = await profileRes.json();
-          throw new Error(errorData.message || 'Profile not found');
+            const headers = { 'Authorization': `Bearer ${token}` };
+
+            const [profileRes, subsRes, subscrRes, subCheckRes] = await Promise.all([
+                fetch(`${API_BASE_URL}/profile/${viewedProfileName}`, { headers }),
+                fetch(`${API_BASE_URL}/profile/subscribers/${viewedProfileName}`, { headers }),
+                fetch(`${API_BASE_URL}/profile/subscriptions/${viewedProfileName}`, { headers }),
+                currentUser !== viewedProfileName ? fetch(`${API_BASE_URL}/profile/is-subscribed/${currentUser}/${viewedProfileName}`, { headers }) : Promise.resolve({ ok: true, json: () => ({ exists: false }) }),
+                new Promise(resolve => setTimeout(resolve, 500)) // 500ms minimum delay
+            ]);
+
+            // Process profile data
+            if (!profileRes.ok) {
+                const errorData = await profileRes.json();
+                throw new Error(errorData.message || 'Profile not found');
+            }
+            const profileData = await profileRes.json();
+            setProfile(profileData);
+
+            // Process subscription status
+            if (currentUser !== viewedProfileName) {
+                if (!subCheckRes.ok) throw new Error('Subscription check failed');
+                const subData = await subCheckRes.json();
+                setIsSubscribed(subData?.exists || false);
+            } else {
+                setIsSubscribed(false);
+            }
+
+            // Process subscribers
+            if (!subsRes.ok) throw new Error('Failed to fetch subscribers');
+            const subsData = await subsRes.json();
+            setSubscribers(Array.isArray(subsData) ? subsData : []);
+
+            // Process subscriptions
+            if (!subscrRes.ok) throw new Error('Failed to fetch subscriptions');
+            const subscrData = await subscrRes.json();
+            setSubscriptions(Array.isArray(subscrData) ? subscrData : []);
+
+        } catch (err) {
+            setError(err.message);
+            console.error('Fetch error:', err);
+            if (err.message.includes('Authentication token')) {
+                navigate('/login');
+            }
+        } finally {
+            setLoading(false);
         }
-        const profileData = await profileRes.json();
-        setProfile(profileData);
-
-        // Process subscription status
-        if (currentUser !== viewedProfileName) {
-          if (!subCheckRes.ok) throw new Error('Subscription check failed');
-          const subData = await subCheckRes.json();
-          setIsSubscribed(subData?.exists || false);
-        } else {
-          setIsSubscribed(false);
-        }
-
-        // Process subscribers
-        if (!subsRes.ok) throw new Error('Failed to fetch subscribers');
-        const subsData = await subsRes.json();
-        setSubscribers(Array.isArray(subsData) ? subsData : []);
-
-        // Process subscriptions
-        if (!subscrRes.ok) throw new Error('Failed to fetch subscriptions');
-        const subscrData = await subscrRes.json();
-        setSubscriptions(Array.isArray(subscrData) ? subscrData : []);
-
-      } catch (err) {
-        setError(err.message);
-        console.error('Fetch error:', err);
-        if (err.message.includes('Authentication token')) {
-          navigate('/login');
-        }
-      } finally {
-        setLoading(false);
-      }
     };
 
-    fetchProfileData();
-  }, [viewedProfileName, currentUser, navigate]);
+    // Effect to fetch profile data - now just calls the shared function
+    useEffect(() => {
+        fetchProfileData();
+    }, [viewedProfileName, currentUser, navigate]); // Dependencies remain the same
 
-  const handleSubscribe = async () => {
-    setActionLoading(true);
-    try {
-      const token = localStorage.getItem('jwt_token');
-      if (!token) { navigate('/login'); return; }
+    const handleSubscribe = async () => {
+        setActionLoading(true);
+        try {
+            const token = localStorage.getItem('jwt_token');
+            if (!token) { navigate('/login'); return; }
 
-      const res = await fetch(`${API_BASE_URL}/profile/subscribe`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          streamerName: viewedProfileName,
-        }),
-      });
+            const res = await fetch(`${API_BASE_URL}/profile/subscribe`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    streamerName: viewedProfileName,
+                }),
+            });
 
-      if (res.ok) {
-        setIsSubscribed(true);
-        setProfile(prev => ({
-          ...prev,
-          subscriberCount: (prev?.subscriberCount || 0) + 1,
-        }));
-        
-        // Add the new subscription to the subscriptions list
-        const newSubscription = {
-          _id: Date.now().toString(), // temporary ID
-          streamer: {
-            _id: viewedProfileName,
-            userName: profile?.userName || 'New Sub'
-          },
-          createdAt: new Date().toISOString()
-        };
-        
-        setSubscriptions(prev => [...prev, newSubscription]);
+            if (res.ok) {
+                setIsSubscribed(true); // Optimistic update
+                setProfile(prev => ({ // Optimistic update
+                    ...prev,
+                    subscriberCount: (prev?.subscriberCount || 0) + 1,
+                }));
 
-        // If viewing your own profile, add to subscribers list
-        if (currentUser === viewedProfileName) {
-          const newSubscriber = {
-            _id: Date.now().toString(), // temporary ID
-            subscriber: {
-              _id: currentUser,
-              userName: "Current User" // You might want to get this from profile data
-            },
-            createdAt: new Date().toISOString()
-          };
-          setSubscribers(prev => [...prev, newSubscriber]);
+                // KEY CHANGE 2: Removed manual updates to subscriptions/subscribers
+                await fetchProfileData(); // Re-fetch all relevant data after successful subscription
+            } else {
+                const errorData = await res.json();
+                console.error('Subscribe error:', errorData.message || 'Failed to subscribe');
+                setError(errorData.message || 'Failed to subscribe');
+            }
+        } catch (err) {
+            console.error('Subscribe network error:', err);
+            setError('Network error during subscription.');
+        } finally {
+            setActionLoading(false);
         }
-      } else {
-        const errorData = await res.json();
-        console.error('Subscribe error:', errorData.message || 'Failed to subscribe');
-        setError(errorData.message || 'Failed to subscribe');
-      }
-    } catch (err) {
-      console.error('Subscribe network error:', err);
-      setError('Network error during subscription.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+    };
 
-  const handleUnsubscribe = async () => {
-    setActionLoading(true);
-    try {
-      const token = localStorage.getItem('jwt_token');
-      if (!token) { navigate('/login'); return; }
+    const handleUnsubscribe = async () => {
+        setActionLoading(true);
+        try {
+            const token = localStorage.getItem('jwt_token');
+            if (!token) { navigate('/login'); return; }
 
-      const res = await fetch(`${API_BASE_URL}/profile/unsubscribe`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          subscriberName: currentUser,
-          streamerName: viewedProfileName,
-        }),
-      });
+            const res = await fetch(`${API_BASE_URL}/profile/unsubscribe`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    subscriberName: currentUser,
+                    streamerName: viewedProfileName,
+                }),
+            });
 
-      if (res.ok) {
-        setIsSubscribed(false);
-        setProfile(prev => ({
-          ...prev,
-          subscriberCount: (prev?.subscriberCount || 0) - 1,
-        }));
-        
-        // Remove the subscription from the subscriptions list
-        setSubscriptions(prev => 
-          prev.filter(sub => sub.streamer?._id !== viewedProfileName)
-        );
+            if (res.ok) {
+                setIsSubscribed(false); // Optimistic update
+                setProfile(prev => ({ // Optimistic update
+                    ...prev,
+                    subscriberCount: (prev?.subscriberCount || 0) - 1,
+                }));
 
-        // If viewing your own profile, remove from subscribers list
-        if (currentUser === viewedProfileName) {
-          setSubscribers(prev => 
-            prev.filter(sub => sub.subscriber?._id !== currentUser)
-          );
+                // KEY CHANGE 3: Removed manual updates to subscriptions/subscribers
+                await fetchProfileData(); // Re-fetch all relevant data after successful unsubscription
+            } else {
+                const errorData = await res.json();
+                console.error('Unsubscribe error:', errorData.message || 'Failed to unsubscribe');
+                setError(errorData.message || 'Failed to unsubscribe');
+            }
+        } catch (err) {
+            console.error('Unsubscribe network error:', err);
+            setError('Network error during unsubscription.');
+        } finally {
+            setActionLoading(false);
         }
-      } else {
-        const errorData = await res.json();
-        console.error('Unsubscribe error:', errorData.message || 'Failed to unsubscribe');
-        setError(errorData.message || 'Failed to unsubscribe');
-      }
-    } catch (err) {
-      console.error('Unsubscribe network error:', err);
-      setError('Network error during unsubscription.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+    };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Unknown';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
+    const formatDate = (dateString) => {
+        if (!dateString) return 'Unknown';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+    };
 
-  const isMyProfile = currentUser && viewedProfileName && currentUser === viewedProfileName;
-  const showSubscribeButton = currentUser && viewedProfileName && currentUser !== viewedProfileName;
+    const isMyProfile = currentUser && viewedProfileName && currentUser === viewedProfileName;
+    const showSubscribeButton = currentUser && viewedProfileName && currentUser !== viewedProfileName;
 
     if (loading) return (
         <div
