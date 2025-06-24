@@ -128,6 +128,29 @@ const HomePage = () => {
 		fetchMySubscriptions();
 	}, [navigate]);
 
+	// Effect for fetching profile
+	useEffect(() => {
+		const fetchProfile = async () => {
+			const token = localStorage.getItem("jwt_token");
+			if (!token) return;
+			try {
+				const response = await fetch(`${API_URL}/profile`, {
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${token}`,
+					},
+				});
+				if (response.ok) {
+					const data = await response.json();
+					setProfile(data);
+				}
+			} catch (err) {
+				// handle error if needed
+			}
+		};
+		fetchProfile();
+	}, []);
+
 	// Effect for WebSocket connection
 	useEffect(() => {
 		socketRef.current = new WebSocket(WS_URL);
@@ -507,7 +530,7 @@ const HomePage = () => {
 							<User className="w-10 h-10 text-neutral-300" />
 						</div>
 						<h2 className="text-xl font-bold text-gray-800">
-							{profile?.userName?.charAt(0).toUpperCase() || 'U'}
+							{profile?.userName ? profile.userName : "Loading..."}
 						</h2>
 					</div>
 
