@@ -152,9 +152,9 @@ const ViewerPage = () => {
 					// Compare to all local hashes in buffer within ±1s
 					break;
 				}
-				case "streams":
+				case "stream":
 					setStream(msg.data);
-					console.log("Received streams:", msg.data.streams);
+					console.log("Received streams:", msg.data);
 					break;
 				case "rtp-capabilities": {
 					const { rtpCapabilities } = msg.data;

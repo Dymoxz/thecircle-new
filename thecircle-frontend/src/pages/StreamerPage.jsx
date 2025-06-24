@@ -674,511 +674,505 @@ const StreamerPage = () => {
         return () => clearInterval(intervalId);
     }, [isStreaming, isPaused, isVideoOff]);
 
-    const extractFramefromStream = (stream) => {
-        if (!stream || !stream.getVideoTracks().length) {
-            console.error("No video track found in the stream");
-            return null;
-        }
 
-	useEffect(() => {
-		let intervalId;
-		async function sendStreamerData() {
-			if (
-				isStreaming &&
-				localVideoRef.current &&
-				socketRef.current &&
-				socketRef.current.readyState === WebSocket.OPEN
-			) {
-				socketRef.current.send(
-					JSON.stringify({
-						event: "stream",
-						data: {
-							streamId: streamerId,
-							streamerName: username,
-							tags: streamTags,
-							viewerCount: viewerCount,
-						},
-					})
-				);
-				console.log(
-					"[Streamer] Sent stream data to viewer client with wviewr count" + viewerCount,
-				);
-			}
-		}
-		if (isStreaming) {
-			intervalId = setInterval(sendStreamerData, 5000);
-		}
-		return () => clearInterval(intervalId);
-	}, [isStreaming, viewerCount]);
 
-	const extractFramefromStream = (stream) => {
-		if (!stream || !stream.getVideoTracks().length) {
-			console.error("No video track found in the stream");
-			return null;
-		}
+        useEffect(() => {
+            let intervalId;
 
-        const videoTrack = stream.getVideoTracks()[0];
-        const imageCapture = new ImageCapture(videoTrack);
-
-        return imageCapture;
-    };
-
-    const createDigitalSignature = async (stream) => {
-        if (!stream || !stream.getVideoTracks().length) {
-            console.error("No video track found in the stream");
-            return null;
-        }
-        const imageCapture = extractFramefromStream(stream);
-        if (!imageCapture) {
-            console.error("Could not extract frame from stream");
-            return null;
-        }
-        try {
-            const frame = await imageCapture.grabFrame();
-            const canvas = document.createElement("canvas");
-            canvas.width = frame.width;
-            canvas.height = frame.height;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(frame, 0, 0, frame.width, frame.height);
-            const imageData = ctx.getImageData(0, 0, frame.width, frame.height);
-            const data = imageData.data;
-            const hashBuffer = await crypto.subtle.digest(
-                "SHA-256",
-                new Uint8Array(data)
-            );
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const hashHex = hashArray
-                .map((b) => b.toString(16).padStart(2, "0"))
-                .join("");
-            return hashHex;
-        } catch (error) {
-            console.error("Error creating digital signature:", error);
-            return null;
-        }
-    };
-
-    const handlePauseStream = () => {
-        if (!localStreamRef.current) return;
-
-        const nextPausedState = !isPaused;
-        setIsPaused(nextPausedState);
-
-        if (nextPausedState) {
-            setShowPauseOverlay(true);
-        } else {
-            setShowPauseOverlay(false);
-        }
-
-        const tracks = localStreamRef.current.getTracks();
-        tracks.forEach(track => {
-            track.enabled = !nextPausedState;
-        });
-
-        if (
-            socketRef.current &&
-            socketRef.current.readyState === WebSocket.OPEN
-        ) {
-            const streamId = `stream-${streamerId}`;
-            if (nextPausedState) {
-                socketRef.current.send(
-                    JSON.stringify({
-                        event: "pause-stream",
-                        data: {streamId: streamerId},
-                    })
-                );
-            } else {
-                socketRef.current.send(
-                    JSON.stringify({
-                        event: "resume-stream",
-                        data: {streamId: streamerId},
-                    })
-                );
+            async function sendStreamerData() {
+                if (
+                    isStreaming &&
+                    localVideoRef.current &&
+                    socketRef.current &&
+                    socketRef.current.readyState === WebSocket.OPEN
+                ) {
+                    socketRef.current.send(
+                        JSON.stringify({
+                            event: "stream",
+                            data: {
+                                streamId: streamerId,
+                                streamerName: username,
+                                tags: streamTags,
+                                viewerCount: viewerCount,
+                            },
+                        })
+                    );
+                    console.log(
+                        "[Streamer] Sent stream data to viewer client with wviewr count" + viewerCount,
+                    );
+                }
             }
-        }
-    };
 
-    const handleFlipCamera = async () => {
-        if (!isStreaming || !localStreamRef.current) return;
-        if (availableCameras.length <= 1) {
-            setToastMessage('No other camera available to switch.');
-            setShowToast(true);
-            setTimeout(() => setShowToast(false), 4000); // Hide after 4 seconds
-            return;
-        }
-        // Desktop: cycle through all video input devices
-        let nextIndex = (currentCameraIndex + 1) % availableCameras.length;
-        const nextDeviceId = availableCameras[nextIndex]?.deviceId;
-        try {
-            const constraints = {
-                video: { ...VIDEO_CONSTRAINTS, deviceId: { exact: nextDeviceId } },
-                audio: AUDIO_CONSTRAINTS,
-            };
-            const newStream = await navigator.mediaDevices.getUserMedia(constraints);
-            const newVideoTrack = newStream.getVideoTracks()[0];
-            const audioTrack = localStreamRef.current.getAudioTracks()[0];
-            // Replace video track in local stream
-            const newLocalStream = new MediaStream([
-                newVideoTrack,
-                audioTrack,
-            ]);
-            localStreamRef.current = newLocalStream;
-            if (localVideoRef.current) localVideoRef.current.srcObject = newLocalStream;
-            // Replace video producer if it exists
-            if (videoProducerRef.current && sendTransportRef.current) {
-                await videoProducerRef.current.replaceTrack({ track: newVideoTrack });
+            if (isStreaming) {
+                intervalId = setInterval(sendStreamerData, 5000);
             }
-            setCurrentCameraIndex(nextIndex);
-            setCurrentCamera(availableCameras[nextIndex].label.toLowerCase().includes('back') ? 'environment' : 'user');
-        } catch {
-            setToastMessage('Failed to switch camera.');
-            setShowToast(true);
-            // Try to revert to previous camera if possible
+            return () => clearInterval(intervalId);
+        }, [isStreaming, viewerCount]);
+
+        const extractFramefromStream = (stream) => {
+            if (!stream || !stream.getVideoTracks().length) {
+                console.error("No video track found in the stream");
+                return null;
+            }
+
+            const videoTrack = stream.getVideoTracks()[0];
+            const imageCapture = new ImageCapture(videoTrack);
+
+            return imageCapture;
+        };
+
+        const createDigitalSignature = async (stream) => {
+            if (!stream || !stream.getVideoTracks().length) {
+                console.error("No video track found in the stream");
+                return null;
+            }
+            const imageCapture = extractFramefromStream(stream);
+            if (!imageCapture) {
+                console.error("Could not extract frame from stream");
+                return null;
+            }
             try {
-                const prevDeviceId = availableCameras[currentCameraIndex]?.deviceId;
+                const frame = await imageCapture.grabFrame();
+                const canvas = document.createElement("canvas");
+                canvas.width = frame.width;
+                canvas.height = frame.height;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(frame, 0, 0, frame.width, frame.height);
+                const imageData = ctx.getImageData(0, 0, frame.width, frame.height);
+                const data = imageData.data;
+                const hashBuffer = await crypto.subtle.digest(
+                    "SHA-256",
+                    new Uint8Array(data)
+                );
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const hashHex = hashArray
+                    .map((b) => b.toString(16).padStart(2, "0"))
+                    .join("");
+                return hashHex;
+            } catch (error) {
+                console.error("Error creating digital signature:", error);
+                return null;
+            }
+        };
+
+        const handlePauseStream = () => {
+            if (!localStreamRef.current) return;
+
+            const nextPausedState = !isPaused;
+            setIsPaused(nextPausedState);
+
+            if (nextPausedState) {
+                setShowPauseOverlay(true);
+            } else {
+                setShowPauseOverlay(false);
+            }
+
+            const tracks = localStreamRef.current.getTracks();
+            tracks.forEach(track => {
+                track.enabled = !nextPausedState;
+            });
+
+            if (
+                socketRef.current &&
+                socketRef.current.readyState === WebSocket.OPEN
+            ) {
+                const streamId = `stream-${streamerId}`;
+                if (nextPausedState) {
+                    socketRef.current.send(
+                        JSON.stringify({
+                            event: "pause-stream",
+                            data: {streamId: streamerId},
+                        })
+                    );
+                } else {
+                    socketRef.current.send(
+                        JSON.stringify({
+                            event: "resume-stream",
+                            data: {streamId: streamerId},
+                        })
+                    );
+                }
+            }
+        };
+
+        const handleFlipCamera = async () => {
+            if (!isStreaming || !localStreamRef.current) return;
+            if (availableCameras.length <= 1) {
+                setToastMessage('No other camera available to switch.');
+                setShowToast(true);
+                setTimeout(() => setShowToast(false), 4000); // Hide after 4 seconds
+                return;
+            }
+            // Desktop: cycle through all video input devices
+            let nextIndex = (currentCameraIndex + 1) % availableCameras.length;
+            const nextDeviceId = availableCameras[nextIndex]?.deviceId;
+            try {
                 const constraints = {
-                    video: { ...VIDEO_CONSTRAINTS, deviceId: { exact: prevDeviceId } },
+                    video: {...VIDEO_CONSTRAINTS, deviceId: {exact: nextDeviceId}},
                     audio: AUDIO_CONSTRAINTS,
                 };
-                const prevStream = await navigator.mediaDevices.getUserMedia(constraints);
-                const prevVideoTrack = prevStream.getVideoTracks()[0];
+                const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+                const newVideoTrack = newStream.getVideoTracks()[0];
                 const audioTrack = localStreamRef.current.getAudioTracks()[0];
-                const prevLocalStream = new MediaStream([
-                    prevVideoTrack,
+                // Replace video track in local stream
+                const newLocalStream = new MediaStream([
+                    newVideoTrack,
                     audioTrack,
                 ]);
-                localStreamRef.current = prevLocalStream;
-                if (localVideoRef.current) localVideoRef.current.srcObject = prevLocalStream;
+                localStreamRef.current = newLocalStream;
+                if (localVideoRef.current) localVideoRef.current.srcObject = newLocalStream;
+                // Replace video producer if it exists
                 if (videoProducerRef.current && sendTransportRef.current) {
-                    await videoProducerRef.current.replaceTrack({ track: prevVideoTrack });
+                    await videoProducerRef.current.replaceTrack({track: newVideoTrack});
                 }
+                setCurrentCameraIndex(nextIndex);
+                setCurrentCamera(availableCameras[nextIndex].label.toLowerCase().includes('back') ? 'environment' : 'user');
             } catch {
-                // If revert fails, do nothing but keep the stream running
+                setToastMessage('Failed to switch camera.');
+                setShowToast(true);
+                // Try to revert to previous camera if possible
+                try {
+                    const prevDeviceId = availableCameras[currentCameraIndex]?.deviceId;
+                    const constraints = {
+                        video: {...VIDEO_CONSTRAINTS, deviceId: {exact: prevDeviceId}},
+                        audio: AUDIO_CONSTRAINTS,
+                    };
+                    const prevStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    const prevVideoTrack = prevStream.getVideoTracks()[0];
+                    const audioTrack = localStreamRef.current.getAudioTracks()[0];
+                    const prevLocalStream = new MediaStream([
+                        prevVideoTrack,
+                        audioTrack,
+                    ]);
+                    localStreamRef.current = prevLocalStream;
+                    if (localVideoRef.current) localVideoRef.current.srcObject = prevLocalStream;
+                    if (videoProducerRef.current && sendTransportRef.current) {
+                        await videoProducerRef.current.replaceTrack({track: prevVideoTrack});
+                    }
+                } catch {
+                    // If revert fails, do nothing but keep the stream running
+                }
             }
-        }
-    };
-    const toggleMute = () => {
-        if (!localStreamRef.current) return;
-        const audioTrack = localStreamRef.current.getAudioTracks()[0];
-        if (audioTrack) {
-            audioTrack.enabled = isMuted;
-            setIsMuted(!isMuted);
-        }
-    };
-
-    const toggleVideo = () => {
-        if (!localStreamRef.current) return;
-        const videoTrack = localStreamRef.current.getVideoTracks()[0];
-        if (videoTrack) {
-            videoTrack.enabled = isVideoOff;
-            setIsVideoOff(!isVideoOff);
-        }
-    };
-
-    const handleToggleTransparency = () => {
-        const newTransparencyState = !isTransparent;
-        setIsTransparent(newTransparencyState);
-
-
-    };
-
-    useEffect(() => {
-        // Enumerate cameras on mount
-        navigator.mediaDevices.enumerateDevices().then((devices) => {
-            const videoInputs = devices.filter((d) => d.kind === 'videoinput');
-            setAvailableCameras(videoInputs);
-            // Set current camera index if possible
-            if (videoInputs.length > 0) {
-                setCurrentCameraIndex(0);
+        };
+        const toggleMute = () => {
+            if (!localStreamRef.current) return;
+            const audioTrack = localStreamRef.current.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = isMuted;
+                setIsMuted(!isMuted);
             }
-        });
-    }, []);
+        };
 
-    return (
-        <div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
-            {/* Toast notification */}
-            <Toast message={toastMessage} show={showToast} onClose={() => setShowToast(false)} />
-            {/* --- VIDEO + OVERLAY CONTAINER --- */}
-            <div className="absolute inset-0 w-full h-full z-0">
-                <video
-                    ref={localVideoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full"
-                    style={{
-                        transform: `${
-                            isMirrored ? "scaleX(-1) " : ""
-                        }rotate(${videoRotation}deg)`,
-                    }}
-                />
-                {isStreaming && showPauseOverlay && (
-                    <div
-                        className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500 z-0 pointer-events-none">
-                        <div className="text-center p-8 select-none">
-                            <div
-                                className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                                <Pause className="w-12 h-12 text-neutral-400"/>
+        const toggleVideo = () => {
+            if (!localStreamRef.current) return;
+            const videoTrack = localStreamRef.current.getVideoTracks()[0];
+            if (videoTrack) {
+                videoTrack.enabled = isVideoOff;
+                setIsVideoOff(!isVideoOff);
+            }
+        };
+
+        const handleToggleTransparency = () => {
+            const newTransparencyState = !isTransparent;
+            setIsTransparent(newTransparencyState);
+
+
+        };
+
+        useEffect(() => {
+            // Enumerate cameras on mount
+            navigator.mediaDevices.enumerateDevices().then((devices) => {
+                const videoInputs = devices.filter((d) => d.kind === 'videoinput');
+                setAvailableCameras(videoInputs);
+                // Set current camera index if possible
+                if (videoInputs.length > 0) {
+                    setCurrentCameraIndex(0);
+                }
+            });
+        }, []);
+
+        return (
+            <div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
+                {/* Toast notification */}
+                <Toast message={toastMessage} show={showToast} onClose={() => setShowToast(false)}/>
+                {/* --- VIDEO + OVERLAY CONTAINER --- */}
+                <div className="absolute inset-0 w-full h-full z-0">
+                    <video
+                        ref={localVideoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full h-full"
+                        style={{
+                            transform: `${
+                                isMirrored ? "scaleX(-1) " : ""
+                            }rotate(${videoRotation}deg)`,
+                        }}
+                    />
+                    {isStreaming && showPauseOverlay && (
+                        <div
+                            className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500 z-0 pointer-events-none">
+                            <div className="text-center p-8 select-none">
+                                <div
+                                    className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                                    <Pause className="w-12 h-12 text-neutral-400"/>
+                                </div>
+                                <h3 className="text-2xl font-bold mb-2">
+                                    Stream Paused
+                                </h3>
+                                <p className="text-neutral-300 max-w-sm">
+                                    Your stream is currently paused for viewers.
+                                    We'll be back soon!
+                                </p>
+
+                                <p className="text-orange-200 max-w-md text-xs mt-4">
+                                    If paused for more than 1.5 hours, your reward rate will reset to 1 sat/hour.
+                                </p>
                             </div>
-                            <h3 className="text-2xl font-bold mb-2">
-                                Stream Paused
-                            </h3>
-                            <p className="text-neutral-300 max-w-sm">
-                                Your stream is currently paused for viewers.
-                                We'll be back soon!
-                            </p>
+                        </div>
+                    )}
+                </div>
 
-                            <p className="text-orange-200 max-w-md text-xs mt-4">
-                                If paused for more than 1.5 hours, your reward rate will reset to 1 sat/hour.
-                            </p>
+                <TagDialog
+                    open={showTagDialog}
+                    onClose={() => setShowTagDialog(false)}
+                    onSave={(tags) => handleStartStream(tags)}
+                />
+
+                {/* --- CONTROLS AND INFO --- */}
+                {isStreaming && (
+                    <div
+                        className="absolute top-4 left-4 flex items-center space-x-4 text-sm bg-neutral-900/30 backdrop-blur-xl p-2 pl-3 rounded-3xl border border-neutral-100/10 shadow-lg z-10">
+                        <div className="flex items-center space-x-2 bg-red-500/90 px-3 py-1 rounded-full">
+                            <div className="w-2 h-2 bg-white rounded-full animate-ping absolute opacity-75"></div>
+                            <div className="w-2 h-2 bg-white rounded-full"></div>
+                            <span className="font-semibold uppercase tracking-wider text-xs">
+                            Live
+                        </span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-neutral-200 pr-2">
+                            <Eye className="w-5 h-5"/>
+                            <span className="font-medium">{viewerCount}</span>
+                        </div>
+                        <div
+                            className="text-neutral-200 font-mono hidden sm:block bg-neutral-800/50 px-3 py-1 rounded-lg">
+                            {formatDuration(streamDuration)}
                         </div>
                     </div>
                 )}
-            </div>
 
-            <TagDialog
-                open={showTagDialog}
-                onClose={() => setShowTagDialog(false)}
-                onSave={(tags) => handleStartStream(tags)}
-            />
-
-            {/* --- CONTROLS AND INFO --- */}
-            {isStreaming && (
-                <div
-                    className="absolute top-4 left-4 flex items-center space-x-4 text-sm bg-neutral-900/30 backdrop-blur-xl p-2 pl-3 rounded-3xl border border-neutral-100/10 shadow-lg z-10">
-                    <div className="flex items-center space-x-2 bg-red-500/90 px-3 py-1 rounded-full">
-                        <div className="w-2 h-2 bg-white rounded-full animate-ping absolute opacity-75"></div>
-                        <div className="w-2 h-2 bg-white rounded-full"></div>
-                        <span className="font-semibold uppercase tracking-wider text-xs">
-                            Live
-                        </span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-neutral-200 pr-2">
-                        <Eye className="w-5 h-5"/>
-                        <span className="font-medium">{viewerCount}</span>
-                    </div>
-                    <div className="text-neutral-200 font-mono hidden sm:block bg-neutral-800/50 px-3 py-1 rounded-lg">
-                        {formatDuration(streamDuration)}
-                    </div>
-                </div>
-            )}
-
-			<div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center">
-				{!isStreaming ? (
-					<button
-						onClick={() => setShowTagDialog(true)}
-						disabled={!isWsConnected}
-						className="bg-[#800000] hover:bg-[#a00000] mb-4 disabled:bg-neutral-600 disabled:cursor-not-allowed text-white py-3 px-8 rounded-2xl font-semibold transition-all duration-300 ease-in-out flex items-center justify-center space-x-2 transform hover:scale-105 active:scale-100 shadow-lg z-10"
-					>
-						<Play className="w-6 h-6 " />
-						<span>
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center">
+                    {!isStreaming ? (
+                        <button
+                            onClick={() => setShowTagDialog(true)}
+                            disabled={!isWsConnected}
+                            className="bg-[#800000] hover:bg-[#a00000] mb-4 disabled:bg-neutral-600 disabled:cursor-not-allowed text-white py-3 px-8 rounded-2xl font-semibold transition-all duration-300 ease-in-out flex items-center justify-center space-x-2 transform hover:scale-105 active:scale-100 shadow-lg z-10"
+                        >
+                            <Play className="w-6 h-6 "/>
+                            <span>
 							{isWsConnected ? "Start Stream" : "Connecting..."}
 						</span>
-                    </button>
-                ) : (
-                    <div
-                        className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg z-10">
-                        <ControlButton
-                            onClick={toggleMute}
-                            className={
-                                isMuted
-                                    ? "bg-red-500/80 hover:bg-red-500 text-white"
-                                    : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
-                            }
-                        >
-                            {isMuted ? (
-                                <MicOff className="w-6 h-6"/>
-                            ) : (
-                                <Mic className="w-6 h-6"/>
-                            )}
-                        </ControlButton>
-                        <ControlButton
-                            onClick={toggleVideo}
-                            className={
-                                isVideoOff
-                                    ? "bg-red-500/80 hover:bg-red-500 text-white"
-                                    : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
-                            }
-                        >
-                            {isVideoOff ? (
-                                <VideoOff className="w-6 h-6"/>
-                            ) : (
-                                <Video className="w-6 h-6"/>
-                            )}
-                        </ControlButton>
-                        <ControlButton
-                            onClick={handleFlipCamera}
-                            className="bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
-                        >
-                            <SwitchCamera className="w-6 h-6"/>
-                        </ControlButton>
-                        <ControlButton
-                            onClick={() => setIsMirrored((m) => {
-                                const newMirrored = !m;
-                                // Emit mirroring event to viewers
-                                if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-                                    socketRef.current.send(
-                                        JSON.stringify({
-                                            event: "video-mirror",
-                                            data: {
-                                                streamId: streamerId,
-                                                mirrored: newMirrored,
-                                            },
-                                        })
-                                    );
+                        </button>
+                    ) : (
+                        <div
+                            className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg z-10">
+                            <ControlButton
+                                onClick={toggleMute}
+                                className={
+                                    isMuted
+                                        ? "bg-red-500/80 hover:bg-red-500 text-white"
+                                        : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
                                 }
-                                return newMirrored;
-                            })}
-                            className={
-                                isMirrored
-                                    ? "bg-teal-500/80 hover:bg-teal-500 text-white"
-                                    : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
-                            }
-                        >
-                            <FlipHorizontal className="w-6 h-6"/>
-                        </ControlButton>
-                        <ControlButton
-                            onClick={() => {
-                                setVideoRotation((r) => {
-                                    const newRotation = (r + 90) % 360;
-                                    // Emit rotation event to viewers
+                            >
+                                {isMuted ? (
+                                    <MicOff className="w-6 h-6"/>
+                                ) : (
+                                    <Mic className="w-6 h-6"/>
+                                )}
+                            </ControlButton>
+                            <ControlButton
+                                onClick={toggleVideo}
+                                className={
+                                    isVideoOff
+                                        ? "bg-red-500/80 hover:bg-red-500 text-white"
+                                        : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
+                                }
+                            >
+                                {isVideoOff ? (
+                                    <VideoOff className="w-6 h-6"/>
+                                ) : (
+                                    <Video className="w-6 h-6"/>
+                                )}
+                            </ControlButton>
+                            <ControlButton
+                                onClick={handleFlipCamera}
+                                className="bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
+                            >
+                                <SwitchCamera className="w-6 h-6"/>
+                            </ControlButton>
+                            <ControlButton
+                                onClick={() => setIsMirrored((m) => {
+                                    const newMirrored = !m;
+                                    // Emit mirroring event to viewers
                                     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
                                         socketRef.current.send(
                                             JSON.stringify({
-                                                event: "video-rotation",
+                                                event: "video-mirror",
                                                 data: {
                                                     streamId: streamerId,
-                                                    rotation: newRotation,
+                                                    mirrored: newMirrored,
                                                 },
                                             })
                                         );
                                     }
-                                    return newRotation;
-                                });
-                            }}
-                            className={
-                                videoRotation !== 0
-                                    ? "bg-teal-500/80 hover:bg-teal-500 text-white"
-                                    : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
-                            }
-                        >
-                            <RotateCcw className="w-6 h-6"/>
-                        </ControlButton>
-                        {/*<ControlButton*/}
-                        {/*    onClick={handleToggleTransparency}*/}
-                        {/*    className={*/}
-                        {/*        isTransparent*/}
-                        {/*            ? "bg-purple-500/80 hover:bg-purple-500 text-white"*/}
-                        {/*            : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"*/}
-                        {/*    }*/}
-                        {/*>*/}
-                        {/*    {isTransparent ? (*/}
-                        {/*        <Eye className="w-6 h-6"/>*/}
-                        {/*    ) : (*/}
-                        {/*        <EyeOff className="w-6 h-6"/>*/}
-                        {/*    )}*/}
-                        {/*</ControlButton>*/}
-                        <div className="w-px h-8 bg-neutral-100/10 mx-2"></div>
-                        <ControlButton
-                            onClick={handlePauseStream}
-                            className={
-                                isPaused
-                                    ? "bg-teal-500/80 hover:bg-teal-500 text-white"
-                                    : "bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900"
-                            }
-                        >
-                            {isPaused ? (
-                                <Play className="w-6 h-6"/>
-                            ) : (
-                                <Pause className="w-6 h-6"/>
-                            )}
-                        </ControlButton>
-                        <ControlButton
-                            onClick={handleStopStream}
-                            className="bg-red-500/80 hover:bg-red-500 text-white"
-                        >
-                            <Square className="w-6 h-6"/>
-                        </ControlButton>
-                    </div>
-                )}
-            </div>
+                                    return newMirrored;
+                                })}
+                                className={
+                                    isMirrored
+                                        ? "bg-teal-500/80 hover:bg-teal-500 text-white"
+                                        : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
+                                }
+                            >
+                                <FlipHorizontal className="w-6 h-6"/>
+                            </ControlButton>
+                            <ControlButton
+                                onClick={() => {
+                                    setVideoRotation((r) => {
+                                        const newRotation = (r + 90) % 360;
+                                        // Emit rotation event to viewers
+                                        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+                                            socketRef.current.send(
+                                                JSON.stringify({
+                                                    event: "video-rotation",
+                                                    data: {
+                                                        streamId: streamerId,
+                                                        rotation: newRotation,
+                                                    },
+                                                })
+                                            );
+                                        }
+                                        return newRotation;
+                                    });
+                                }}
+                                className={
+                                    videoRotation !== 0
+                                        ? "bg-teal-500/80 hover:bg-teal-500 text-white"
+                                        : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
+                                }
+                            >
+                                <RotateCcw className="w-6 h-6"/>
+                            </ControlButton>
+                            {/*<ControlButton*/}
+                            {/*    onClick={handleToggleTransparency}*/}
+                            {/*    className={*/}
+                            {/*        isTransparent*/}
+                            {/*            ? "bg-purple-500/80 hover:bg-purple-500 text-white"*/}
+                            {/*            : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"*/}
+                            {/*    }*/}
+                            {/*>*/}
+                            {/*    {isTransparent ? (*/}
+                            {/*        <Eye className="w-6 h-6"/>*/}
+                            {/*    ) : (*/}
+                            {/*        <EyeOff className="w-6 h-6"/>*/}
+                            {/*    )}*/}
+                            {/*</ControlButton>*/}
+                            <div className="w-px h-8 bg-neutral-100/10 mx-2"></div>
+                            <ControlButton
+                                onClick={handlePauseStream}
+                                className={
+                                    isPaused
+                                        ? "bg-teal-500/80 hover:bg-teal-500 text-white"
+                                        : "bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900"
+                                }
+                            >
+                                {isPaused ? (
+                                    <Play className="w-6 h-6"/>
+                                ) : (
+                                    <Pause className="w-6 h-6"/>
+                                )}
+                            </ControlButton>
+                            <ControlButton
+                                onClick={handleStopStream}
+                                className="bg-red-500/80 hover:bg-red-500 text-white"
+                            >
+                                <Square className="w-6 h-6"/>
+                            </ControlButton>
+                        </div>
+                    )}
+                </div>
 
-			<div className="absolute top-4 right-4 w-80 space-y-4 hidden lg:flex flex-col max-h-[calc(100vh-2rem)] z-20">
-				<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 p-4 rounded-2xl">
-					<h3 className="font-semibold mb-4 flex items-center text-lg">
-						<Monitor className="w-5 h-5 mr-3 text-[#800000]" />
-						Stream Info
-					</h3>
-					<div className="space-y-3 text-sm">
-						<div className="flex justify-between items-center">
-							<span className="text-neutral-400">Status</span>
-							<span
-								className={`font-semibold px-2 py-0.5 rounded-md text-xs ${
-									isStreaming
-										? isPaused
-											? "bg-yellow-500/20 text-yellow-300"
-											: "bg-red-500/20 text-red-400"
-										: "bg-neutral-700 text-neutral-300"
-								}`}
-							>
+                <div
+                    className="absolute top-4 right-4 w-80 space-y-4 hidden lg:flex flex-col max-h-[calc(100vh-2rem)] z-20">
+                    <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 p-4 rounded-2xl">
+                        <h3 className="font-semibold mb-4 flex items-center text-lg">
+                            <Monitor className="w-5 h-5 mr-3 text-[#800000]"/>
+                            Stream Info
+                        </h3>
+                        <div className="space-y-3 text-sm">
+                            <div className="flex justify-between items-center">
+                                <span className="text-neutral-400">Status</span>
+                                <span
+                                    className={`font-semibold px-2 py-0.5 rounded-md text-xs ${
+                                        isStreaming
+                                            ? isPaused
+                                                ? "bg-yellow-500/20 text-yellow-300"
+                                                : "bg-red-500/20 text-red-400"
+                                            : "bg-neutral-700 text-neutral-300"
+                                    }`}
+                                >
 								{isStreaming
                                     ? isPaused
                                         ? "Paused"
                                         : "Online"
-                                    : "Offline"}
+                                    : "Offline"
+                                }
 							</span>
-                        </div>
-                        {/*<div className="flex justify-between items-center">*/}
-                        {/*    <span className="text-neutral-400">Transparency</span>*/}
-                        {/*    <span className={`font-semibold px-2 py-0.5 rounded-md text-xs ${*/}
-                        {/*        isTransparent*/}
-                        {/*            ? "bg-purple-500/20 text-purple-300"*/}
-                        {/*            : "bg-neutral-700 text-neutral-300"*/}
-                        {/*    }`}>*/}
-                        {/*        {isTransparent ? "Active" : "Inactive"}*/}
-                        {/*    </span>*/}
-                        {/*</div>*/}
-                        <div className="flex justify-between items-center">
-                            <span className="text-neutral-400">Camera</span>
-                            <span className="capitalize">
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-neutral-400">Camera</span>
+                                <span className="capitalize">
 								{currentCamera === "user" ? "Front" : "Back"}
 							</span>
-						</div>
-						<div>
-							<span className="text-neutral-400">Tags</span>
-							<div className="flex flex-wrap gap-2 mt-1">
-								{streamTags?.length ? (
-									streamTags.map((tag, i) => (
-										<span
-											key={i}
-											className="bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full text-xs"
-										>
+                            </div>
+                            <div>
+                                <span className="text-neutral-400">Tags</span>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                    {streamTags?.length ? (
+                                        streamTags.map((tag, i) => (
+                                            <span
+                                                key={i}
+                                                className="bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full text-xs"
+                                            >
 											{tag}
 										</span>
-                                    ))
-                                ) : (
-                                    <span className="text-neutral-500 text-xs">
+                                        ))
+                                    ) : (
+                                        <span className="text-neutral-500 text-xs">
 										No tags
 									</span>
-                                )}
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {/* --- CHAT PANEL --- */}
-                <Chat
-                    streamId={streamId}
-                    username={username}
-                    userId = {streamerId}
-                    socket={socketRef.current}
-                    myStream={true}
-                />
+                    {/* --- CHAT PANEL --- */}
+                    <Chat
+                        streamId={streamId}
+                        username={username}
+                        userId={streamerId}
+                        socket={socketRef.current}
+                        myStream={true}
+                    />
+                </div>
             </div>
-        </div>
-    );
-};
+        );
+    };
+
+
 
 export default StreamerPage;
+
 
 function getDownscaledFrameHash(canvas, size = 8) {
     const downCanvas = document.createElement("canvas");
