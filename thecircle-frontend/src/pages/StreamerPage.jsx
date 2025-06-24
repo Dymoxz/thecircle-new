@@ -90,6 +90,7 @@ const StreamerPage = () => {
     const [availableCameras, setAvailableCameras] = useState([]);
     const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
     const [showMobileOverlay, setShowMobileOverlay] = useState(false);
+    const [mobileOverlayVisible, setMobileOverlayVisible] = useState(false); // for animation
 
     useEffect(() => {
         // Fetch user data from localStorage or API
@@ -899,6 +900,13 @@ const StreamerPage = () => {
             });
         }, []);
 
+        // Handle overlay mount/unmount for animation
+        useEffect(() => {
+            if (showMobileOverlay) {
+                setMobileOverlayVisible(true);
+            }
+        }, [showMobileOverlay]);
+
         return (
             <div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
                 {/* Back Button - Top Left, only when not streaming */}
@@ -1086,8 +1094,14 @@ const StreamerPage = () => {
                             </div>
                         </div>
                         {/* Mobile Overlay for Stream Info + Chat */}
-                        {showMobileOverlay && (
-                            <div className="fixed inset-0 z-50 flex flex-col items-center justify-start bg-black/90 pt-8 px-2 animate-fade-in">
+                        {(showMobileOverlay || mobileOverlayVisible) && (
+                            <div
+                                className={`fixed inset-0 z-50 flex flex-col items-center justify-start bg-black/90 pt-8 px-2 transition-all duration-500
+                                    ${showMobileOverlay ? 'animate-mobile-overlay-in' : 'animate-mobile-overlay-out pointer-events-none'}`}
+                                onAnimationEnd={() => {
+                                    if (!showMobileOverlay) setMobileOverlayVisible(false);
+                                }}
+                            >
                                 <button onClick={() => setShowMobileOverlay(false)} className="mb-4 p-2 rounded-full bg-neutral-800/80 text-white text-xl self-center">
                                     <ArrowDown className="w-7 h-7"/>
                                 </button>
@@ -1126,6 +1140,22 @@ const StreamerPage = () => {
                                         <Chat streamId={streamId} username={username} userId={streamerId} socket={socketRef.current} myStream={true}/>
                                     </div>
                                 </div>
+                                <style>{`
+                                    @keyframes mobile-overlay-in {
+                                        0% { opacity: 0; transform: translateY(48px) scale(0.98); }
+                                        100% { opacity: 1; transform: translateY(0) scale(1); }
+                                    }
+                                    @keyframes mobile-overlay-out {
+                                        0% { opacity: 1; transform: translateY(0) scale(1); }
+                                        100% { opacity: 0; transform: translateY(48px) scale(0.98); }
+                                    }
+                                    .animate-mobile-overlay-in {
+                                        animation: mobile-overlay-in 0.45s cubic-bezier(0.4,0,0.2,1);
+                                    }
+                                    .animate-mobile-overlay-out {
+                                        animation: mobile-overlay-out 0.35s cubic-bezier(0.4,0,0.2,1);
+                                    }
+                                `}</style>
                             </div>
                         )}
                     </>
