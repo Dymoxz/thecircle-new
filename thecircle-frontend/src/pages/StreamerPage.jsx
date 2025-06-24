@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from "react";
 import {
+    ArrowLeft,
     Eye,
     FlipHorizontal,
     Mic,
@@ -893,6 +894,15 @@ const StreamerPage = () => {
 
         return (
             <div className="h-[100dvh] w-screen text-neutral-100 overflow-hidden bg-neutral-900 relative">
+                {/* Back Button - Top Left, only when not streaming */}
+                {!isStreaming && (
+                    <button
+                        onClick={() => window.history.length > 1 ? window.history.back() : window.location.assign('/')}
+                        className="absolute top-4 left-4 z-30 bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-full p-3 shadow-lg text-neutral-100 hover:bg-neutral-800/50 transition-colors"
+                    >
+                        <ArrowLeft className="w-6 h-6"/>
+                    </button>
+                )}
                 {/* Toast notification */}
                 <Toast message={toastMessage} show={showToast} onClose={() => setShowToast(false)}/>
                 {/* --- VIDEO + OVERLAY CONTAINER --- */}

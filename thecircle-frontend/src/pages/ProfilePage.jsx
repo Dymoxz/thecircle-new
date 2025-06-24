@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { User, Mail, Calendar, Users, Heart, MessageSquare, Settings as SettingsIcon, ArrowLeft } from 'lucide-react';
-import { jwtDecode } from 'jwt-decode';
+import React, {useEffect, useState} from 'react';
+import {useNavigate, useParams} from 'react-router-dom';
+import {ArrowLeft, Calendar, Heart, Mail, User, Users} from 'lucide-react';
+import {jwtDecode} from 'jwt-decode';
 
 const API_BASE_URL = "https://localhost:3001/api";
 
 if (!API_BASE_URL) {
-  console.error('VITE_API_BASE_URL is not defined in .env file');
+    console.error('VITE_API_BASE_URL is not defined in .env file');
 }
 
 const ProfilePage = () => {
-  const { userId: paramUserId } = useParams();
+  const { userName: paramUserName } = useParams();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -19,39 +19,39 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
-  const [viewedProfileId, setViewedProfileId] = useState(null);
+  const [viewedProfileName, setViewedProfileName] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   
 
-  // Effect to determine currentUser from JWT and which profile to view
-  useEffect(() => {
-    const token = localStorage.getItem('jwt_token');
-    if (!token) {
-      navigate('/login');
-      return;
-    }
+    // Effect to determine currentUser from JWT and which profile to view
+    useEffect(() => {
+        const token = localStorage.getItem('jwt_token');
+        if (!token) {
+            navigate('/login');
+            return;
+        }
 
     try {
       const decodedToken = jwtDecode(token);
-      const loggedInUserId = decodedToken.sub;
-      setCurrentUser(loggedInUserId);
+      const loggedInUserName = decodedToken.userName;
+      setCurrentUser(loggedInUserName);
 
-      if (paramUserId) {
-        setViewedProfileId(paramUserId);
+      if (paramUserName) {
+        setViewedProfileName(paramUserName);
       } else {
-        setViewedProfileId(loggedInUserId);
+        setViewedProfileName(loggedInUserName);
       }
     } catch (e) {
       console.error("Failed to decode token or token invalid:", e);
       localStorage.removeItem('jwt_token');
       navigate('/login');
     }
-  }, [paramUserId, navigate]);
+  }, [paramUserName, navigate]);
 
   // Effect to fetch profile data
   useEffect(() => {
     const fetchProfileData = async () => {
-      if (!viewedProfileId || !currentUser) {
+      if (!viewedProfileName || !currentUser) {
         setLoading(false);
         console.warn('Profile ID or current user ID not available yet. Skipping fetch.');
         return;
@@ -69,10 +69,10 @@ const ProfilePage = () => {
         const headers = { 'Authorization': `Bearer ${token}` };
 
         const [profileRes, subsRes, subscrRes, subCheckRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/profile/${viewedProfileId}`, { headers }),
-          fetch(`${API_BASE_URL}/profile/subscribers/${viewedProfileId}`, { headers }),
-          fetch(`${API_BASE_URL}/profile/subscriptions/${viewedProfileId}`, { headers }),
-          currentUser !== viewedProfileId ? fetch(`${API_BASE_URL}/profile/is-subscribed/${currentUser}/${viewedProfileId}`, { headers }) : Promise.resolve({ ok: true, json: () => ({ exists: false }) }),
+          fetch(`${API_BASE_URL}/profile/${viewedProfileName}`, { headers }),
+          fetch(`${API_BASE_URL}/profile/subscribers/${viewedProfileName}`, { headers }),
+          fetch(`${API_BASE_URL}/profile/subscriptions/${viewedProfileName}`, { headers }),
+          currentUser !== viewedProfileName ? fetch(`${API_BASE_URL}/profile/is-subscribed/${currentUser}/${viewedProfileName}`, { headers }) : Promise.resolve({ ok: true, json: () => ({ exists: false }) }),
           new Promise(resolve => setTimeout(resolve, 500)) // 500ms minimum delay
         ]);
 
@@ -85,7 +85,7 @@ const ProfilePage = () => {
         setProfile(profileData);
 
         // Process subscription status
-        if (currentUser !== viewedProfileId) {
+        if (currentUser !== viewedProfileName) {
           if (!subCheckRes.ok) throw new Error('Subscription check failed');
           const subData = await subCheckRes.json();
           setIsSubscribed(subData?.exists || false);
@@ -115,7 +115,7 @@ const ProfilePage = () => {
     };
 
     fetchProfileData();
-  }, [viewedProfileId, currentUser, navigate]);
+  }, [viewedProfileName, currentUser, navigate]);
 
   const handleSubscribe = async () => {
     setActionLoading(true);
@@ -130,7 +130,7 @@ const ProfilePage = () => {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          streamerId: viewedProfileId,
+          streamerName: viewedProfileName,
         }),
       });
 
@@ -145,7 +145,7 @@ const ProfilePage = () => {
         const newSubscription = {
           _id: Date.now().toString(), // temporary ID
           streamer: {
-            _id: viewedProfileId,
+            _id: viewedProfileName,
             userName: profile?.userName || 'New Sub'
           },
           createdAt: new Date().toISOString()
@@ -154,7 +154,7 @@ const ProfilePage = () => {
         setSubscriptions(prev => [...prev, newSubscription]);
 
         // If viewing your own profile, add to subscribers list
-        if (currentUser === viewedProfileId) {
+        if (currentUser === viewedProfileName) {
           const newSubscriber = {
             _id: Date.now().toString(), // temporary ID
             subscriber: {
@@ -192,7 +192,7 @@ const ProfilePage = () => {
         },
         body: JSON.stringify({
           subscriberId: currentUser,
-          streamerId: viewedProfileId,
+          streamerId: viewedProfileName,
         }),
       });
 
@@ -205,11 +205,11 @@ const ProfilePage = () => {
         
         // Remove the subscription from the subscriptions list
         setSubscriptions(prev => 
-          prev.filter(sub => sub.streamer?._id !== viewedProfileId)
+          prev.filter(sub => sub.streamer?._id !== viewedProfileName)
         );
 
         // If viewing your own profile, remove from subscribers list
-        if (currentUser === viewedProfileId) {
+        if (currentUser === viewedProfileName) {
           setSubscribers(prev => 
             prev.filter(sub => sub.subscriber?._id !== currentUser)
           );
@@ -237,224 +237,202 @@ const ProfilePage = () => {
     });
   };
 
-  const isMyProfile = currentUser && viewedProfileId && currentUser === viewedProfileId;
-  const showSubscribeButton = currentUser && viewedProfileId && currentUser !== viewedProfileId;
+  const isMyProfile = currentUser && viewedProfileName && currentUser === viewedProfileName;
+  const showSubscribeButton = currentUser && viewedProfileName && currentUser !== viewedProfileName;
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-screen bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] text-white font-oswald">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
-    </div>
-  );
+    if (loading) return (
+        <div
+            className="flex items-center justify-center h-screen bg-gradient-to-br from-[#7a1a1a] via-[#a83246] to-[#2d0a14] text-white font-oswald">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+        </div>
+    );
 
-  if (error) return (
-    <div className="flex items-center justify-center h-screen bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] text-white font-oswald">
-      <div className="text-center p-6 bg-white/80 rounded-lg max-w-md shadow-xl shadow-black/30">
-        <h2 className="text-xl font-semibold text-[#a83246] mb-2">Error</h2>
-        <p className="text-gray-800">{error}</p>
-        <button
-          onClick={() => navigate('/')}
-          className="mt-4 px-4 py-2 bg-[#a83246] text-white rounded-full hover:bg-[#c04d65] transition-colors shadow-lg shadow-[#a83246]/40"
-        >
-          Go Home
-        </button>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen text-white font-oswald dark-bg">
-      {/* Profile Header */}
-      <div className="bg-white/10 py-16 px-4 sm:px-6 lg:px-8 relative shadow-xl bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] shadow-black/30">
-        {/* Back Button */}
-        <button
-          onClick={() => navigate('/')}
-          className="absolute top-4 left-4 p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-white"
-        >
-          <ArrowLeft className="w-6 h-6" />
-        </button>
-
-        <div className="max-w-4xl mx-auto">
-          <div className="flex flex-col md:flex-row items-center gap-8">
-            <div className="w-32 h-32 rounded-full bg-white/20 border-2 border-[#a83246] flex items-center justify-center shadow-lg">
-              <span className="text-4xl font-bold text-white">
-                {profile?.userName?.charAt(0).toUpperCase() || 'U'}
-              </span>
+    if (error) return (
+        <div
+            className="flex items-center justify-center h-screen bg-gradient-to-br from-[#7a1a1a] via-[#a83246] to-[#2d0a14] text-white font-oswald">
+            <div className="text-center p-6 bg-white/80 rounded-lg max-w-md shadow-lg shadow-black/30">
+                <h2 className="text-xl font-semibold text-[#a83246] mb-2">Error</h2>
+                <p className="text-gray-800">{error}</p>
+                <button
+                    onClick={() => navigate('/')}
+                    className="mt-4 px-4 py-2 bg-[#a83246] text-white rounded-full hover:bg-[#c04d65] transition-colors shadow-lg shadow-[#a83246]/40"
+                >
+                    Go Home
+                </button>
             </div>
+        </div>
+    );
 
-            <div className="flex-1 text-white">
-              <h1 className="text-3xl font-bold mb-2">{profile?.userName}</h1>
-
-              <div className="flex flex-wrap gap-4 mb-4">
-                <div className="flex items-center">
-                  <Users className="w-5 h-5 mr-2" />
-                  <span>{profile?.subscriberCount || 0} subscribers</span>
+    return (
+        <div
+            className="min-h-screen w-screen bg-gradient-to-br from-[#7a1a1a] via-[#a83246] to-[#2d0a14] text-white flex items-center justify-center p-4 relative overflow-hidden font-oswald">
+            {/* Back to Home Button - fixed top left, outside panels */}
+            <button
+                onClick={() => navigate('/')}
+                className="fixed top-6 left-6 z-20 p-2 rounded-full bg-white/20 text-[#7a1a1a] hover:bg-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-[#a83246] shadow-lg"
+                style={{backdropFilter: 'blur(2px)'}}
+            >
+                <ArrowLeft className="w-7 h-7"/>
+            </button>
+            <div className="relative z-10 w-full max-w-5xl flex flex-col gap-6 items-center justify-center">
+                {/* Profile Header Panel - closer to next panel */}
+                <div
+                    className="bg-white/80 border border-white/10 rounded-3xl p-6 shadow-xl shadow-black/30 w-full flex flex-col items-center transition-all duration-300">
+                    <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8 w-full">
+                        <div
+                            className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-white/20 border-2 border-[#a83246] flex items-center justify-center shadow-lg">
+                          <span className="text-3xl md:text-4xl font-bold text-[#7a1a1a]">
+                            {profile?.userName?.charAt(0).toUpperCase() || 'U'}
+                          </span>
+                        </div>
+                        <div className="flex-1 text-[#7a1a1a] flex flex-col items-center md:items-start">
+                            <h1 className="text-2xl md:text-3xl font-bold mb-1">{profile?.userName}</h1>
+                            <div className="flex flex-wrap gap-3 mb-2">
+                                <div className="flex items-center">
+                                    <Users className="w-5 h-5 mr-2 text-[#a83246]"/>
+                                    <span>{profile?.subscriberCount || 0} subscribers</span>
+                                </div>
+                                {profile?.isLive && (
+                                    <div
+                                        className="flex items-center bg-red-600 px-3 py-1 rounded-full text-sm font-semibold text-white">
+                                        <div className="w-2 h-2 bg-white rounded-full animate-ping mr-2"></div>
+                                        <span>Live Now</span>
+                                    </div>
+                                )}
+                            </div>
+                            {showSubscribeButton && (
+                                <button
+                                    onClick={isSubscribed ? handleUnsubscribe : handleSubscribe}
+                                    className={`flex items-center px-6 py-2 rounded-full font-semibold transition-colors shadow-md mt-2 ${isSubscribed
+                                        ? 'bg-white/10 border border-white/20 text-[#7a1a1a] hover:bg-white/20'
+                                        : 'bg-[#a83246] text-white hover:bg-[#c04d65] shadow-lg shadow-[#a83246]/40'} ${actionLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                    disabled={actionLoading}
+                                >
+                                    {actionLoading ? (
+                                        <div
+                                            className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
+                                    ) : (
+                                        <Heart fill={isSubscribed ? "#a83246" : "none"} className="w-5 h-5 mr-2"/>
+                                    )}
+                                    {actionLoading ? (isSubscribed ? 'Unsubscribing...' : 'Subscribing...') : (isSubscribed ? 'Subscribed' : 'Subscribe')}
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
-
-                {profile?.isLive && (
-                  <div className="flex items-center bg-red-600 px-3 py-1 rounded-full text-sm font-semibold">
-                    <div className="w-2 h-2 bg-white rounded-full animate-ping mr-2"></div>
-                    <span>Live Now</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Conditional Rendering for Buttons */}
-              <div className="flex gap-4 mt-4">
-                {isMyProfile && (
-                  <button
-                    onClick={() => navigate('/settings')}
-                    className="flex items-center px-6 py-2 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-colors shadow-md"
-                  >
-                    <SettingsIcon className="w-5 h-5 mr-2" />
-                    Settings
-                  </button>
-                )}
-
-                {showSubscribeButton && (
-                  <button
-                    onClick={isSubscribed ? handleUnsubscribe : handleSubscribe}
-                    className={`flex items-center px-6 py-2 rounded-full font-semibold transition-colors shadow-md ${isSubscribed
-                      ? 'bg-white/10 border border-white/20 text-white hover:bg-white/20'
-                      : 'bg-[#a83246] text-white hover:bg-[#c04d65] shadow-lg shadow-[#a83246]/40'} ${actionLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
-                    disabled={actionLoading}
-                  >
-                    {actionLoading ? (
-                      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
-                    ) : (
-                      <Heart fill={isSubscribed ? "#fff" : "none"} className="w-5 h-5 mr-2" />
-                    )
-                    }
-                    {actionLoading ? (isSubscribed ? 'Unsubscribing...' : 'Subscribing...') : (isSubscribed ? 'Subscribed' : 'Subscribe')}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Profile Content Areas */}
-      <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Main Profile Info */}
-          <div className="light-bg md:col-span-2 bg-[#fcf8f6] backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-              <User className="w-5 h-5 mr-2 text-[#a83246]" />
-              About
-            </h2>
-
-            <div className="space-y-4 text-gray-800">
-              <div>
-                <h3 className="text-sm font-medium text-neutral-600">Username</h3>
-                <p className="mt-1 text-lg font-semibold">{profile?.userName}</p>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-medium text-neutral-600">Email</h3>
-                <p className="mt-1 flex items-center">
-                  <Mail className="w-4 h-4 mr-2 text-neutral-500" />
-                  {profile?.email}
-                </p>
-              </div>
-              {/* nieuwe blok voor satoshis */}
-              <div>
-                <h3 className="text-sm font-medium text-neutral-600">Earned Satoshis</h3>
-                <p className="mt-1 text-lg font-semibold flex items-center">
-                  <span className="text-yellow-600 mr-1">₿</span>
-                  {profile?.satoshis || 0}
-                </p>
-              </div>
-
-              {profile?.birthdate && (
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-600">Birthdate</h3>
-                  <p className="mt-1 flex items-center">
-                    <Calendar className="w-4 h-4 mr-2 text-neutral-500" />
-                    {formatDate(profile.birthdate)}
-                  </p>
+                {/* Main Content Panels - closer together */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+                    {/* Main Profile Info */}
+                    <div
+                        className="light-bg md:col-span-2 bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-6">
+                        <h2 className="text-xl font-bold text-gray-900 mb-3 flex items-center">
+                            <User className="w-5 h-5 mr-2 text-[#a83246]"/>
+                            About
+                        </h2>
+                        <div className="space-y-3 text-gray-800">
+                            <div>
+                                <h3 className="text-sm font-medium text-neutral-600">Username</h3>
+                                <p className="mt-1 text-lg font-semibold">{profile?.userName}</p>
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-medium text-neutral-600">Email</h3>
+                                <p className="mt-1 flex items-center">
+                                    <Mail className="w-4 h-4 mr-2 text-neutral-500"/>
+                                    {profile?.email}
+                                </p>
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-medium text-neutral-600">Earned Satoshis</h3>
+                                <p className="mt-1 text-lg font-semibold flex items-center">
+                                    <span className="text-yellow-600 mr-1">₿</span>
+                                    {profile?.satoshis || 0}
+                                </p>
+                            </div>
+                            {profile?.birthdate && (
+                                <div>
+                                    <h3 className="text-sm font-medium text-neutral-600">Birthdate</h3>
+                                    <p className="mt-1 flex items-center">
+                                        <Calendar className="w-4 h-4 mr-2 text-neutral-500"/>
+                                        {formatDate(profile.birthdate)}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    {/* Sidebar - min-h to match About panel */}
+                    <div className="space-y-4 flex flex-col h-full" style={{minHeight: '100%'}}>
+                        <div className="flex flex-col h-full" style={{minHeight: '100%'}}>
+                            <div className="flex flex-col flex-1 min-h-0" style={{minHeight: '100%'}}>
+                                <div
+                                    className="light-bg bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-6 flex-1">
+                                    <h3 className="text-xl font-bold text-gray-900 mb-3 flex items-center">
+                                        <Users className="w-5 h-5 mr-2 text-[#a83246]"/>
+                                        Subscribers
+                                    </h3>
+                                    {subscribers.length > 0 ? (
+                                        <ul className="space-y-2">
+                                            {subscribers.slice(0, 5).map(sub => (
+                                                sub?.user && (
+                                                    <li
+                                                        key={sub._id || sub.user._id}
+                                                        className="flex items-center p-2 rounded-3xl hover:bg-[#f3ece8] transition-colors cursor-pointer"
+                                                        onClick={() => navigate(`/profile/${sub.user._id}`)}
+                                                    >
+                                                        <div
+                                                            className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
+                                                            {sub.user.userName?.charAt(0).toUpperCase() || 'U'}
+                                                        </div>
+                                                        <span
+                                                            className="font-semibold text-gray-800 flex-grow truncate">{sub.user.userName}</span>
+                                                    </li>
+                                                )
+                                            ))}
+                                            {subscribers.length > 5 && (
+                                                <p className="text-sm text-gray-600 mt-2">
+                                                    +{subscribers.length - 5} more
+                                                </p>
+                                            )}
+                                        </ul>
+                                    ) : (
+                                        <p className="text-gray-600 text-sm">No subscribers yet.</p>
+                                    )}
+                                </div>
+                                <div
+                                    className="light-bg bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-6 flex-1 mt-4">
+                                    <h3 className="text-xl font-bold text-gray-900 mb-3 flex items-center">
+                                        <Heart className="w-5 h-5 mr-2 text-[#a83246]"/>
+                                        Subscriptions
+                                    </h3>
+                                    {subscriptions.length > 0 ? (
+                                        <ul className="space-y-2">
+                                            {subscriptions.map(sub => (
+                                                sub?.user && (
+                                                    <li
+                                                        key={sub._id || sub.user._id}
+                                                        className="flex items-center p-2 rounded-3xl hover:bg-[#f3ece8] transition-colors cursor-pointer"
+                                                        onClick={() => navigate(`/profile/${sub.user._id}`)}
+                                                    >
+                                                        <div
+                                                            className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
+                                                            {sub.user.userName?.charAt(0).toUpperCase() || 'U'}
+                                                        </div>
+                                                        <span
+                                                            className="font-semibold text-gray-800 flex-grow truncate">{sub.user.userName}</span>
+                                                    </li>
+                                                )
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p className="text-gray-600 text-sm">Not subscribed to anyone.</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-              )}
             </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Subscribers */}
-            <div className="light-bg bg-[#fcf8f6] backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-8">
-              <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                <Users className="w-5 h-5 mr-2 text-[#a83246]" />
-                Subscribers
-              </h3>
-
-              {subscribers.length > 0 ? (
-                  <ul className="space-y-3">
-                    {subscribers.slice(0, 5).map(sub => (
-                        sub?.user && (
-                            <li
-                                key={sub._id || sub.user._id}
-                                className="flex items-center p-2 rounded-3xl hover:bg-[#f3ece8] transition-colors cursor-pointer"
-                                onClick={() => navigate(`/profile/${sub.user._id}`)}
-                            >
-                              <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
-                                {sub.user.userName?.charAt(0).toUpperCase() || 'U'}
-                              </div>
-                              <span className="font-semibold text-gray-800 flex-grow truncate">{sub.user.userName}</span>
-                            </li>
-                        )
-                    ))}
-                    {subscribers.length > 5 && (
-                        <p className="text-sm text-gray-600 mt-2">
-                          +{subscribers.length - 5} more
-                        </p>
-                    )}
-                  </ul>
-              ) : (
-                  <p className="text-gray-600 text-sm">No subscribers yet.</p>
-              )}
-            </div>
-
-            {/* Subscriptions */}
-            <div className="light-bg bg-[#fcf8f6] backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-8">
-              <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                <Heart className="w-5 h-5 mr-2 text-[#a83246]" />
-                Subscriptions
-              </h3>
-
-              {subscriptions.length > 0 ? (
-                  <ul className="space-y-3">
-                    {subscriptions.map(sub => (
-                        sub?.user && (
-                            <li
-                                key={sub._id || sub.user._id}
-                                className="flex items-center p-2 rounded-3xl hover:bg-[#f3ece8] transition-colors cursor-pointer"
-                                onClick={() => navigate(`/profile/${sub.user._id}`)}
-                            >
-                              <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
-                                {sub.user.userName?.charAt(0).toUpperCase() || 'U'}
-                              </div>
-                              <span className="font-semibold text-gray-800 flex-grow truncate">{sub.user.userName}</span>
-                            </li>
-                        )
-                    ))}
-                  </ul>
-              ) : (
-                  <p className="text-gray-600 text-sm">Not subscribed to anyone.</p>
-              )}
-            </div>
-          </div>
         </div>
-
-        {/* Recent Activity (placeholder) */}
-        <div className="light-bg mt-8 bg-[#fcf8f6] backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-            <MessageSquare className="w-5 h-5 mr-2 text-[#a83246]" />
-            Recent Activity
-          </h2>
-          <p className="text-gray-600">Coming soon...</p>
-        </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default ProfilePage;

@@ -36,7 +36,7 @@ export class AuthService {
     try {
       const user = await this.userModel
         .findOne({ email: credentials.email })
-        .select('+password')
+        .select('+password +userName')
         .exec();
 
       if (!user) {
@@ -52,11 +52,12 @@ export class AuthService {
         throw new UnauthorizedException('Email not found or password invalid');
       }
 
-      const payload = { user_email: user.email, sub: user._id.toString() };
+      const payload = { user_email: user.email, userName: user.userName, sub: user._id.toString() };
 
       return {
         _id: user._id,
         email: user.email,
+        userName: user.userName,
         token: this.jwtService.sign(payload),
       };
     } catch (error) {

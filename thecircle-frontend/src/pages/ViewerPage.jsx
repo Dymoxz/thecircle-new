@@ -1267,9 +1267,13 @@ const ViewerPage = () => {
 									</span>
 								</div>
 								<div className="text-sm">
-									<p className="font-semibold text-white">
-										{stream?.streamerName || "... Streamer"}
-									</p>
+								<button
+									className="font-semibold text-white hover:underline"
+									onClick={() => navigate(`/profile/${stream?.streamerName}`)}
+									disabled={!stream?.streamerName}
+								>
+									{stream?.streamerName || "... Streamer"}
+								</button>
 									{/* Optionally display a category here */}
 								</div>
 							</div>
