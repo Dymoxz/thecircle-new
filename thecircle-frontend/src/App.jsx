@@ -86,6 +86,13 @@ const HomePage = () => {
 
 	// Effect for fetching subscriptions
 	useEffect(() => {
+		const token = localStorage.getItem("jwt_token");
+		if (!token) {
+			navigate("/login");
+			return;
+		}
+		const decodedToken = jwtDecode(token);
+		const loggedInUserName = decodedToken.userName;
 		const fetchMySubscriptions = async () => {
 			setLoadingSubscriptions(true);
 			setSubscriptionError(null);
@@ -96,6 +103,7 @@ const HomePage = () => {
 					navigate("/login");
 					return;
 				}
+
 
 				const response = await fetch(
 					`${API_URL}/profile/getMySubscriptions`,
@@ -287,7 +295,7 @@ const HomePage = () => {
 	};
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br bg-gradient-to-br from-[#7a1a1a] via-[#a83246] to-[#2d0a14] text-white flex p-4 font-oswald overflow-hidden">
+		<div className="min-h-screen bg-gradient-to-br bg-gradient-to-br from-[#7a1a1a] via-[#800000] to-[#2d0a14] text-white flex p-4 font-oswald overflow-hidden">
 			<div className="flex-grow flex flex-col p-4">
 				<div className="flex flex-col md:flex-row items-center justify-between mb-8">
 					<div className="flex items-center mb-4 md:mb-0">
@@ -301,7 +309,7 @@ const HomePage = () => {
 						<input
 							type="text"
 							placeholder="Search streams..."
-							className="w-full pl-10 pr-4 py-2 rounded-full bg-white/10 border border-white/20 text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#a83246]"
+							className="w-full pl-10 pr-4 py-2 rounded-full bg-white/10 border border-white/20 text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#800000]"
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
 						/>
@@ -340,7 +348,7 @@ const HomePage = () => {
 																!filters.subscribedOnly,
 														})
 													}
-													className="rounded text-[#a83246]"
+													className="rounded text-[#800000]"
 												/>
 												<span className="text-gray-800">
 													Subscribed Only
@@ -360,7 +368,7 @@ const HomePage = () => {
 														category: e.target.value,
 													})
 												}
-												className="rounded-md border-gray-300 shadow-sm focus:border-[#a83246] focus:ring-[#a83246] text-gray-800 py-1.5 min-h-[2.1rem] pl-3 bg-white/10 w-44"
+												className="rounded-md border-gray-300 shadow-sm focus:border-[#800000] focus:ring-[#800000] text-gray-800 py-1.5 min-h-[2.1rem] pl-3 bg-white/10 w-44"
 											>
 												<option value="">
 													All Categories
@@ -444,7 +452,7 @@ const HomePage = () => {
 															option.value
 														)
 													}
-													className="text-[#a83246]"
+													className="text-[#800000]"
 												/>
 												<span className="text-gray-800">
 													{option.label}
@@ -501,7 +509,7 @@ const HomePage = () => {
 												.map((tag) => (
 													<span
 														key={tag}
-														className="bg-[#a83246]/10 text-[#a83246] text-xs px-2 py-1 rounded-full"
+														className="bg-[#800000]/10 text-[#800000] text-xs px-2 py-1 rounded-full"
 													>
 														{tag}
 													</span>
@@ -530,7 +538,7 @@ const HomePage = () => {
 							handleProfileClick();
 						}}
 					>
-						<div className="w-10 h-10 rounded-full bg-neutral-700 flex items-center justify-center mr-2 border-2 border-[#a83246] overflow-hidden">
+						<div className="w-10 h-10 rounded-full bg-neutral-700 flex items-center justify-center mr-2 border-2 border-[#800000] overflow-hidden">
 							<User className="w-10 h-10 text-neutral-300" />
 						</div>
 						<h2 className="text-xl font-bold text-gray-800">
@@ -544,7 +552,7 @@ const HomePage = () => {
 							e.stopPropagation();
 							handleGoLiveClick();
 						}}
-						className="flex items-center justify-center w-full px-3 py-1.5 text-sm rounded-lg bg-[#a83246] text-white font-semibold hover:bg-[#c04d65] transition-colors shadow-lg shadow-[#a83246]/40"
+						className="flex items-center justify-center w-full px-3 py-1.5 text-sm rounded-lg bg-[#800000] text-white font-semibold hover:bg-[#c04d65] transition-colors shadow-lg shadow-[#800000]/40"
 					>
 						<Camera className="w-4 h-4 mr-1" /> Go Live
 					</button>

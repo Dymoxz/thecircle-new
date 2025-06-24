@@ -242,20 +242,20 @@ const ProfilePage = () => {
 
     if (loading) return (
         <div
-            className="flex items-center justify-center h-screen bg-gradient-to-br from-[#7a1a1a] via-[#a83246] to-[#2d0a14] text-white font-oswald">
+            className="flex items-center justify-center h-screen bg-gradient-to-br from-[#7a1a1a] via-[#800000] to-[#2d0a14] text-white font-oswald">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
         </div>
     );
 
     if (error) return (
         <div
-            className="flex items-center justify-center h-screen bg-gradient-to-br from-[#7a1a1a] via-[#a83246] to-[#2d0a14] text-white font-oswald">
+            className="flex items-center justify-center h-screen bg-gradient-to-br from-[#7a1a1a] via-[#800000] to-[#2d0a14] text-white font-oswald">
             <div className="text-center p-6 bg-white/80 rounded-lg max-w-md shadow-lg shadow-black/30">
-                <h2 className="text-xl font-semibold text-[#a83246] mb-2">Error</h2>
+                <h2 className="text-xl font-semibold text-[#800000] mb-2">Error</h2>
                 <p className="text-gray-800">{error}</p>
                 <button
                     onClick={() => navigate('/')}
-                    className="mt-4 px-4 py-2 bg-[#a83246] text-white rounded-full hover:bg-[#c04d65] transition-colors shadow-lg shadow-[#a83246]/40"
+                    className="mt-4 px-4 py-2 bg-[#800000] text-white rounded-full hover:bg-[#c04d65] transition-colors shadow-lg shadow-[#800000]/40"
                 >
                     Go Home
                 </button>
@@ -265,11 +265,11 @@ const ProfilePage = () => {
 
     return (
         <div
-            className="min-h-screen w-screen bg-gradient-to-br from-[#7a1a1a] via-[#a83246] to-[#2d0a14] text-white flex items-center justify-center p-4 relative overflow-hidden font-oswald">
+            className="min-h-screen w-screen bg-gradient-to-br from-[#7a1a1a] via-[#800000] to-[#2d0a14] text-white flex items-center justify-center p-4 relative overflow-hidden font-oswald">
             {/* Back to Home Button - fixed top left, outside panels */}
             <button
                 onClick={() => navigate('/')}
-                className="fixed top-6 left-6 z-20 p-2 rounded-full bg-white/20 text-[#7a1a1a] hover:bg-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-[#a83246] shadow-lg"
+                className="fixed top-6 left-6 z-20 p-2 rounded-full bg-white/20 text-[#7a1a1a] hover:bg-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-[#800000] shadow-lg"
                 style={{backdropFilter: 'blur(2px)'}}
             >
                 <ArrowLeft className="w-7 h-7"/>
@@ -280,7 +280,7 @@ const ProfilePage = () => {
                     className="bg-white/80 border border-white/10 rounded-3xl p-6 shadow-xl shadow-black/30 w-full flex flex-col items-center transition-all duration-300">
                     <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8 w-full">
                         <div
-                            className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-white/20 border-2 border-[#a83246] flex items-center justify-center shadow-lg">
+                            className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-white/20 border-2 border-[#800000] flex items-center justify-center shadow-lg">
                           <span className="text-3xl md:text-4xl font-bold text-[#7a1a1a]">
                             {profile?.userName?.charAt(0).toUpperCase() || 'U'}
                           </span>
@@ -289,7 +289,7 @@ const ProfilePage = () => {
                             <h1 className="text-2xl md:text-3xl font-bold mb-1">{profile?.userName}</h1>
                             <div className="flex flex-wrap gap-3 mb-2">
                                 <div className="flex items-center">
-                                    <Users className="w-5 h-5 mr-2 text-[#a83246]"/>
+                                    <Users className="w-5 h-5 mr-2 text-[#800000]"/>
                                     <span>{profile?.subscriberCount || 0} subscribers</span>
                                 </div>
                                 {profile?.isLive && (
@@ -305,14 +305,14 @@ const ProfilePage = () => {
                                     onClick={isSubscribed ? handleUnsubscribe : handleSubscribe}
                                     className={`flex items-center px-6 py-2 rounded-full font-semibold transition-colors shadow-md mt-2 ${isSubscribed
                                         ? 'bg-white/10 border border-white/20 text-[#7a1a1a] hover:bg-white/20'
-                                        : 'bg-[#a83246] text-white hover:bg-[#c04d65] shadow-lg shadow-[#a83246]/40'} ${actionLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                        : 'bg-[#800000] text-white hover:bg-[#c04d65] shadow-lg shadow-[#800000]/40'} ${actionLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
                                     disabled={actionLoading}
                                 >
                                     {actionLoading ? (
                                         <div
                                             className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
                                     ) : (
-                                        <Heart fill={isSubscribed ? "#a83246" : "none"} className="w-5 h-5 mr-2"/>
+                                        <Heart fill={isSubscribed ? "#800000" : "none"} className="w-5 h-5 mr-2"/>
                                     )}
                                     {actionLoading ? (isSubscribed ? 'Unsubscribing...' : 'Subscribing...') : (isSubscribed ? 'Subscribed' : 'Subscribe')}
                                 </button>
@@ -326,7 +326,7 @@ const ProfilePage = () => {
                     <div
                         className="light-bg md:col-span-2 bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-6">
                         <h2 className="text-xl font-bold text-gray-900 mb-3 flex items-center">
-                            <User className="w-5 h-5 mr-2 text-[#a83246]"/>
+                            <User className="w-5 h-5 mr-2 text-[#800000]"/>
                             About
                         </h2>
                         <div className="space-y-3 text-gray-800">
@@ -366,7 +366,7 @@ const ProfilePage = () => {
                                 <div
                                     className="light-bg bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-6 flex-1">
                                     <h3 className="text-xl font-bold text-gray-900 mb-3 flex items-center">
-                                        <Users className="w-5 h-5 mr-2 text-[#a83246]"/>
+                                        <Users className="w-5 h-5 mr-2 text-[#800000]"/>
                                         Subscribers
                                     </h3>
                                     {subscribers.length > 0 ? (
@@ -400,7 +400,7 @@ const ProfilePage = () => {
                                 <div
                                     className="light-bg bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-6 flex-1 mt-4">
                                     <h3 className="text-xl font-bold text-gray-900 mb-3 flex items-center">
-                                        <Heart className="w-5 h-5 mr-2 text-[#a83246]"/>
+                                        <Heart className="w-5 h-5 mr-2 text-[#800000]"/>
                                         Subscriptions
                                     </h3>
                                     {subscriptions.length > 0 ? (

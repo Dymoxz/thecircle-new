@@ -47,7 +47,7 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen w-screen bg-gradient-to-br from-[#7a1a1a] via-[#a83246] to-[#2d0a14] text-white flex items-center justify-center p-4 relative overflow-hidden font-oswald">
+        <div className="min-h-screen w-screen bg-gradient-to-br from-[#7a1a1a] via-[#800000] to-[#2d0a14] text-white flex items-center justify-center p-4 relative overflow-hidden font-oswald">
 
             {/* Main Login Container */}
             <div className="relative z-10 w-full max-w-lg">
@@ -71,7 +71,7 @@ const LoginPage = () => {
 
                     {/* Error Message */}
                     {error && (
-                        <div className="mb-6 bg-[#a83246]/10 backdrop-blur-xl border border-[#a83246]/30 rounded-2xl px-4 py-3 text-center">
+                        <div className="mb-6 bg-[#800000]/10 backdrop-blur-xl border border-[#800000]/30 rounded-2xl px-4 py-3 text-center">
                             <p className="text-[#7a1a1a] text-sm font-light" style={{ fontFamily: 'sans-serif' }}>
                                 {error}
                             </p>
@@ -88,13 +88,13 @@ const LoginPage = () => {
                                 placeholder="Email Address"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full pl-16 pr-4 py-4 bg-white/60 backdrop-blur-xl text-[#a83246] placeholder-[#a83246]/50 rounded-2xl border border-[#a83246]/20 focus:outline-none focus:bg-white/80 focus:border-[#a83246]/40 focus:ring-2 focus:ring-[#a83246]/30 transition-all duration-300"
+                                className="w-full pl-16 pr-4 py-4 bg-white/60 backdrop-blur-xl text-[#800000] placeholder-[#800000]/50 rounded-2xl border border-[#800000]/20 focus:outline-none focus:bg-white/80 focus:border-[#800000]/40 focus:ring-2 focus:ring-[#800000]/30 transition-all duration-300"
                                 style={{ fontFamily: 'sans-serif' }}
                                 required
                                 disabled={loading}
                             />
-                            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#a83246]/10 rounded-full flex items-center justify-center border border-[#a83246]/20 transition-all duration-300 group-focus-within:bg-[#a83246]/20 group-focus-within:border-[#a83246]/40">
-                                <Mail className="w-4 h-4 text-[#a83246]" />
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#800000]/10 rounded-full flex items-center justify-center border border-[#800000]/20 transition-all duration-300 group-focus-within:bg-[#800000]/20 group-focus-within:border-[#800000]/40">
+                                <Mail className="w-4 h-4 text-[#800000]" />
                             </div>
                         </div>
 
@@ -105,12 +105,12 @@ const LoginPage = () => {
                                 placeholder="Password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full pl-16 pr-4 py-4 bg-white/60 backdrop-blur-xl text-[#7a1a1a] placeholder-[#a83246]/50 rounded-2xl border border-[#a83246]/20 focus:outline-none focus:bg-white/80 focus:border-[#a83246]/40 focus:ring-2 focus:ring-[#a83246]/30 transition-all duration-300"
+                                className="w-full pl-16 pr-4 py-4 bg-white/60 backdrop-blur-xl text-[#7a1a1a] placeholder-[#800000]/50 rounded-2xl border border-[#800000]/20 focus:outline-none focus:bg-white/80 focus:border-[#800000]/40 focus:ring-2 focus:ring-[#800000]/30 transition-all duration-300"
                                 style={{ fontFamily: 'sans-serif' }}
                                 required
                                 disabled={loading}
                             />
-                            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#a83246]/10 rounded-full flex items-center justify-center border border-[#a83246]/20 transition-all duration-300 group-focus-within:bg-[#a83246]/20 group-focus-within:border-[#a83246]/40">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#800000]/10 rounded-full flex items-center justify-center border border-[#800000]/20 transition-all duration-300 group-focus-within:bg-[#800000]/20 group-focus-within:border-[#800000]/40">
                                 <Lock className="w-4 h-4 text-[#7a1a1a]" />
                             </div>
                         </div>
@@ -118,7 +118,7 @@ const LoginPage = () => {
                         {/* Login Button */}
                         <button
                             type="submit"
-                            className="w-full py-4 bg-[#7a1a1a]/90 backdrop-blur-xl border border-[#a83246]/30 text-white font-bold uppercase tracking-wider rounded-2xl shadow-xl shadow-black/30 transition-all duration-300 ease-in-out hover:bg-[#a83246] hover:scale-105 hover:shadow-2xl hover:shadow-[#a83246]/40 focus:outline-none focus:ring-2 focus:ring-[#a83246]/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            className="w-full py-4 bg-[#800000]/90 backdrop-blur-xl border border-[#800000]/30 text-white font-bold uppercase tracking-wider rounded-2xl shadow-xl shadow-black/30 transition-all duration-300 ease-in-out hover:bg-[#7a1a1a] hover:scale-105 hover:shadow-2xl hover:shadow-[#800000]/40 focus:outline-none focus:ring-2 focus:ring-[#800000]/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                             disabled={loading}
                         >
                             {loading ? (
@@ -136,7 +136,7 @@ const LoginPage = () => {
                     <div className="mt-8 text-center space-y-3">
                         <button
                             type="button"
-                            className="text-[#7a1a1a] text-sm font-light hover:text-[#a83246] transition-colors duration-300 underline decoration-transparent hover:decoration-[#a83246] decoration-1 underline-offset-4"
+                            className="text-[#7a1a1a] text-sm font-light hover:text-[#800000] transition-colors duration-300 underline decoration-transparent hover:decoration-[#800000] decoration-1 underline-offset-4"
                             style={{ fontFamily: 'sans-serif' }}
                         >
                             Forgot your access code?
