@@ -10,7 +10,7 @@ if (!API_BASE_URL) {
 }
 
 const ProfilePage = () => {
-    const { userName: paramUserName } = useParams();
+    const {userName: paramUserName} = useParams();
     const navigate = useNavigate();
     const [profile, setProfile] = useState(null);
     const [isSubscribed, setIsSubscribed] = useState(false);
@@ -65,13 +65,16 @@ const ProfilePage = () => {
                 throw new Error('Authentication token not found. Please log in.');
             }
 
-            const headers = { 'Authorization': `Bearer ${token}` };
+            const headers = {'Authorization': `Bearer ${token}`};
 
             const [profileRes, subsRes, subscrRes, subCheckRes] = await Promise.all([
-                fetch(`${API_BASE_URL}/profile/${viewedProfileName}`, { headers }),
-                fetch(`${API_BASE_URL}/profile/subscribers/${viewedProfileName}`, { headers }),
-                fetch(`${API_BASE_URL}/profile/subscriptions/${viewedProfileName}`, { headers }),
-                currentUser !== viewedProfileName ? fetch(`${API_BASE_URL}/profile/is-subscribed/${currentUser}/${viewedProfileName}`, { headers }) : Promise.resolve({ ok: true, json: () => ({ exists: false }) }),
+                fetch(`${API_BASE_URL}/profile/${viewedProfileName}`, {headers}),
+                fetch(`${API_BASE_URL}/profile/subscribers/${viewedProfileName}`, {headers}),
+                fetch(`${API_BASE_URL}/profile/subscriptions/${viewedProfileName}`, {headers}),
+                currentUser !== viewedProfileName ? fetch(`${API_BASE_URL}/profile/is-subscribed/${currentUser}/${viewedProfileName}`, {headers}) : Promise.resolve({
+                    ok: true,
+                    json: () => ({exists: false})
+                }),
                 new Promise(resolve => setTimeout(resolve, 500)) // 500ms minimum delay
             ]);
 
@@ -122,7 +125,10 @@ const ProfilePage = () => {
         setActionLoading(true);
         try {
             const token = localStorage.getItem('jwt_token');
-            if (!token) { navigate('/login'); return; }
+            if (!token) {
+                navigate('/login');
+                return;
+            }
 
             const res = await fetch(`${API_BASE_URL}/profile/subscribe`, {
                 method: 'POST',
@@ -161,7 +167,10 @@ const ProfilePage = () => {
         setActionLoading(true);
         try {
             const token = localStorage.getItem('jwt_token');
-            if (!token) { navigate('/login'); return; }
+            if (!token) {
+                navigate('/login');
+                return;
+            }
 
             const res = await fetch(`${API_BASE_URL}/profile/unsubscribe`, {
                 method: 'DELETE',
