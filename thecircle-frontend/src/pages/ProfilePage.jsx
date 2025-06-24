@@ -290,9 +290,9 @@ const ProfilePage = () => {
                     <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8 w-full">
                         <div
                             className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-white/20 border-2 border-[#a83246] flex items-center justify-center shadow-lg">
-              <span className="text-3xl md:text-4xl font-bold text-[#7a1a1a]">
-                {profile?.userName?.charAt(0).toUpperCase() || 'U'}
-              </span>
+                          <span className="text-3xl md:text-4xl font-bold text-[#7a1a1a]">
+                            {profile?.userName?.charAt(0).toUpperCase() || 'U'}
+                          </span>
                         </div>
                         <div className="flex-1 text-[#7a1a1a] flex flex-col items-center md:items-start">
                             <h1 className="text-2xl md:text-3xl font-bold mb-1">{profile?.userName}</h1>
@@ -368,72 +368,74 @@ const ProfilePage = () => {
                             )}
                         </div>
                     </div>
-                    {/* Sidebar */}
-                    <div className="space-y-4">
-                        {/* Subscribers */}
-                        <div
-                            className="light-bg bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-6">
-                            <h3 className="text-xl font-bold text-gray-900 mb-3 flex items-center">
-                                <Users className="w-5 h-5 mr-2 text-[#a83246]"/>
-                                Subscribers
-                            </h3>
-                            {subscribers.length > 0 ? (
-                                <ul className="space-y-2">
-                                    {subscribers.slice(0, 5).map(sub => (
-                                        sub?.user && (
-                                            <li
-                                                key={sub._id || sub.user._id}
-                                                className="flex items-center p-2 rounded-3xl hover:bg-[#f3ece8] transition-colors cursor-pointer"
-                                                onClick={() => navigate(`/profile/${sub.user._id}`)}
-                                            >
-                                                <div
-                                                    className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
-                                                    {sub.user.userName?.charAt(0).toUpperCase() || 'U'}
-                                                </div>
-                                                <span
-                                                    className="font-semibold text-gray-800 flex-grow truncate">{sub.user.userName}</span>
-                                            </li>
-                                        )
-                                    ))}
-                                    {subscribers.length > 5 && (
-                                        <p className="text-sm text-gray-600 mt-2">
-                                            +{subscribers.length - 5} more
-                                        </p>
+                    {/* Sidebar - min-h to match About panel */}
+                    <div className="space-y-4 flex flex-col h-full" style={{minHeight: '100%'}}>
+                        <div className="flex flex-col h-full" style={{minHeight: '100%'}}>
+                            <div className="flex flex-col flex-1 min-h-0" style={{minHeight: '100%'}}>
+                                <div
+                                    className="light-bg bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-6 flex-1">
+                                    <h3 className="text-xl font-bold text-gray-900 mb-3 flex items-center">
+                                        <Users className="w-5 h-5 mr-2 text-[#a83246]"/>
+                                        Subscribers
+                                    </h3>
+                                    {subscribers.length > 0 ? (
+                                        <ul className="space-y-2">
+                                            {subscribers.slice(0, 5).map(sub => (
+                                                sub?.user && (
+                                                    <li
+                                                        key={sub._id || sub.user._id}
+                                                        className="flex items-center p-2 rounded-3xl hover:bg-[#f3ece8] transition-colors cursor-pointer"
+                                                        onClick={() => navigate(`/profile/${sub.user._id}`)}
+                                                    >
+                                                        <div
+                                                            className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
+                                                            {sub.user.userName?.charAt(0).toUpperCase() || 'U'}
+                                                        </div>
+                                                        <span
+                                                            className="font-semibold text-gray-800 flex-grow truncate">{sub.user.userName}</span>
+                                                    </li>
+                                                )
+                                            ))}
+                                            {subscribers.length > 5 && (
+                                                <p className="text-sm text-gray-600 mt-2">
+                                                    +{subscribers.length - 5} more
+                                                </p>
+                                            )}
+                                        </ul>
+                                    ) : (
+                                        <p className="text-gray-600 text-sm">No subscribers yet.</p>
                                     )}
-                                </ul>
-                            ) : (
-                                <p className="text-gray-600 text-sm">No subscribers yet.</p>
-                            )}
-                        </div>
-                        {/* Subscriptions */}
-                        <div
-                            className="light-bg bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-6">
-                            <h3 className="text-xl font-bold text-gray-900 mb-3 flex items-center">
-                                <Heart className="w-5 h-5 mr-2 text-[#a83246]"/>
-                                Subscriptions
-                            </h3>
-                            {subscriptions.length > 0 ? (
-                                <ul className="space-y-2">
-                                    {subscriptions.map(sub => (
-                                        sub?.user && (
-                                            <li
-                                                key={sub._id || sub.user._id}
-                                                className="flex items-center p-2 rounded-3xl hover:bg-[#f3ece8] transition-colors cursor-pointer"
-                                                onClick={() => navigate(`/profile/${sub.user._id}`)}
-                                            >
-                                                <div
-                                                    className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
-                                                    {sub.user.userName?.charAt(0).toUpperCase() || 'U'}
-                                                </div>
-                                                <span
-                                                    className="font-semibold text-gray-800 flex-grow truncate">{sub.user.userName}</span>
-                                            </li>
-                                        )
-                                    ))}
-                                </ul>
-                            ) : (
-                                <p className="text-gray-600 text-sm">Not subscribed to anyone.</p>
-                            )}
+                                </div>
+                                <div
+                                    className="light-bg bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl shadow-black/30 p-6 flex-1 mt-4">
+                                    <h3 className="text-xl font-bold text-gray-900 mb-3 flex items-center">
+                                        <Heart className="w-5 h-5 mr-2 text-[#a83246]"/>
+                                        Subscriptions
+                                    </h3>
+                                    {subscriptions.length > 0 ? (
+                                        <ul className="space-y-2">
+                                            {subscriptions.map(sub => (
+                                                sub?.user && (
+                                                    <li
+                                                        key={sub._id || sub.user._id}
+                                                        className="flex items-center p-2 rounded-3xl hover:bg-[#f3ece8] transition-colors cursor-pointer"
+                                                        onClick={() => navigate(`/profile/${sub.user._id}`)}
+                                                    >
+                                                        <div
+                                                            className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
+                                                            {sub.user.userName?.charAt(0).toUpperCase() || 'U'}
+                                                        </div>
+                                                        <span
+                                                            className="font-semibold text-gray-800 flex-grow truncate">{sub.user.userName}</span>
+                                                    </li>
+                                                )
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p className="text-gray-600 text-sm">Not subscribed to anyone.</p>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
