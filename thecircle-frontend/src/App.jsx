@@ -265,7 +265,7 @@ const HomePage = () => {
 	};
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] text-white flex p-4 font-oswald overflow-hidden">
+		<div className="min-h-screen bg-gradient-to-br bg-gradient-to-br from-[#7a1a1a] via-[#a83246] to-[#2d0a14] text-white flex p-4 font-oswald overflow-hidden">
 			<div className="flex-grow flex flex-col p-4">
 				<div className="flex flex-col md:flex-row items-center justify-between mb-8">
 					<div className="flex items-center mb-4 md:mb-0">
