@@ -765,6 +765,7 @@ const StreamerPage = () => {
         if (availableCameras.length <= 1) {
             setToastMessage('No other camera available to switch.');
             setShowToast(true);
+            setTimeout(() => setShowToast(false), 4000); // Hide after 4 seconds
             return;
         }
         // Desktop: cycle through all video input devices
