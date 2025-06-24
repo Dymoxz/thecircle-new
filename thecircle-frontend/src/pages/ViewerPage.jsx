@@ -65,6 +65,8 @@ const ViewerPage = () => {
 	const MAX_HASH_BUFFER = 250; // Keep last 10 hashes (adjust as needed)
 
 
+	const [isStoppedStreaming, setIsStoppedStreaming] = useState(false);
+
 
 	const [videoRotation, setVideoRotation] = useState(0);
 	const [videoMirrored, setVideoMirrored] = useState(false);
@@ -156,6 +158,7 @@ const ViewerPage = () => {
 					setStream(msg.data);
 					console.log("Received streams:", msg.data);
 					break;
+
 				case "rtp-capabilities": {
 					const { rtpCapabilities } = msg.data;
 					if (deviceRef.current) {
@@ -200,6 +203,7 @@ const ViewerPage = () => {
 							JSON.stringify({ event: "get-streams", data: {} })
 						);
 					}
+					setIsStoppedStreaming(true)
 					break;
 				}
 				case "stream-paused": {
@@ -1419,6 +1423,19 @@ const ViewerPage = () => {
 				show={showMaxStreams}
 				onClose={() => setShowMaxStreams(false)}
 			/>
+
+			{/* Add overlay for stream ended */}
+	{currentStreamId && isStoppedStreaming && (
+		<div className="absolute inset-0 flex items-center gap-12 justify-center bg-black z-50 flex-col">
+			<h2 className="text-3xl font-semibold text-white mb-6">Stream Ended</h2>
+			<button
+				className="bg-[#800000] hover:bg-[#a00000] mb-4 disabled:bg-neutral-600 disabled:cursor-not-allowed text-white py-3 px-8 rounded-2xl font-semibold transition-all duration-300 ease-in-out flex items-center justify-center space-x-2 transform hover:scale-105 active:scale-100 shadow-lg z-10"
+				onClick={() => navigate("/")}
+			>
+				Home
+			</button>
+		</div>
+	)}
 		</div>
 	);
 };
