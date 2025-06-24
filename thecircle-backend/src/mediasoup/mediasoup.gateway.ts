@@ -679,6 +679,21 @@ export class MediasoupGateway
                     event: 'stream-ended',
                 }
             );
+
+            // Broadcast 'stream-ended' to all viewers of this stream
+            if (stream) {
+                for (const [viewerId, viewer] of stream.viewers.entries()) {
+                    if (viewer.socket.readyState === WebSocket.OPEN) {
+                        viewer.socket.send(
+                            JSON.stringify({
+                                event: 'stream-ended',
+                                data: { streamId },
+                            })
+                        );
+                    }
+                }
+            }
+
             await this.mediasoupService.closeStream(streamId);
             this.logger.log(
                 `[END-STREAM] Streamer ${clientId} ended streamId=${streamId}`,
