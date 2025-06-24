@@ -66,6 +66,10 @@ const HomePage = () => {
 	const [streamError, setStreamError] = useState(null);
 	const socketRef = useRef(null);
 	const [searchTerm, setSearchTerm] = useState("");
+	const [userResults, setUserResults] = useState([]);
+	const [showUserDropdown, setShowUserDropdown] = useState(false);
+	const [searchLoading, setSearchLoading] = useState(false);
+	const searchInputRef = useRef();
 	const [profile, setProfile] = useState(null);
 
 	// Filter and sort state
@@ -254,6 +258,62 @@ const HomePage = () => {
 		);
 	});
 
+	// Always show dropdown when input is focused
+	useEffect(() => {
+		const handleFocus = () => setShowUserDropdown(true);
+		const input = searchInputRef.current;
+		if (input) {
+			input.addEventListener("focus", handleFocus);
+		}
+		return () => {
+			if (input) {
+				input.removeEventListener("focus", handleFocus);
+			}
+		};
+	}, []);
+
+	// User search effect
+	useEffect(() => {
+		let active = true;
+		const fetchUsers = async () => {
+			if (searchTerm.length < 3) {
+				setUserResults([]);
+				setSearchLoading(false);
+				return;
+			}
+			setSearchLoading(true);
+			try {
+				const token = localStorage.getItem("jwt_token");
+				const res = await fetch(
+					`${API_URL}/user/search/${encodeURIComponent(searchTerm)}`,
+					{
+						headers: {
+							"Authorization": `Bearer ${token}`,
+						},
+					}
+				);
+				const data = await res.json();
+				if (active) {
+					setUserResults(Array.isArray(data) ? data : []);
+				}
+			} catch (e) {
+				if (active) {
+					setUserResults([]);
+				}
+			} finally {
+				if (active) setSearchLoading(false);
+			}
+		};
+		if (searchTerm.length >= 3) fetchUsers();
+		else {
+			setUserResults([]);
+			setSearchLoading(false);
+		}
+		return () => {
+			active = false;
+		};
+	}, [searchTerm]);
+
 	// Navigation handlers
 	const handleProfileClick = () => {
 		navigate("/profile");
@@ -281,12 +341,48 @@ const HomePage = () => {
 					<div className="flex-grow max-w-xl md:mx-8 w-full relative">
 						<input
 							type="text"
-							placeholder="Search streams..."
+							placeholder="Search users..."
 							className="w-full pl-10 pr-4 py-2 rounded-full bg-white/10 border border-white/20 text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#a83246]"
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
+							onFocus={() => setShowUserDropdown(true)}
+							onBlur={() => setTimeout(() => setShowUserDropdown(false), 150)}
+							ref={searchInputRef}
 						/>
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+						{showUserDropdown && (
+							<div className="absolute z-50 left-0 right-0 mt-2 bg-white/95 rounded-lg shadow-xl max-h-60 overflow-y-auto border border-white/30">
+								{searchTerm.length < 3 ? (
+									<div className="p-3 text-gray-700 text-center">
+										Please enter at least 3 characters to search for users.
+									</div>
+								) : searchLoading ? (
+									<div className="p-3 text-gray-700 text-center">Searching...</div>
+								) : userResults.length > 0 ? (
+									userResults.map((user) => (
+										<div
+											key={user._id}
+											className="flex items-center px-4 py-2 hover:bg-[#a83246]/10 cursor-pointer"
+											onClick={() => {
+												setShowUserDropdown(false);
+												setSearchTerm("");
+												setUserResults([]);
+												navigate(`/profile/${user.userName}`);
+											}}
+										>
+											<div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 text-white font-bold">
+												{user.userName?.charAt(0).toUpperCase() || "U"}
+											</div>
+											<span className="text-gray-900 font-semibold">{user.userName}</span>
+										</div>
+									))
+								) : (
+									<div className="p-3 text-gray-700 text-center">
+										No results for this username.
+									</div>
+								)}
+							</div>
+						)}
 					</div>
 
 					<div className="flex space-x-2 mt-4 md:mt-0">

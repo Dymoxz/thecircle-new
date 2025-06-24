@@ -29,6 +29,11 @@ export class UserController {
     return this.userService.getUserById(id);
   }
 
+  @Get('search/:userName')
+  async findByUserName(@Param('userName') userName: string): Promise<IUser[] | null> {
+    return this.userService.getUserByUserName(userName);
+  }
+
   @Post('registerPubKey')
   async registerPubKey(@Body() obj: any, @User() user: any): Promise<Boolean> {
     return this.userService.registerPubKey(obj, user.sub);
