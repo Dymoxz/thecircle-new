@@ -1136,7 +1136,8 @@ const StreamerPage = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="w-full">
+                                    {/* Make chat scrollable on mobile */}
+                                    <div className="w-full flex-1 max-h-[40vh] min-h-[180px] overflow-y-auto">
                                         <Chat streamId={streamId} username={username} userId={streamerId} socket={socketRef.current} myStream={true}/>
                                     </div>
                                 </div>

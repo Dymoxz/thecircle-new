@@ -3,7 +3,6 @@ import { MessageSquare, Send } from "lucide-react";
 import {
   getDevice,
   getDeviceName,
-  setupDeviceKey,
 } from "../services/keys.service";
 import {
   importPublicKey,
@@ -172,7 +171,9 @@ const Chat = ({ streamId, userId, username, socket, myStream }) => {
             }, 5000);
           }
         }
-      } catch (e) {}
+      } catch {
+        // Ignore parse errors
+      }
     };
 
     socket.addEventListener("message", onMessage);
@@ -232,8 +233,7 @@ const Chat = ({ streamId, userId, username, socket, myStream }) => {
 
   return (
     <div
-      className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4 flex flex-col flex-1 pr-4"
-      style={{ minHeight: 0 }}
+      className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4 flex flex-col flex-1 pr-4 min-h-0"
     >
       <h3 className="font-semibold mb-4 flex items-center text-lg">
         <MessageSquare className="w-5 h-5 mr-3 text-[#ff3333]" />
@@ -289,22 +289,25 @@ const Chat = ({ streamId, userId, username, socket, myStream }) => {
         ))}
         <div ref={messagesEndRef} />
       </div>
-      {/* Chat Input */}
-      <form onSubmit={sendMessage} className="mt-4 flex items-center space-x-2">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Send a message..."
-          className="flex-1 bg-neutral-800/60 border border-[#be123c]/40 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-[#ff5a7c] focus:border-[#ff5a7c] transition-all outline-none"
-        />
-        <button
-          type="submit"
-          disabled={!input.trim()}
-          className="p-2 bg-[#800000] hover:bg-[#a00000] rounded-lg transition-colors"        >
-          <Send className="w-5 h-5 text-white" />
-        </button>
-      </form>
+      {/* Chat Input - always visible at the bottom */}
+      <div className="pt-2 bg-transparent sticky bottom-0 left-0 w-full">
+        <form onSubmit={sendMessage} className="flex items-center space-x-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Send a message..."
+            className="flex-1 bg-neutral-800/60 border border-[#be123c]/40 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-[#ff5a7c] focus:border-[#ff5a7c] transition-all outline-none"
+          />
+          <button
+            type="submit"
+            disabled={!input.trim()}
+            className="p-2 bg-[#800000] hover:bg-[#a00000] rounded-lg transition-colors"
+          >
+            <Send className="w-5 h-5 text-white" />
+          </button>
+        </form>
+      </div>
     </div>
   );
 };
