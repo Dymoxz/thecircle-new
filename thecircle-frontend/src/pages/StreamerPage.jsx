@@ -1132,7 +1132,7 @@ const StreamerPage = () => {
                 )}
 
                 <div
-                    className="absolute top-4 right-4 w-80 space-y-4 hidden lg:flex flex-col max-h-[calc(100vh-2rem)] z-20">
+                    className="absolute top-4 right-4 w-80 space-y-4 hidden md:flex flex-col max-h-[calc(100vh-2rem)] z-20">
                     <div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 p-4 rounded-2xl">
                         <h3 className="font-semibold mb-4 flex items-center text-lg">
                             <Monitor className="w-5 h-5 mr-3 text-[#800000]"/>
