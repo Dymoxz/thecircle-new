@@ -12,7 +12,10 @@ import {
     Square,
     SwitchCamera,
     Video,
-    VideoOff
+    VideoOff,
+    ArrowUp,
+    MoreHorizontal,
+    ArrowDown
 } from "lucide-react";
 import * as mediasoupClient from "mediasoup-client";
 import Chat from "../component/chat";
@@ -65,7 +68,6 @@ const StreamerPage = () => {
     const [isMirrored, setIsMirrored] = useState(false);
     const localVideoRef = useRef(null);
     const socketRef = useRef(null);
-    const [isWsConnected, setIsWsConnected] = useState(false);
     const localStreamRef = useRef(null);
     const streamStartTime = useRef(null);
     const durationInterval = useRef(null);
@@ -87,6 +89,7 @@ const StreamerPage = () => {
     const [toastMessage, setToastMessage] = useState("");
     const [availableCameras, setAvailableCameras] = useState([]);
     const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
+    const [showMobileOverlay, setShowMobileOverlay] = useState(false);
 
     useEffect(() => {
         // Fetch user data from localStorage or API
@@ -134,8 +137,12 @@ const StreamerPage = () => {
         socketRef.current = new WebSocket(WS_URL);
         const socket = socketRef.current;
 
-        socket.onopen = () => setIsWsConnected(true);
-        socket.onclose = () => setIsWsConnected(false);
+        socket.onopen = () => {
+            console.log("WebSocket connection opened");
+        };
+        socket.onclose = () => {
+            console.log("WebSocket connection closed");
+        };
         socket.onerror = (err) => console.error("[WS] Error:", err);
 
         socket.onmessage = async (event) => {
@@ -943,6 +950,19 @@ const StreamerPage = () => {
                     )}
                 </div>
 
+                {/* Start Stream Button (only when not streaming) */}
+                {!isStreaming && (
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full flex justify-center z-20 px-2">
+                        <button
+                            onClick={() => setShowTagDialog(true)}
+                            className="bg-[#800000] hover:bg-[#a00000] mb-4 disabled:bg-neutral-600 disabled:cursor-not-allowed text-white py-3 px-8 rounded-2xl font-semibold transition-all duration-300 ease-in-out flex items-center justify-center space-x-2 transform hover:scale-105 active:scale-100 shadow-lg z-10"
+                        >
+                            <Play className="w-6 h-6 "/>
+                            <span>Start Stream</span>
+                        </button>
+                    </div>
+                )}
+
                 <TagDialog
                     open={showTagDialog}
                     onClose={() => setShowTagDialog(false)}
@@ -971,145 +991,145 @@ const StreamerPage = () => {
                     </div>
                 )}
 
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center justify-center">
-                    {!isStreaming ? (
-                        <button
-                            onClick={() => setShowTagDialog(true)}
-                            disabled={!isWsConnected}
-                            className="bg-[#800000] hover:bg-[#a00000] mb-4 disabled:bg-neutral-600 disabled:cursor-not-allowed text-white py-3 px-8 rounded-2xl font-semibold transition-all duration-300 ease-in-out flex items-center justify-center space-x-2 transform hover:scale-105 active:scale-100 shadow-lg z-10"
-                        >
-                            <Play className="w-6 h-6 "/>
-                            <span>
-							{isWsConnected ? "Start Stream" : "Connecting..."}
-						</span>
-                        </button>
-                    ) : (
-                        <div
-                            className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg z-10">
-                            <ControlButton
-                                onClick={toggleMute}
-                                className={
-                                    isMuted
-                                        ? "bg-red-500/80 hover:bg-red-500 text-white"
-                                        : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
-                                }
-                            >
-                                {isMuted ? (
-                                    <MicOff className="w-6 h-6"/>
-                                ) : (
-                                    <Mic className="w-6 h-6"/>
-                                )}
+                {isStreaming && (
+                    <>
+                        {/* Desktop/Tablet Controls */}
+                        <div className="hidden md:flex absolute bottom-4 left-1/2 -translate-x-1/2 items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg z-10">
+                            {/* Camera/Mic/Flip/Mirror/Rotate Controls */}
+                            <ControlButton onClick={toggleMute} className={isMuted ? "bg-red-500/80 hover:bg-red-500 text-white" : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"}>
+                                {isMuted ? <MicOff className="w-6 h-6"/> : <Mic className="w-6 h-6"/>}
                             </ControlButton>
-                            <ControlButton
-                                onClick={toggleVideo}
-                                className={
-                                    isVideoOff
-                                        ? "bg-red-500/80 hover:bg-red-500 text-white"
-                                        : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
-                                }
-                            >
-                                {isVideoOff ? (
-                                    <VideoOff className="w-6 h-6"/>
-                                ) : (
-                                    <Video className="w-6 h-6"/>
-                                )}
+                            <ControlButton onClick={toggleVideo} className={isVideoOff ? "bg-red-500/80 hover:bg-red-500 text-white" : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"}>
+                                {isVideoOff ? <VideoOff className="w-6 h-6"/> : <Video className="w-6 h-6"/>}
                             </ControlButton>
-                            <ControlButton
-                                onClick={handleFlipCamera}
-                                className="bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
-                            >
+                            <ControlButton onClick={handleFlipCamera} className="bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200">
                                 <SwitchCamera className="w-6 h-6"/>
                             </ControlButton>
-                            <ControlButton
-                                onClick={() => setIsMirrored((m) => {
-                                    const newMirrored = !m;
-                                    // Emit mirroring event to viewers
-                                    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-                                        socketRef.current.send(
-                                            JSON.stringify({
-                                                event: "video-mirror",
-                                                data: {
-                                                    streamId: streamerId,
-                                                    mirrored: newMirrored,
-                                                },
-                                            })
-                                        );
-                                    }
-                                    return newMirrored;
-                                })}
-                                className={
-                                    isMirrored
-                                        ? "bg-teal-500/80 hover:bg-teal-500 text-white"
-                                        : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
+                            <ControlButton onClick={() => setIsMirrored((m) => {
+                                const newMirrored = !m;
+                                if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+                                    socketRef.current.send(JSON.stringify({event: "video-mirror", data: {streamId: streamerId, mirrored: newMirrored}}));
                                 }
-                            >
+                                return newMirrored;
+                            })} className={isMirrored ? "bg-teal-500/80 hover:bg-teal-500 text-white" : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"}>
                                 <FlipHorizontal className="w-6 h-6"/>
                             </ControlButton>
-                            <ControlButton
-                                onClick={() => {
-                                    setVideoRotation((r) => {
-                                        const newRotation = (r + 90) % 360;
-                                        // Emit rotation event to viewers
-                                        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-                                            socketRef.current.send(
-                                                JSON.stringify({
-                                                    event: "video-rotation",
-                                                    data: {
-                                                        streamId: streamerId,
-                                                        rotation: newRotation,
-                                                    },
-                                                })
-                                            );
-                                        }
-                                        return newRotation;
-                                    });
-                                }}
-                                className={
-                                    videoRotation !== 0
-                                        ? "bg-teal-500/80 hover:bg-teal-500 text-white"
-                                        : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"
-                                }
-                            >
+                            <ControlButton onClick={() => {
+                                setVideoRotation((r) => {
+                                    const newRotation = (r + 90) % 360;
+                                    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+                                        socketRef.current.send(JSON.stringify({event: "video-rotation", data: {streamId: streamerId, rotation: newRotation}}));
+                                    }
+                                    return newRotation;
+                                });
+                            }} className={videoRotation !== 0 ? "bg-teal-500/80 hover:bg-teal-500 text-white" : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"}>
                                 <RotateCcw className="w-6 h-6"/>
                             </ControlButton>
-                            {/*<ControlButton*/}
-                            {/*    onClick={handleToggleTransparency}*/}
-                            {/*    className={*/}
-                            {/*        isTransparent*/}
-                            {/*            ? "bg-purple-500/80 hover:bg-purple-500 text-white"*/}
-                            {/*            : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"*/}
-                            {/*    }*/}
-                            {/*>*/}
-                            {/*    {isTransparent ? (*/}
-                            {/*        <Eye className="w-6 h-6"/>*/}
-                            {/*    ) : (*/}
-                            {/*        <EyeOff className="w-6 h-6"/>*/}
-                            {/*    )}*/}
-                            {/*</ControlButton>*/}
                             <div className="w-px h-8 bg-neutral-100/10 mx-2"></div>
-                            <ControlButton
-                                onClick={handlePauseStream}
-                                className={
-                                    isPaused
-                                        ? "bg-teal-500/80 hover:bg-teal-500 text-white"
-                                        : "bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900"
-                                }
-                            >
-                                {isPaused ? (
-                                    <Play className="w-6 h-6"/>
-                                ) : (
-                                    <Pause className="w-6 h-6"/>
-                                )}
+                            {/* Pause/Stop Controls */}
+                            <ControlButton onClick={handlePauseStream} className={isPaused ? "bg-teal-500/80 hover:bg-teal-500 text-white" : "bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900"}>
+                                {isPaused ? <Play className="w-6 h-6"/> : <Pause className="w-6 h-6"/>}
                             </ControlButton>
-                            <ControlButton
-                                onClick={handleStopStream}
-                                className="bg-red-500/80 hover:bg-red-500 text-white"
-                            >
+                            <ControlButton onClick={handleStopStream} className="bg-red-500/80 hover:bg-red-500 text-white">
                                 <Square className="w-6 h-6"/>
                             </ControlButton>
                         </div>
-                    )}
-                </div>
+                        {/* Mobile Controls */}
+                        <div className="md:hidden absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center z-20 space-y-2">
+                            {/* Row 1: Camera/Mic/Mirror/Rotate Controls */}
+                            <div className="flex items-center justify-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg max-w-xs">
+                                <ControlButton onClick={toggleMute} className={isMuted ? "bg-red-500/80 hover:bg-red-500 text-white" : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"}>
+                                    {isMuted ? <MicOff className="w-6 h-6"/> : <Mic className="w-6 h-6"/>}
+                                </ControlButton>
+                                <ControlButton onClick={toggleVideo} className={isVideoOff ? "bg-red-500/80 hover:bg-red-500 text-white" : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"}>
+                                    {isVideoOff ? <VideoOff className="w-6 h-6"/> : <Video className="w-6 h-6"/>}
+                                </ControlButton>
+                                <ControlButton onClick={handleFlipCamera} className="bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200">
+                                    <SwitchCamera className="w-6 h-6"/>
+                                </ControlButton>
+                                <ControlButton onClick={() => setIsMirrored((m) => {
+                                    const newMirrored = !m;
+                                    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+                                        socketRef.current.send(JSON.stringify({event: "video-mirror", data: {streamId: streamerId, mirrored: newMirrored}}));
+                                    }
+                                    return newMirrored;
+                                })} className={isMirrored ? "bg-teal-500/80 hover:bg-teal-500 text-white" : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"}>
+                                    <FlipHorizontal className="w-6 h-6"/>
+                                </ControlButton>
+                                <ControlButton onClick={() => {
+                                    setVideoRotation((r) => {
+                                        const newRotation = (r + 90) % 360;
+                                        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+                                            socketRef.current.send(JSON.stringify({event: "video-rotation", data: {streamId: streamerId, rotation: newRotation}}));
+                                        }
+                                        return newRotation;
+                                    });
+                                }} className={videoRotation !== 0 ? "bg-teal-500/80 hover:bg-teal-500 text-white" : "bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200"}>
+                                    <RotateCcw className="w-6 h-6"/>
+                                </ControlButton>
+                            </div>
+                            {/* Row 2: Pause/Stop and ArrowUp (ArrowUp in separate box) */}
+                            <div className="flex justify-between w-screen px-7">
+                                <div className="flex items-center space-x-3 bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg max-w-xs">
+                                    <ControlButton onClick={handlePauseStream} className={isPaused ? "bg-teal-500/80 hover:bg-teal-500 text-white" : "bg-yellow-500/80 hover:bg-yellow-500 text-neutral-900"}>
+                                        {isPaused ? <Play className="w-6 h-6"/> : <Pause className="w-6 h-6"/>}
+                                    </ControlButton>
+                                    <ControlButton onClick={handleStopStream} className="bg-red-500/80 hover:bg-red-500 text-white">
+                                        <Square className="w-6 h-6"/>
+                                    </ControlButton>
+                                </div>
+                                <div className="flex items-center bg-neutral-900/30 backdrop-blur-xl p-2 rounded-3xl border border-neutral-100/10 shadow-lg ml-2">
+                                    <ControlButton onClick={() => setShowMobileOverlay(true)} className="bg-neutral-800/70 hover:bg-neutral-700/90 text-neutral-200">
+                                        <ArrowUp className="w-6 h-6"/>
+                                    </ControlButton>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Mobile Overlay for Stream Info + Chat */}
+                        {showMobileOverlay && (
+                            <div className="fixed inset-0 z-50 flex flex-col items-center justify-start bg-black/90 pt-8 px-2 animate-fade-in">
+                                <button onClick={() => setShowMobileOverlay(false)} className="mb-4 p-2 rounded-full bg-neutral-800/80 text-white text-xl self-center">
+                                    <ArrowDown className="w-7 h-7"/>
+                                </button>
+                                <div className="w-full max-w-md mx-auto flex flex-col items-center space-y-4">
+                                    <div className="bg-neutral-900/80 border border-neutral-100/10 p-4 rounded-2xl w-full">
+                                        <h3 className="font-semibold mb-4 flex items-center text-lg justify-center">
+                                            <Monitor className="w-5 h-5 mr-3 text-[#800000]"/>
+                                            Stream Info
+                                        </h3>
+                                        <div className="space-y-3 text-sm">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-neutral-400">Status</span>
+                                                <span className={`font-semibold px-2 py-0.5 rounded-md text-xs ${isStreaming ? isPaused ? "bg-yellow-500/20 text-yellow-300" : "bg-red-500/20 text-red-400" : "bg-neutral-700 text-neutral-300"}`}>
+                                                    {isStreaming ? isPaused ? "Paused" : "Online" : "Offline"}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-neutral-400">Camera</span>
+                                                <span className="capitalize">{currentCamera === "user" ? "Front" : "Back"}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-neutral-400">Tags</span>
+                                                <div className="flex flex-wrap gap-2 mt-1">
+                                                    {streamTags?.length ? (
+                                                        streamTags.map((tag, i) => (
+                                                            <span key={i} className="bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full text-xs">{tag}</span>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-neutral-500 text-xs">No tags</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="w-full">
+                                        <Chat streamId={streamId} username={username} userId={streamerId} socket={socketRef.current} myStream={true}/>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </>
+                )}
 
                 <div
                     className="absolute top-4 right-4 w-80 space-y-4 hidden lg:flex flex-col max-h-[calc(100vh-2rem)] z-20">
