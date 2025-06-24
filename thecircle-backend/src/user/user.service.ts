@@ -26,6 +26,18 @@ export class UserService {
     }
     return user;
   }
+
+  async getUserByUserName(userName: string): Promise<IUser[] | null> {
+    const users = await this.userModel.find({
+      userName: { $regex: userName, $options: 'i' }
+    }).exec();
+    if (!users || users.length === 0) {
+      console.log('No users found with that username');
+      return null;
+    }
+    return users;
+  }
+
   async updateSatoshis(userId: string, satoshis: number): Promise<void> {
   await this.userModel.updateOne(
     { _id: userId },
