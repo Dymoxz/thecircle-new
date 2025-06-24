@@ -14,6 +14,7 @@ import {
 	Pause,
 	Volume2,
 	VolumeX,
+	Eye,
 } from "lucide-react";
 import * as mediasoupClient from "mediasoup-client";
 import Chat from "../component/chat";
@@ -32,9 +33,8 @@ const VIDEO_CONSTRAINTS = {
 };
 
 const ViewerPage = () => {
-	const [viererCount, setViewerCount] = useState(0);
 	const navigate = useNavigate();
-	const [streams, setStreams] = useState([]);
+	const [stream, setStream] = useState([]);
 	const [currentStreamId, setCurrentStreamId] = useState(null);
 	const { streamId: paramStreamId } = useParams();
 	const [isWsConnected, setIsWsConnected] = useState(false);
@@ -64,13 +64,7 @@ const ViewerPage = () => {
 	const localFrameHashesRef = useRef([]); // Buffer of { hash, timestamp }
 	const MAX_HASH_BUFFER = 250; // Keep last 10 hashes (adjust as needed)
 
-	const streamInfo = {
-		streamerName: "CodeMaster_Dev",
-		title: "Building a React Streaming App - Live Coding Session",
-		viewers: 247,
-		category: "Programming",
-		tags: ["React", "JavaScript", "WebRTC", "Live Coding"],
-	};
+
 
 	const [videoRotation, setVideoRotation] = useState(0);
 	const [videoMirrored, setVideoMirrored] = useState(false);
@@ -159,7 +153,7 @@ const ViewerPage = () => {
 					break;
 				}
 				case "streams":
-					setStreams(msg.data.streams);
+					setStream(msg.data);
 					console.log("Received streams:", msg.data.streams);
 					break;
 				case "rtp-capabilities": {
@@ -252,14 +246,18 @@ const ViewerPage = () => {
 			consumersRef.current.forEach((consumer) => consumer.close());
 			consumersRef.current.clear();
 		};
-	}, [paramStreamId]);
-	function hammingDistance(a, b) {
-		let dist = 0;
-		for (let i = 0; i < a.length; i++) {	
-			if (a[i] !== b[i]) dist++;
-		}
-		return dist;
-	}
+	}, []);
+
+    function hammingDistance(a, b) {
+        let dist = 0;
+        for (let i = 0; i < a.length; i++) {
+            if (a[i] !== b[i]) dist++;
+        }
+        return dist;
+    }
+
+
+
 	const createRecvTransport = async (transportOptions, streamId) => {
 		try {
 			const device = new mediasoupClient.Device();
@@ -889,12 +887,6 @@ const ViewerPage = () => {
 	// Helper: Get single pixel hash of the frame
 	async function getFrameHash(canvas) {
 		const frameHash = getDownscaledFrameHash(canvas, 8);
-		console.log(
-			"[Viewer] Downscaled frame hash (8x8):",
-			frameHash,
-			"length:",
-			frameHash.length
-		);
 		return frameHash;
 	}
 
@@ -981,7 +973,7 @@ const ViewerPage = () => {
 			) {
 				const match = localFrameHashesRef.current.find(
 					({ hash }) => hash && hammingDistance(hash, streamerHash) <= 8
-				
+
 				);
 				if (match) {
 					setFrameVerified(true);
@@ -1214,7 +1206,6 @@ const ViewerPage = () => {
 						remoteVideoRef.current?.volume
 					)
 				}
-				onAudioProcess={() => console.log("Audio processing")}
 			/>
 
 			{currentStreamId && showPauseOverlay && (
@@ -1268,27 +1259,23 @@ const ViewerPage = () => {
 				{currentStreamId && (
 					<>
 						<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4">
-							<h2 className="text-lg font-bold mb-3">
-								{streamInfo.title}
-							</h2>
+
 							<div className="flex items-center space-x-3 mb-4">
-								<div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-800 rounded-full flex-shrink-0 flex items-center justify-center">
+								<div className="w-10 h-10 bg-gradient-to-br from-[#d32f2f] to-[#ff5252] rounded-full flex-shrink-0 flex items-center justify-center">
 									<span className="text-xs font-bold">
 										CM
 									</span>
 								</div>
 								<div className="text-sm">
 									<p className="font-semibold text-white">
-										{streamInfo.streamerName}
+										{stream?.streamerName || "... Streamer"}
 									</p>
-									<p className="text-neutral-400">
-										{streamInfo.category}
-									</p>
+									{/* Optionally display a category here */}
 								</div>
 							</div>
 							<div className="text-xs text-neutral-300 space-y-2 border-t border-neutral-700 pt-3">
 								<div className="flex items-center space-x-2">
-									<Calendar className="w-4 h-4 text-teal-400" />
+									<Calendar className="w-4 h-4 text-[#ff3333]" />
 									<span>
 										{new Date().toLocaleDateString(
 											"en-US",
@@ -1299,9 +1286,11 @@ const ViewerPage = () => {
 										)}
 									</span>
 								</div>
-								<div className="flex items-center space-x-2">
-									<Users className="w-4 h-4 text-teal-400" />
-									<span>{streamInfo.viewers} viewers</span>
+								<div className="flex items-center">
+									<Eye className="w-5 h-5 text-[#ff3333]" />
+									<span className="ml-2 flex items-center" style={{ minHeight: '20px' }}>
+										{stream?.viewerCount || '...'} viewers
+									</span>
 								</div>
 								{/* Stream Verification Status */}
 								<div className="flex items-center space-x-2 mt-2">
@@ -1310,8 +1299,8 @@ const ViewerPage = () => {
 											frameVerified === true
 												? "bg-green-500"
 												: frameVerified === false
-												? "bg-red-500"
-												: "bg-gray-400"
+													? "bg-[#ff3333]"
+													: "bg-gray-400"
 										}`}
 									></span>
 									<span
@@ -1319,27 +1308,33 @@ const ViewerPage = () => {
 											frameVerified === true
 												? "text-green-400"
 												: frameVerified === false
-												? "text-red-400"
-												: "text-neutral-400"
+													? "text-[#ff3333]"
+													: "text-neutral-400"
 										}`}
 									>
 										{frameVerified === true
 											? "Stream Verified"
 											: frameVerified === false
-											? "Not Verified"
-											: "Verifying..."}
+												? "Not Verified"
+												: "Verifying..."}
 									</span>
 								</div>
 							</div>
 							<div className="flex flex-wrap gap-2 mt-4">
-								{streamInfo.tags.map((tag) => (
-									<span
-										key={tag}
-										className="bg-neutral-700/50 px-3 py-1 rounded-full text-xs"
-									>
-										{tag}
+								{stream?.tags && stream?.tags.length > 0 ? (
+									stream?.tags.map((tag) => (
+										<span
+											key={tag}
+											className="bg-neutral-700/50 px-3 py-1 rounded-full text-xs"
+										>
+											{tag}
+										</span>
+									))
+								) : (
+									<span className="text-neutral-500 text-xs">
+										No tags
 									</span>
-								))}
+								)}
 							</div>
 						</div>
 						<Chat

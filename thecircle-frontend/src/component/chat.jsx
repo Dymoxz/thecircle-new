@@ -236,7 +236,7 @@ const Chat = ({ streamId, userId, username, socket, myStream }) => {
       style={{ minHeight: 0 }}
     >
       <h3 className="font-semibold mb-4 flex items-center text-lg">
-        <MessageSquare className="w-5 h-5 mr-3 text-[#ff5a7c]" />
+        <MessageSquare className="w-5 h-5 mr-3 text-[#ff3333]" />
         Live Chat
       </h3>
       {/* Message List */}
@@ -245,7 +245,7 @@ const Chat = ({ streamId, userId, username, socket, myStream }) => {
           <div key={idx} className="flex flex-col items-start text-sm">
             <span
               className={`font-bold flex items-center ${
-                msg.sender === username ? "text-[#7dd3fc]" : "text-[#f1f1f1]"
+                msg.sender === username ? "text-red-500" : "text-white"
               }`}
             >
               {msg.verified && (
@@ -301,9 +301,8 @@ const Chat = ({ streamId, userId, username, socket, myStream }) => {
         <button
           type="submit"
           disabled={!input.trim()}
-          className="p-2 bg-gradient-to-r from-[#ff5a7c] to-[#be123c] hover:from-[#be123c] hover:to-[#ff5a7c] rounded-lg transition-colors"
-        >
-          <Send className="w-5 h-5 text-neutral-900" />
+          className="p-2 bg-[#800000] hover:bg-[#a00000] rounded-lg transition-colors"        >
+          <Send className="w-5 h-5 text-white" />
         </button>
       </form>
     </div>
