@@ -37,7 +37,7 @@ const TheCircleLogo = ({ className }) => (
 	<img
 		src={theCircleLogoImg}
 		alt="The Circle Logo"
-		className={`w-10 h-10 rounded-full object-cover drop-shadow-[0_4px_32px_rgba(80,0,20,0.5)] ${className}`}
+		className={`w-16 h-16 rounded-full object-cover drop-shadow-[0_4px_32px_rgba(80,0,20,0.5)] ${className}`}
 	/>
 );
 
@@ -332,8 +332,8 @@ const HomePage = () => {
 			<div className="flex-grow flex flex-col p-4">
 				<div className="flex flex-col md:flex-row items-center justify-between mb-8">
 					<div className="flex items-center mb-4 md:mb-0">
-						<TheCircleLogo className="w-10 h-10 mr-2" />
-						<h1 className="text-3xl font-bold uppercase tracking-wider text-white">
+						<TheCircleLogo className="w-10 h-10 mr-3" />
+						<h1 className="text-3xl font-bold uppercase tracking-wider text-white mr-20">
 							The Circle
 						</h1>
 					</div>
@@ -351,7 +351,7 @@ const HomePage = () => {
 						/>
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
 						{showUserDropdown && (
-							<div className="absolute z-50 left-0 right-0 mt-2 bg-white/95 rounded-lg shadow-xl max-h-60 overflow-y-auto border border-white/30">
+							<div className="absolute z-50 left-0 right-0 mt-2 bg-white/95 rounded-xl shadow-xl max-h-60 overflow-y-auto border border-white/30">
 								{searchTerm.length < 3 ? (
 									<div className="p-3 text-gray-700 text-center">
 										Please enter at least 3 characters to search for users.
