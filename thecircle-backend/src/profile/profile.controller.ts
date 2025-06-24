@@ -7,13 +7,13 @@ export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
 
   @UseGuards(AuthGuard)
-  @Get('getMySubscriptions') // This specific route should come BEFORE ':userId'
+  @Get('getMySubscriptions')
   async getMySubscriptions(@Request() req) {
-    const userId = req.user.sub;
-    if (!userId) {
+    const userName = req.user.userName;
+    if (!userName) {
       throw new UnauthorizedException('User ID not found in token.');
     }
-    return this.profileService.getSubscriptions(userId);
+    return this.profileService.getSubscriptions(userName);
   }
 
 
@@ -22,55 +22,54 @@ export class ProfileController {
   @UseGuards(AuthGuard)
   async subscribe(
     @Request() req,
-    @Body('streamerId') streamerId: string,
+    @Body('streamerName') streamerName: string,
   ) {
-    console.log("aaaaaa" + streamerId);
-    return this.profileService.subscribe(req.user.sub, streamerId);
+    return this.profileService.subscribe(req.user.userName, streamerName);
   }
 
   @Delete('unsubscribe')
   async unsubscribe(
-    @Body('subscriberId') subscriberId: string,
-    @Body('streamerId') streamerId: string,
+    @Body('subscriberName') subscriberName: string,
+    @Body('streamerName') streamerName: string,
   ) {
-    return this.profileService.unsubscribe(subscriberId, streamerId);
+    return this.profileService.unsubscribe(subscriberName, streamerName);
   }
 
-  @Get('is-subscribed/:subscriberId/:streamerId')
+  @Get('is-subscribed/:subscriberName/:streamerName')
   async isSubscribed(
-    @Param('subscriberId') subscriberId: string,
-    @Param('streamerId') streamerId: string,
+    @Param('subscriberName') subscriberName: string,
+    @Param('streamerName') streamerName: string,
   ) {
-    return { exists: await this.profileService.isSubscribed(subscriberId, streamerId) };
+    return { exists: await this.profileService.isSubscribed(subscriberName, streamerName) };
   }
 
-  @Get('subscribers/:streamerId')
-  async getSubscribers(@Param('streamerId') streamerId: string) {
-    return this.profileService.getSubscribers(streamerId);
+  @Get('subscribers/:streamerName')
+  async getSubscribers(@Param('streamerName') streamerName: string) {
+    return this.profileService.getSubscribers(streamerName);
   }
 
 
 
-  @Get('subscriptions/:subscriberId')
-  async getSubscriptions(@Param('subscriberId') subscriberId: string) {
-    return this.profileService.getSubscriptions(subscriberId);
+  @Get('subscriptions/:subscriberName')
+  async getSubscriptions(@Param('subscriberName') subscriberName: string) {
+    return this.profileService.getSubscriptions(subscriberName);
   }
 
   @UseGuards(AuthGuard)
-  @Get(':userId')
-  async getProfile(@Param('userId') userId: string) {
-    return this.profileService.getUserProfile(userId);
+  @Get(':userName')
+  async getProfile(@Param('userName') userName: string) {
+    return this.profileService.getUserProfile(userName);
   }
 
 
 
   @UseGuards(AuthGuard) // Protect this route with your AuthGuard
-  @Get() // No userId parameter in the URL
+  @Get()
   async getMyProfile(@Request() req) {
-    const userId = req.user.sub;
-    if (!userId) {
+    const userName = req.user.userName;
+    if (!userName) {
       throw new UnauthorizedException('User ID not found in token.');
     }
-    return this.profileService.getUserProfile(userId);
+    return this.profileService.getUserProfile(userName);
   }
 }

@@ -10,7 +10,7 @@ if (!API_BASE_URL) {
 }
 
 const ProfilePage = () => {
-  const { userId: paramUserId } = useParams();
+  const { userName: paramUserName } = useParams();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -19,7 +19,7 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
-  const [viewedProfileId, setViewedProfileId] = useState(null);
+  const [viewedProfileName, setViewedProfileName] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   
 
@@ -33,25 +33,25 @@ const ProfilePage = () => {
 
     try {
       const decodedToken = jwtDecode(token);
-      const loggedInUserId = decodedToken.sub;
-      setCurrentUser(loggedInUserId);
+      const loggedInUserName = decodedToken.userName;
+      setCurrentUser(loggedInUserName);
 
-      if (paramUserId) {
-        setViewedProfileId(paramUserId);
+      if (paramUserName) {
+        setViewedProfileName(paramUserName);
       } else {
-        setViewedProfileId(loggedInUserId);
+        setViewedProfileName(loggedInUserName);
       }
     } catch (e) {
       console.error("Failed to decode token or token invalid:", e);
       localStorage.removeItem('jwt_token');
       navigate('/login');
     }
-  }, [paramUserId, navigate]);
+  }, [paramUserName, navigate]);
 
   // Effect to fetch profile data
   useEffect(() => {
     const fetchProfileData = async () => {
-      if (!viewedProfileId || !currentUser) {
+      if (!viewedProfileName || !currentUser) {
         setLoading(false);
         console.warn('Profile ID or current user ID not available yet. Skipping fetch.');
         return;
@@ -69,10 +69,10 @@ const ProfilePage = () => {
         const headers = { 'Authorization': `Bearer ${token}` };
 
         const [profileRes, subsRes, subscrRes, subCheckRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/profile/${viewedProfileId}`, { headers }),
-          fetch(`${API_BASE_URL}/profile/subscribers/${viewedProfileId}`, { headers }),
-          fetch(`${API_BASE_URL}/profile/subscriptions/${viewedProfileId}`, { headers }),
-          currentUser !== viewedProfileId ? fetch(`${API_BASE_URL}/profile/is-subscribed/${currentUser}/${viewedProfileId}`, { headers }) : Promise.resolve({ ok: true, json: () => ({ exists: false }) }),
+          fetch(`${API_BASE_URL}/profile/${viewedProfileName}`, { headers }),
+          fetch(`${API_BASE_URL}/profile/subscribers/${viewedProfileName}`, { headers }),
+          fetch(`${API_BASE_URL}/profile/subscriptions/${viewedProfileName}`, { headers }),
+          currentUser !== viewedProfileName ? fetch(`${API_BASE_URL}/profile/is-subscribed/${currentUser}/${viewedProfileName}`, { headers }) : Promise.resolve({ ok: true, json: () => ({ exists: false }) }),
           new Promise(resolve => setTimeout(resolve, 500)) // 500ms minimum delay
         ]);
 
@@ -85,7 +85,7 @@ const ProfilePage = () => {
         setProfile(profileData);
 
         // Process subscription status
-        if (currentUser !== viewedProfileId) {
+        if (currentUser !== viewedProfileName) {
           if (!subCheckRes.ok) throw new Error('Subscription check failed');
           const subData = await subCheckRes.json();
           setIsSubscribed(subData?.exists || false);
@@ -115,7 +115,7 @@ const ProfilePage = () => {
     };
 
     fetchProfileData();
-  }, [viewedProfileId, currentUser, navigate]);
+  }, [viewedProfileName, currentUser, navigate]);
 
   const handleSubscribe = async () => {
     setActionLoading(true);
@@ -130,7 +130,7 @@ const ProfilePage = () => {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          streamerId: viewedProfileId,
+          streamerName: viewedProfileName,
         }),
       });
 
@@ -145,7 +145,7 @@ const ProfilePage = () => {
         const newSubscription = {
           _id: Date.now().toString(), // temporary ID
           streamer: {
-            _id: viewedProfileId,
+            _id: viewedProfileName,
             userName: profile?.userName || 'New Sub'
           },
           createdAt: new Date().toISOString()
@@ -154,7 +154,7 @@ const ProfilePage = () => {
         setSubscriptions(prev => [...prev, newSubscription]);
 
         // If viewing your own profile, add to subscribers list
-        if (currentUser === viewedProfileId) {
+        if (currentUser === viewedProfileName) {
           const newSubscriber = {
             _id: Date.now().toString(), // temporary ID
             subscriber: {
@@ -192,7 +192,7 @@ const ProfilePage = () => {
         },
         body: JSON.stringify({
           subscriberId: currentUser,
-          streamerId: viewedProfileId,
+          streamerId: viewedProfileName,
         }),
       });
 
@@ -205,11 +205,11 @@ const ProfilePage = () => {
         
         // Remove the subscription from the subscriptions list
         setSubscriptions(prev => 
-          prev.filter(sub => sub.streamer?._id !== viewedProfileId)
+          prev.filter(sub => sub.streamer?._id !== viewedProfileName)
         );
 
         // If viewing your own profile, remove from subscribers list
-        if (currentUser === viewedProfileId) {
+        if (currentUser === viewedProfileName) {
           setSubscribers(prev => 
             prev.filter(sub => sub.subscriber?._id !== currentUser)
           );
@@ -237,8 +237,8 @@ const ProfilePage = () => {
     });
   };
 
-  const isMyProfile = currentUser && viewedProfileId && currentUser === viewedProfileId;
-  const showSubscribeButton = currentUser && viewedProfileId && currentUser !== viewedProfileId;
+  const isMyProfile = currentUser && viewedProfileName && currentUser === viewedProfileName;
+  const showSubscribeButton = currentUser && viewedProfileName && currentUser !== viewedProfileName;
 
   if (loading) return (
     <div className="flex items-center justify-center h-screen bg-gradient-to-br from-[#5c0000] via-[#800000] to-[#2d0a14] text-white font-oswald">

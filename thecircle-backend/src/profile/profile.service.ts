@@ -11,13 +11,13 @@ export class ProfileService {
     @InjectModel('Chat') private chatModel: Model<Chat>,
   ) {}
 
-  async getUserProfile(userId: string): Promise<any> {
-    console.log('Fetching profile for:', userId);
+  async getUserProfile(userName: string): Promise<any> {
+    console.log('Fetching profile for:', userName);
     try {
-      const user = await this.userModel.findById(userId).lean();
-      console.log('Found user:', user);
+const user = await this.userModel.findOne({ userName: userName }).lean();
+console.log('Found user:', user);
       if (!user) return null;
-      const isLive = await this.chatModel.exists({ streamer: userId });
+      const isLive = await this.chatModel.exists({ streamer: userName });
       const subscriberCount = user.subscribers?.length || 0;
       return {
         ...user,
@@ -30,10 +30,10 @@ export class ProfileService {
     }
   }
 
-  async subscribe(subscriberId: string, streamerId: string) {
-    console.log("TRYING TO SUBSCRIBE :" + streamerId +  " for user" + subscriberId );
-    const subscriber = await this.userModel.findById(subscriberId);
-    const streamer = await this.userModel.findById(streamerId);
+  async subscribe(subscriberName: string, streamerName: string) {
+    console.log("TRYING TO SUBSCRIBE :" + streamerName +  " for user" + subscriberName );
+    const subscriber = await this.userModel.findOne({ userName: subscriberName });
+    const streamer = await this.userModel.findOne({ userName: streamerName });
     if (!subscriber || !streamer) return null;
 
     // Ensure arrays are initialized
@@ -42,7 +42,7 @@ export class ProfileService {
     if (typeof streamer.followerCount !== 'number') streamer.followerCount = 0;
 
     // Prevent duplicate subscriptions
-    if (subscriber.subscribedTo.some((s: any) => s.user.toString() === streamerId)) {
+    if (subscriber.subscribedTo.some((s: any) => s.user.toString() === streamer._id.toString())) {
       return { alreadySubscribed: true };
     }
 
@@ -61,9 +61,9 @@ export class ProfileService {
     return { success: true };
   }
 
-  async unsubscribe(subscriberId: string, streamerId: string) {
-    const subscriber = await this.userModel.findById(subscriberId);
-    const streamer = await this.userModel.findById(streamerId);
+  async unsubscribe(subscriberName: string, streamerName: string) {
+    const subscriber = await this.userModel.findOne({ userName: subscriberName });
+    const streamer = await this.userModel.findOne({ userName: streamerName });
     if (!subscriber || !streamer) return null;
 
     if (!subscriber.subscribedTo) subscriber.subscribedTo = [];
@@ -71,9 +71,9 @@ export class ProfileService {
     if (typeof streamer.followerCount !== 'number') streamer.followerCount = 0;
 
     // Remove streamer from subscriber's subscribedTo
-    subscriber.subscribedTo = subscriber.subscribedTo.filter((s: any) => s.user.toString() !== streamerId);
+    subscriber.subscribedTo = subscriber.subscribedTo.filter((s: any) => s.user.toString() !== streamer._id.toString());
     // Remove subscriber from streamer's subscribers
-    streamer.subscribers = streamer.subscribers.filter((s: any) => s.user.toString() !== subscriberId);
+    streamer.subscribers = streamer.subscribers.filter((s: any) => s.user.toString() !== subscriber._id.toString());
     streamer.followerCount = Math.max(0, Number(streamer.followerCount) - 1);
 
     subscriber.markModified('subscribedTo');
@@ -85,20 +85,25 @@ export class ProfileService {
     return { success: true };
   }
 
-  async isSubscribed(subscriberId: string, streamerId: string) {
-    const subscriber = await this.userModel.findById(subscriberId);
-    if (!subscriber || !subscriber.subscribedTo) return false;
-    return subscriber.subscribedTo.some((s: any) => s.user.toString() === streamerId) || false;
+  async isSubscribed(subscriberName: string, streamerName: string) {
+    const subscriber = await this.userModel.findOne({ userName: subscriberName });
+    const streamer = await this.userModel.findOne({ userName: streamerName });
+    if (!subscriber || !subscriber.subscribedTo || !streamer) return false;
+    return subscriber.subscribedTo.some((s: any) => s.user.toString() === streamer._id.toString()) || false;
   }
 
-  async getSubscribers(streamerId: string) {
-    const streamer = await this.userModel.findById(streamerId).populate('subscribers.user', 'userName email');
+  async getSubscribers(streamerName: string) {
+    const streamer = await this.userModel
+      .findOne({ userName: streamerName })
+      .populate('subscribers.user', 'userName email');
     if (!streamer || !streamer.subscribers) return [];
     return streamer.subscribers;
   }
 
-  async getSubscriptions(subscriberId: string) {
-    const subscriber = await this.userModel.findById(subscriberId).populate('subscribedTo.user', 'userName email');
+  async getSubscriptions(subscriberName: string) {
+    const subscriber = await this.userModel
+      .findOne({ userName: subscriberName })
+      .populate('subscribedTo.user', 'userName email');
     if (!subscriber || !subscriber.subscribedTo) return [];
     return subscriber.subscribedTo;
   }

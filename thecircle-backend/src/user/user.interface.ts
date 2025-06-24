@@ -25,4 +25,5 @@ export interface IUserIdentity{
   _id: String;
   email: String;
   token: String;
+  userName: String;
 }
