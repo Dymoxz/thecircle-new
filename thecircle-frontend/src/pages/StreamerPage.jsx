@@ -609,10 +609,10 @@ const StreamerPage = () => {
 						},
 					})
 				);
-				console.log(
-					"[Streamer] Sent frame hash via mediasoup event:",
-					frameHash
-				);
+				// console.log(
+				// 	"[Streamer] Sent frame hash via mediasoup event:",
+				// 	frameHash
+				// );
 			}
 		}
 		if (isStreaming) {
@@ -620,6 +620,38 @@ const StreamerPage = () => {
 		}
 		return () => clearInterval(intervalId);
 	}, [isStreaming, isPaused, isVideoOff]);
+
+
+	useEffect(() => {
+		let intervalId;
+		async function sendStreamerData() {
+			if (
+				isStreaming &&
+				localVideoRef.current &&
+				socketRef.current &&
+				socketRef.current.readyState === WebSocket.OPEN
+			) {
+				socketRef.current.send(
+					JSON.stringify({
+						event: "stream",
+						data: {
+							streamId: streamerId,
+							streamerName: username,
+							tags: streamTags,
+							viewerCount: viewerCount,
+						},
+					})
+				);
+				console.log(
+					"[Streamer] Sent stream data to viewer client" + streamerId + username + viewerCount,
+				);
+			}
+		}
+		if (isStreaming) {
+			intervalId = setInterval(sendStreamerData, 5000);
+		}
+		return () => clearInterval(intervalId);
+	}, [isStreaming]);
 
 	const extractFramefromStream = (stream) => {
 		if (!stream || !stream.getVideoTracks().length) {

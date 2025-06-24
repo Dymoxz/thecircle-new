@@ -143,11 +143,11 @@ const ViewerPage = () => {
 					setLatestFrameHash(msg.data?.frameHash || null);
 					setLatestFrameSignature(msg.data?.signature || null);
 					break;
-				case "streams":
-					setStream(msg.data.streams[0]);
-					console.log("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + stream?.streamerName)
-					console.log("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + stream?.viewers)
-					console.log("Received stream:", msg.data.streams);
+				case "stream":
+					console.log(msg.data.stream + "MESSAGE DATA VIEWER PAGE")
+					console.log(msg.data.viewerCount + "MESSAGE DATA VIEWER PAGE")
+					setStream(msg.data);
+					console.log(stream + "TIH SIS IS THE STREAM");
 					break;
 				case "rtp-capabilities": {
 					const { rtpCapabilities } = msg.data;
@@ -231,7 +231,7 @@ const ViewerPage = () => {
 			consumersRef.current.forEach((consumer) => consumer.close());
 			consumersRef.current.clear();
 		};
-	}, [paramStreamId]);
+	}, []);
 
 
 

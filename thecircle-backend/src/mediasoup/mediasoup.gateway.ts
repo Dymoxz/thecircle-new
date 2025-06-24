@@ -269,6 +269,37 @@ export class MediasoupGateway
     }
   }
 
+
+  @SubscribeMessage('stream')
+  async sendStream(
+    @MessageBody()
+    data: {
+      streamId: string,
+      streamerName: string,
+      tags: string[] | undefined,
+      viewerCount: string,
+    },
+    @ConnectedSocket() socket: WebSocket,
+  ) {
+
+    const { streamId, streamerName, tags, viewerCount } = data;
+
+    const stream = await this.mediasoupService.getStreamInfo(streamId);
+    if (!stream) return;
+
+    for (const [viewerId, viewer] of stream.viewers.entries()) {
+      if (viewer.socket.readyState === WebSocket.OPEN) {
+        viewer.socket.send(
+          JSON.stringify({
+            event: 'stream',
+            data: { streamId, streamerName, tags, viewerCount },
+          }),
+        );
+      }
+    }
+    console.log('[STREAMS] send stream');
+  }
+
   private async broadcastStreamListUpdate() {
     try {
       const activeStreams = await this.mediasoupService.getActiveStreams();
