@@ -225,7 +225,7 @@ const ProfilePage = () => {
                 <p className="text-gray-800">{error}</p>
                 <button
                     onClick={() => navigate('/')}
-                    className="mt-4 px-4 py-2 bg-[#800000] text-white rounded-full hover:bg-[#c04d65] transition-colors shadow-lg shadow-[#800000]/40"
+                    className="mt-4 px-4 py-2 bg-[#800000] text-white rounded-full hover:bg-[#7a1a1a] transition-colors shadow-lg shadow-[#800000]/40"
                 >
                     Go Home
                 </button>
@@ -275,7 +275,7 @@ const ProfilePage = () => {
                                     onClick={isSubscribed ? handleUnsubscribe : handleSubscribe}
                                     className={`flex items-center px-6 py-2 rounded-full font-semibold transition-colors shadow-md mt-2 ${isSubscribed
                                         ? 'bg-white/10 border border-white/20 text-[#7a1a1a] hover:bg-white/20'
-                                        : 'bg-[#800000] text-white hover:bg-[#c04d65] shadow-lg shadow-[#800000]/40'} ${actionLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                        : 'bg-[#800000] text-white hover:bg-[#7a1a1a] shadow-lg shadow-[#800000]/40'} ${actionLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
                                     disabled={actionLoading}
                                 >
                                     {actionLoading ? (

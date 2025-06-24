@@ -648,7 +648,7 @@ const HomePage = () => {
 							e.stopPropagation();
 							handleGoLiveClick();
 						}}
-						className="flex items-center justify-center w-full px-3 py-1.5 text-sm rounded-lg bg-[#800000] text-white font-semibold hover:bg-[#c04d65] transition-colors shadow-lg shadow-[#800000]/40"
+						className="flex items-center justify-center w-full px-3 py-1.5 text-sm rounded-lg bg-[#800000] text-white font-semibold hover:bg-[#7a1a1a] transition-colors shadow-lg shadow-[#800000]/40"
 					>
 						<Camera className="w-4 h-4 mr-1" /> Go Live
 					</button>

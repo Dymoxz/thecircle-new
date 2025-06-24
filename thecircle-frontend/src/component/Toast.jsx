@@ -19,7 +19,7 @@ const Toast = ({ message, show, onClose, duration = 5000 }) => {
             }`}
             style={{ minWidth: 320, maxWidth: 400 }}
         >
-            <div className="bg-neutral-900/80 border border-neutral-100/10 backdrop-blur-lg shadow-xl rounded-2xl px-6 py-4 flex items-center justify-center text-lg font-semibold text-teal-200 animate-toast-in">
+            <div className="bg-neutral-900/80 border border-neutral-100/10 backdrop-blur-lg shadow-xl rounded-2xl px-6 py-4 flex items-center justify-center text-lg font-semibold text-[#800000] animate-toast-in">
                 {message}
             </div>
             <style>{`
