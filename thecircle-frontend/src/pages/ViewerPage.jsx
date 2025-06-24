@@ -35,7 +35,7 @@ const VIDEO_CONSTRAINTS = {
 
 const ViewerPage = () => {
 	const navigate = useNavigate();
-	const [streams, setStreams] = useState([]);
+	const [stream, setStream] = useState([]);
 	const [currentStreamId, setCurrentStreamId] = useState(null);
 	const { streamId: paramStreamId } = useParams();
 	const [isWsConnected, setIsWsConnected] = useState(false);
@@ -50,10 +50,7 @@ const ViewerPage = () => {
 	const [user, setUser] = useState(null);
 	const [showMaxStreams, setShowMaxStreams] = useState(false);
 
-	// --- Viewer Count and Streamer Name State ---
-	const [viewerCount, setViewerCount] = useState(0);
-	const [streamerName, setStreamerName] = useState("");
-	const [streamTags, setStreamTags] = useState([]);
+
 
 	const remoteVideoRef = useRef(null);
 	const socketRef = useRef(null);
@@ -67,11 +64,7 @@ const ViewerPage = () => {
 	const recvTransportRef = useRef(null);
 	const consumersRef = useRef(new Map());
 
-	// Create streamInfo object after state variables are defined
-	const streamInfo = {
-		streamerName: streamerName || "Unknown Streamer",
-		tags: streamTags || []
-	};
+
 
 	useEffect(() => {
 		document.title = "StreamHub - Watch";
@@ -147,14 +140,14 @@ const ViewerPage = () => {
 			const msg = JSON.parse(event.data);
 			switch (msg.event) {
 				case "frame-hash":
-					console.log("[Viewer] FULL frame-hash event:", msg);
-					console.log("MESSAGE DATA", msg.data);
 					setLatestFrameHash(msg.data?.frameHash || null);
 					setLatestFrameSignature(msg.data?.signature || null);
 					break;
 				case "streams":
-					setStreams(msg.data.streams);
-					console.log("Received streams:", msg.data.streams);
+					setStream(msg.data.streams[0]);
+					console.log("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + stream?.streamerName)
+					console.log("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + stream?.viewers)
+					console.log("Received stream:", msg.data.streams);
 					break;
 				case "rtp-capabilities": {
 					const { rtpCapabilities } = msg.data;
@@ -225,14 +218,6 @@ const ViewerPage = () => {
 					console.error("Server error:", msg.data.message);
 					break;
 				}
-				case "viewer-joined": {
-					setViewerCount((prev) => prev + 1);
-					break;
-				}
-				case "viewer-left": {
-					setViewerCount((prev) => Math.max(prev - 1, 0));
-					break;
-				}
 				default:
 					break;
 			}
@@ -248,26 +233,8 @@ const ViewerPage = () => {
 		};
 	}, [paramStreamId]);
 
-	// --- Fetch Streamer Name and Tags when stream changes ---
-	useEffect(() => {
-		if (!currentStreamId) return;
-		const streamerId = currentStreamId.startsWith("stream-")
-			? currentStreamId.substring(7)
-			: currentStreamId;
-		fetch(`https://localhost:3002/api/user/${streamerId}`)
-			.then((res) => res.json())
-			.then((data) => {
-				if (data && data.userName) setStreamerName(data.userName);
-				else setStreamerName("");
-				if (data && data.tags) setStreamTags(data.tags);
-				else setStreamTags([]);
-			})
-			.catch((error) => {
-				console.error("Error fetching streamer data:", error);
-				setStreamerName("");
-				setStreamTags([]);
-			});
-	}, [currentStreamId]);
+
+
 
 	const createRecvTransport = async (transportOptions, streamId) => {
 		try {
@@ -897,12 +864,6 @@ const ViewerPage = () => {
 	// Helper: Get single pixel hash of the frame
 	async function getFrameHash(canvas) {
 		const frameHash = getDownscaledFrameHash(canvas, 8);
-		console.log(
-			"[Viewer] Downscaled frame hash (8x8):",
-			frameHash,
-			"length:",
-			frameHash.length
-		);
 		return frameHash;
 	}
 
@@ -957,18 +918,8 @@ const ViewerPage = () => {
 			) {
 				const canvas = captureFrame(remoteVideoRef.current);
 				getFrameHash(canvas).then((frameHash) => {
-					console.log(
-						"[Viewer] frame hash (local):",
-						frameHash,
-						"length:",
-						frameHash.length
-					);
-					console.log(
-						"[Viewer] latest frame hash (from streamer):",
-						latestFrameHash,
-						"length:",
-						latestFrameHash && latestFrameHash.length
-					);
+
+
 					if (
 						latestFrameHash &&
 						frameHash &&
@@ -1289,7 +1240,7 @@ const ViewerPage = () => {
 								</div>
 								<div className="text-sm">
 									<p className="font-semibold text-white">
-										{streamerName || "Unknown Streamer"}
+										{stream?.streamerName || "Unknown Streamer"}
 									</p>
 									{/* Optionally display a category here */}
 								</div>
@@ -1310,7 +1261,7 @@ const ViewerPage = () => {
 								<div className="flex items-center">
 									<Eye className="w-5 h-5 text-[#ff3333]" />
 									<span className="ml-2 flex items-center" style={{ minHeight: '20px' }}>
-										{viewerCount} viewers
+										{stream?.viewers || 0} viewers
 									</span>
 								</div>
 								{/* Stream Verification Status */}
@@ -1342,8 +1293,8 @@ const ViewerPage = () => {
 								</div>
 							</div>
 							<div className="flex flex-wrap gap-2 mt-4">
-								{streamTags && streamTags.length > 0 ? (
-									streamTags.map((tag) => (
+								{stream?.tags && stream?.tags.length > 0 ? (
+									stream?.tags.map((tag) => (
 										<span
 											key={tag}
 											className="bg-neutral-700/50 px-3 py-1 rounded-full text-xs"
