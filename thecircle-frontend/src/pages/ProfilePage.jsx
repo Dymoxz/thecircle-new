@@ -21,6 +21,7 @@ const ProfilePage = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [viewedProfileId, setViewedProfileId] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  
 
   // Effect to determine currentUser from JWT and which profile to view
   useEffect(() => {
@@ -320,7 +321,7 @@ const ProfilePage = () => {
                     {actionLoading ? (
                       <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
                     ) : (
-                      <Heart className="w-5 h-5 mr-2" />
+                      <Heart fill={isSubscribed ? "#fff" : "none"} className="w-5 h-5 mr-2" />
                     )
                     }
                     {actionLoading ? (isSubscribed ? 'Unsubscribing...' : 'Subscribing...') : (isSubscribed ? 'Subscribed' : 'Subscribe')}
@@ -355,6 +356,14 @@ const ProfilePage = () => {
                   {profile?.email}
                 </p>
               </div>
+              {/* nieuwe blok voor satoshis */}
+              <div>
+                <h3 className="text-sm font-medium text-neutral-600">Earned Satoshis</h3>
+                <p className="mt-1 text-lg font-semibold flex items-center">
+                  <span className="text-yellow-600 mr-1">₿</span>
+                  {profile?.satoshis || 0}
+                </p>
+              </div>
 
               {profile?.birthdate && (
                 <div>
@@ -378,29 +387,29 @@ const ProfilePage = () => {
               </h3>
 
               {subscribers.length > 0 ? (
-                <ul className="space-y-3">
-                  {subscribers.slice(0, 5).map(sub => (
-                    sub?.subscriber && (
-                      <li
-                        key={sub._id}
-                        className="flex items-center p-2 rounded-3xl hover:bg-[#f3ece8] transition-colors cursor-pointer"
-                        onClick={() => navigate(`/profile/${sub.subscriber._id}`)}
-                      >
-                        <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
-                          {sub.subscriber.userName?.charAt(0).toUpperCase() || 'U'}
-                        </div>
-                        <span className="font-semibold text-gray-800 flex-grow truncate">{sub.subscriber.userName}</span>
-                      </li>
-                    )
-                  ))}
-                  {subscribers.length > 5 && (
-                    <p className="text-sm text-gray-600 mt-2">
-                      +{subscribers.length - 5} more
-                    </p>
-                  )}
-                </ul>
+                  <ul className="space-y-3">
+                    {subscribers.slice(0, 5).map(sub => (
+                        sub?.user && (
+                            <li
+                                key={sub._id || sub.user._id}
+                                className="flex items-center p-2 rounded-3xl hover:bg-[#f3ece8] transition-colors cursor-pointer"
+                                onClick={() => navigate(`/profile/${sub.user._id}`)}
+                            >
+                              <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
+                                {sub.user.userName?.charAt(0).toUpperCase() || 'U'}
+                              </div>
+                              <span className="font-semibold text-gray-800 flex-grow truncate">{sub.user.userName}</span>
+                            </li>
+                        )
+                    ))}
+                    {subscribers.length > 5 && (
+                        <p className="text-sm text-gray-600 mt-2">
+                          +{subscribers.length - 5} more
+                        </p>
+                    )}
+                  </ul>
               ) : (
-                <p className="text-gray-600 text-sm">No subscribers yet.</p>
+                  <p className="text-gray-600 text-sm">No subscribers yet.</p>
               )}
             </div>
 
@@ -412,24 +421,24 @@ const ProfilePage = () => {
               </h3>
 
               {subscriptions.length > 0 ? (
-                <ul className="space-y-3">
-                  {subscriptions.map(sub => (
-                    sub?.streamer && (
-                      <li
-                        key={sub._id}
-                        className="flex items-center p-2 rounded-3xl hover:bg-[#f3ece8] transition-colors cursor-pointer"
-                        onClick={() => navigate(`/profile/${sub.streamer._id}`)}
-                      >
-                        <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
-                          {sub.streamer.userName?.charAt(0).toUpperCase() || 'U'}
-                        </div>
-                        <span className="font-semibold text-gray-800 flex-grow truncate">{sub.streamer.userName}</span>
-                      </li>
-                    )
-                  ))}
-                </ul>
+                  <ul className="space-y-3">
+                    {subscriptions.map(sub => (
+                        sub?.user && (
+                            <li
+                                key={sub._id || sub.user._id}
+                                className="flex items-center p-2 rounded-3xl hover:bg-[#f3ece8] transition-colors cursor-pointer"
+                                onClick={() => navigate(`/profile/${sub.user._id}`)}
+                            >
+                              <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
+                                {sub.user.userName?.charAt(0).toUpperCase() || 'U'}
+                              </div>
+                              <span className="font-semibold text-gray-800 flex-grow truncate">{sub.user.userName}</span>
+                            </li>
+                        )
+                    ))}
+                  </ul>
               ) : (
-                <p className="text-gray-600 text-sm">Not subscribed to anyone.</p>
+                  <p className="text-gray-600 text-sm">Not subscribed to anyone.</p>
               )}
             </div>
           </div>

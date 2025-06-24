@@ -1,4 +1,10 @@
-import { Document } from 'mongoose';
+// src/user/user.interface.ts
+import {Document, Types} from 'mongoose';
+
+export interface ISubscription {
+    user:  Types.ObjectId; // Array of user IDs
+    createdAt: Date;
+}
 
 export interface IUserCredentials{
   email: String;
@@ -10,6 +16,9 @@ export interface IUser extends IUserCredentials{
   userName: String;
   birthdate: Date;
   followerCount: Number;
+  satoshis?: number;
+  subscribedTo?: ISubscription[];
+  subscribers?: ISubscription[];
 }
 
 export interface IUserIdentity{

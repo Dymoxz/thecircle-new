@@ -22,7 +22,6 @@ import MaxStreams from "../component/MaxStreams";
 import { jwtDecode } from "jwt-decode";
 import { Navigate, useParams, useNavigate } from "react-router-dom";
 
-
 // WebSocket URL configuration
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const WS_URL = `${wsProtocol}//${window.location.hostname}:3001`;
@@ -49,9 +48,7 @@ const ViewerPage = () => {
 	const volumeSliderTimeoutRef = useRef(null);
 	const [user, setUser] = useState(null);
 	const [showMaxStreams, setShowMaxStreams] = useState(false);
-
-
-
+	const [latestTimestamp, setLatestTimestamp] = useState(null);
 	const remoteVideoRef = useRef(null);
 	const socketRef = useRef(null);
 	const token = localStorage.getItem("jwt_token");
@@ -64,7 +61,13 @@ const ViewerPage = () => {
 	const recvTransportRef = useRef(null);
 	const consumersRef = useRef(new Map());
 
+	const localFrameHashesRef = useRef([]); // Buffer of { hash, timestamp }
+	const MAX_HASH_BUFFER = 250; // Keep last 10 hashes (adjust as needed)
 
+
+
+	const [videoRotation, setVideoRotation] = useState(0);
+	const [videoMirrored, setVideoMirrored] = useState(false);
 
 	useEffect(() => {
 		document.title = "StreamHub - Watch";
@@ -139,15 +142,19 @@ const ViewerPage = () => {
 		socket.onmessage = async (event) => {
 			const msg = JSON.parse(event.data);
 			switch (msg.event) {
-				case "frame-hash":
-					setLatestFrameHash(msg.data?.frameHash || null);
-					setLatestFrameSignature(msg.data?.signature || null);
+				case "frame-hash": {
+					const { frameHash, timestamp: streamerTimestamp } =
+						msg.data;
+					setLatestFrameHash(frameHash);
+					setLatestTimestamp(streamerTimestamp);
+					console.log("[MESSAGE] Received frame hash:", msg.data);
+					const streamerTime = new Date(streamerTimestamp).getTime();
+					// Compare to all local hashes in buffer within ±1s
 					break;
+				}
 				case "stream":
-					console.log(msg.data.stream + "MESSAGE DATA VIEWER PAGE")
-					console.log(msg.data.viewerCount + "MESSAGE DATA VIEWER PAGE")
 					setStream(msg.data);
-					console.log(stream + "TIH SIS IS THE STREAM");
+					console.log("Received streams:", msg.data);
 					break;
 				case "rtp-capabilities": {
 					const { rtpCapabilities } = msg.data;
@@ -218,6 +225,14 @@ const ViewerPage = () => {
 					console.error("Server error:", msg.data.message);
 					break;
 				}
+				case "video-rotation": {
+					setVideoRotation(Number(msg.data.rotation) || 0);
+					break;
+				}
+				case "video-mirror": {
+					setVideoMirrored(!!msg.data.mirrored);
+					break;
+				}
 				default:
 					break;
 			}
@@ -233,6 +248,13 @@ const ViewerPage = () => {
 		};
 	}, []);
 
+    function hammingDistance(a, b) {
+        let dist = 0;
+        for (let i = 0; i < a.length; i++) {
+            if (a[i] !== b[i]) dist++;
+        }
+        return dist;
+    }
 
 
 
@@ -850,6 +872,7 @@ const ViewerPage = () => {
 	const [latestFrameHash, setLatestFrameHash] = useState(null);
 	const [latestFrameSignature, setLatestFrameSignature] = useState(null);
 	const [frameVerified, setFrameVerified] = useState(null);
+	const latestFrameHashRef = useRef();
 
 	// Helper: Capture a frame from the video element
 	function captureFrame(videoElement) {
@@ -896,6 +919,9 @@ const ViewerPage = () => {
 	function hashesAreSimilar(hashA, hashB, tolerance = 4) {
 		if (!hashA || !hashB || hashA.length !== hashB.length) return false;
 		let diff = 0;
+		console.log(
+			`[Viewer] Comparing hashes: ${hashA} vs ${hashB} with tolerance ${tolerance}`
+		);
 		for (let i = 0; i < hashA.length; i++) {
 			if (hashA[i] !== hashB[i]) diff++;
 		}
@@ -906,9 +932,13 @@ const ViewerPage = () => {
 	}
 
 	useEffect(() => {
-		let intervalId;
-		function verifyFrame() {
-			// Always compare at a fixed interval, using the latest hashes
+		latestFrameHashRef.current = latestFrameHash;
+	}, [latestFrameHash]);
+
+	// Fill the buffer every 200ms
+	useEffect(() => {
+		let fillInterval;
+		function fillBuffer() {
 			if (
 				remoteVideoRef.current &&
 				!remoteVideoRef.current.paused &&
@@ -918,40 +948,46 @@ const ViewerPage = () => {
 			) {
 				const canvas = captureFrame(remoteVideoRef.current);
 				getFrameHash(canvas).then((frameHash) => {
-
-
-					if (
-						latestFrameHash &&
-						frameHash &&
-						typeof latestFrameHash === "string" &&
-						typeof frameHash === "string" &&
-						frameHash.length === 64 &&
-						latestFrameHash.length === 64
-					) {
-						const similar = hashesAreSimilar(
-							frameHash,
-							latestFrameHash,
-							4
-						);
-						setFrameVerified(similar);
-						if (!similar) {
-							console.warn(
-								"[Viewer] Frame hashes differ (not similar enough)"
-							);
-						}
-					} else {
-						console.warn(
-							"[Viewer] Hashes missing or wrong length. Skipping comparison.",
-							{ frameHash, latestFrameHash }
-						);
-						setFrameVerified(null); // Show 'Verifying...' if hashes are not comparable
+					const now = Date.now();
+					localFrameHashesRef.current.push({ hash: frameHash, timestamp: now });
+					if (localFrameHashesRef.current.length > MAX_HASH_BUFFER) {
+						localFrameHashesRef.current.shift();
 					}
 				});
 			}
 		}
-		intervalId = setInterval(verifyFrame, 1000);
-		return () => clearInterval(intervalId);
-	}, [latestFrameHash]);
+		fillInterval = setInterval(fillBuffer, 500);
+		return () => clearInterval(fillInterval);
+	}, []);
+
+	// Verify every 1000ms
+	useEffect(() => {
+		let verifyInterval;
+		function verifyFrame() {
+			console.log("Local frames", localFrameHashesRef)
+			const streamerHash = latestFrameHashRef.current;
+			if (
+				streamerHash &&
+				typeof streamerHash === "string" &&
+				streamerHash.length === 64
+			) {
+				const match = localFrameHashesRef.current.find(
+					({ hash }) => hash && hammingDistance(hash, streamerHash) <= 8
+
+				);
+				if (match) {
+					setFrameVerified(true);
+				} else {
+					console.log("UNVERIFIED frame hash:", streamerHash);
+					setFrameVerified(false);
+				}
+			} else {
+				setFrameVerified(null);
+			}
+		}
+		verifyInterval = setInterval(verifyFrame, 1000);
+		return () => clearInterval(verifyInterval);
+	}, []);
 
 	// --- Bottom Bar Controls ---
 	const handlePause = () => {
@@ -1139,7 +1175,11 @@ const ViewerPage = () => {
 				ref={remoteVideoRef}
 				autoPlay
 				playsInline
-				className="absolute inset-0 w-full h-full "
+				muted={isMuted}
+				className="absolute inset-0 w-full h-full"
+				style={{
+					transform: `${videoMirrored ? "scaleX(-1) " : ""}rotate(${videoRotation}deg)`
+				}}
 				onLoadedMetadata={() => console.log("Video metadata loaded")}
 				onCanPlay={() => console.log("Video can play")}
 				onPlay={() => {
@@ -1172,7 +1212,7 @@ const ViewerPage = () => {
 				<div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500 z-20">
 					<div className="text-center p-8">
 						<div className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-							<Play className="w-12 h-12 text-neutral-400" />
+							<Pause className="w-12 h-12 text-neutral-400" />
 						</div>
 						<h3 className="text-2xl font-bold mb-2">
 							Stream Paused
@@ -1187,17 +1227,7 @@ const ViewerPage = () => {
 
 			{/* Viewer Paused Overlay */}
 			{currentStreamId && isPaused && !showPauseOverlay && (
-				<div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-2xl transition-opacity duration-500 z-20">
-					{/* <div className="text-center p-8">
-                        <div
-                            className="w-24 h-24 bg-neutral-900/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                            <Play className="w-12 h-12 text-teal-400"/>
-                        </div>
-                        <h3 className="text-2xl font-bold mb-2">Paused</h3>
-                        <p className="text-neutral-300 max-w-sm">
-                            You have paused the stream. Click the play button to resume.
-                        </p>
-                    </div> */}
+				<div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-xs transition-opacity duration-500 z-20">
 				</div>
 			)}
 
@@ -1229,9 +1259,7 @@ const ViewerPage = () => {
 				{currentStreamId && (
 					<>
 						<div className="bg-neutral-900/50 backdrop-blur-lg border border-neutral-100/10 rounded-2xl p-4">
-							<h2 className="text-lg font-bold mb-3">
-								{/* Optionally display a stream title here */}
-							</h2>
+
 							<div className="flex items-center space-x-3 mb-4">
 								<div className="w-10 h-10 bg-gradient-to-br from-[#d32f2f] to-[#ff5252] rounded-full flex-shrink-0 flex items-center justify-center">
 									<span className="text-xs font-bold">
@@ -1312,6 +1340,7 @@ const ViewerPage = () => {
 						<Chat
 							streamId={currentStreamId}
 							username={username}
+							userId={viewerId}
 							socket={socketRef.current}
 							myStream={false}
 						/>
@@ -1391,5 +1420,3 @@ const ViewerPage = () => {
 };
 
 export default ViewerPage;
-
-

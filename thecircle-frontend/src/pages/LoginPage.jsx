@@ -2,26 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Lock, Mail, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { login } from "../login.service";
+import theCircleLogoImg from "../assets/thecircle.jpg";
 
 // --- The Circle Logo SVG (matching HomePage) ---
-const TheCircleLogo = () => (
-    <svg width="80" height="80" viewBox="0 0 120 120" className="mx-auto mb-6 drop-shadow-[0_4px_32px_rgba(80,0,20,0.5)]">
-        <defs>
-            <radialGradient id="circle-maroon" cx="50%" cy="50%" r="70%">
-                <stop offset="0%" stopColor="#fff" />
-                <stop offset="60%" stopColor="#a83246" />
-                <stop offset="100%" stopColor="#2d0a14" />
-            </radialGradient>
-            <linearGradient id="circle-maroon-stroke" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#fff" />
-                <stop offset="100%" stopColor="#a83246" />
-            </linearGradient>
-        </defs>
-        <circle cx="60" cy="60" r="54" fill="url(#circle-maroon)" opacity="0.95"/>
-        <circle cx="60" cy="60" r="44" fill="none" stroke="url(#circle-maroon-stroke)" strokeWidth="8" opacity="0.7"/>
-        <circle cx="60" cy="60" r="22" fill="none" stroke="url(#circle-maroon-stroke)" strokeWidth="5" opacity="0.8"/>
-        <circle cx="60" cy="60" r="11" fill="url(#circle-maroon-stroke)" opacity="0.95"/>
-    </svg>
+const TheCircleLogo = ({ className }) => (
+    <img
+        src={theCircleLogoImg}
+        alt="The Circle Logo"
+        className={`w-20 h-20 rounded-full object-cover mx-auto mb-6 drop-shadow-[0_4px_32px_rgba(80,0,20,0.5)] ${className}`}
+    />
 );
 
 const LoginPage = () => {

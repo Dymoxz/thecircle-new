@@ -20,6 +20,13 @@ import {
 	User,
 } from "lucide-react";
 import ProfilePage from "./pages/ProfilePage.jsx";
+import { jwtDecode } from "jwt-decode";
+import {
+    exportPrivateKey,
+    getDevice,
+    getDeviceName,
+    setupDeviceKey,
+} from "./services/keys.service.js";
 import theCircleLogoImg from "./assets/thecircle.jpg";
 
 const API_URL = "https://localhost:3001/api";
@@ -77,10 +84,6 @@ const HomePage = () => {
 	useClickOutside(filterRef, () => setFilterOpen(false));
 	useClickOutside(sortRef, () => setSortOpen(false));
 
-	useEffect(() => {
-		document.title = "The Circle - Home";
-	}, []);
-
 	// Effect for fetching subscriptions
 	useEffect(() => {
 		const fetchMySubscriptions = async () => {
@@ -128,33 +131,34 @@ const HomePage = () => {
 		fetchMySubscriptions();
 	}, [navigate]);
 
-	// Effect for fetching profile
-	useEffect(() => {
-		const fetchProfile = async () => {
-			const token = localStorage.getItem("jwt_token");
-			if (!token) return;
-			try {
-				const response = await fetch(`${API_URL}/profile`, {
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${token}`,
-					},
-				});
-				if (response.ok) {
-					const data = await response.json();
-					setProfile(data);
-				}
-			} catch (err) {
-				// handle error if needed
-			}
-		};
-		fetchProfile();
-	}, []);
+    useEffect(() => {
+        const fetchProfile = async () => {
+            const token = localStorage.getItem("jwt_token");
+            if (!token) return;
+            try {
+                const response = await fetch(`${API_URL}/profile`, {
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setProfile(data);
+                }
+            } catch (err) {
+                // handle error if needed
+            }
+        };
+        fetchProfile();
+    }, []);
 
-	// Effect for WebSocket connection
-	useEffect(() => {
-		socketRef.current = new WebSocket(WS_URL);
-		const socket = socketRef.current;
+  // Effect for WebSocket connection
+  useEffect(() => {
+    document.title = "The Circle - Home";
+
+    socketRef.current = new WebSocket(WS_URL);
+    const socket = socketRef.current;
 
 		socket.onopen = () => {
 			console.log("[WS] Connected to server.");
@@ -530,7 +534,7 @@ const HomePage = () => {
 							<User className="w-10 h-10 text-neutral-300" />
 						</div>
 						<h2 className="text-xl font-bold text-gray-800">
-							{profile?.userName ? profile.userName : "Loading..."}
+							{profile?.userName?.charAt(0).toUpperCase() || 'U'}
 						</h2>
 					</div>
 
