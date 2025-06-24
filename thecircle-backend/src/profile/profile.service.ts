@@ -137,7 +137,10 @@ export class ProfileService {
   }
 
   async getSubscribers(streamerName: string) {
-    console.log('++++++++++++++++++++++++++++++++Fetching Subscribers for user:', streamerName);
+    console.log(
+      '++++++++++++++++++++++++++++++++Fetching Subscribers for user:',
+      streamerName,
+    );
     const streamer = await this.userModel
       .findOne({ userName: streamerName })
       .populate('subscribers.user', 'userName email');
@@ -146,11 +149,15 @@ export class ProfileService {
   }
 
   async getSubscriptions(subscriberName: string) {
-    console.log('-------------------------------------------------------Fetching Subscribers for user:', subscriberName);
+    console.log(
+      '-------------------------------------------------------Fetching Subscribers for user:',
+      subscriberName,
+    );
     const subscriber = await this.userModel
       .findOne({ userName: subscriberName })
       .populate('subscribedTo.user', 'userName email');
     if (!subscriber || !subscriber.subscribedTo) return [];
+    console.log('subsciptions: ' + JSON.stringify(subscriber.subscribers));
     return subscriber.subscribedTo;
   }
 }

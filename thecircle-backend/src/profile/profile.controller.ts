@@ -11,7 +11,7 @@ export class ProfileController {
   async getMySubscriptions(@Request() req) {
     const userName = req.user.userName;
     if (!userName) {
-      throw new UnauthorizedException('User ID not found in token.');
+      throw new UnauthorizedException('User name not found in token.');
     }
     return this.profileService.getSubscriptions(userName);
   }
@@ -68,7 +68,7 @@ export class ProfileController {
   async getMyProfile(@Request() req) {
     const userName = req.user.userName;
     if (!userName) {
-      throw new UnauthorizedException('User ID not found in token.');
+      throw new UnauthorizedException('User name not found in token.');
     }
     return this.profileService.getUserProfile(userName);
   }

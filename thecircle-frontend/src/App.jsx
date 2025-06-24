@@ -86,6 +86,8 @@ const HomePage = () => {
 
 	// Effect for fetching subscriptions
 	useEffect(() => {
+
+
 		const fetchMySubscriptions = async () => {
 			setLoadingSubscriptions(true);
 			setSubscriptionError(null);
@@ -96,7 +98,7 @@ const HomePage = () => {
 					navigate("/login");
 					return;
 				}
-
+				console.log("GETTING SUBSCRUYPPROJOGPRIUH")
 				const response = await fetch(
 					`${API_URL}/profile/getMySubscriptions`,
 					{
@@ -117,6 +119,7 @@ const HomePage = () => {
 
 				const data = await response.json();
 				setSubscriptions(Array.isArray(data) ? data : []);
+				console.log(subscriptions)
 			} catch (error) {
 				console.error("Error fetching subscriptions:", error);
 				setSubscriptionError(
@@ -544,23 +547,23 @@ const HomePage = () => {
 						<ul>
 							{subscriptions.map(
 								(sub) =>
-									sub?.streamer && (
+									sub?.user && (
 										<li
 											key={sub._id}
 											className="flex items-center mb-3 p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"
 											onClick={() =>
 												navigate(
-													`/profile/${sub.streamer._id}`
+													`/profile/${sub.user.userName}`,
 												)
 											}
 										>
 											<div className="w-6 h-6 rounded-full mr-3 flex-shrink-0 overflow-hidden bg-neutral-700 flex items-center justify-center text-white text-xs font-bold">
-												{sub.streamer?.userName
+												{sub.user?.userName
 													?.charAt(0)
 													.toUpperCase() || "U"}
 											</div>
 											<span className="text-gray-800 font-semibold flex-grow truncate">
-												{sub.streamer?.userName}
+												{sub.user?.userName}
 											</span>
 										</li>
 									)
