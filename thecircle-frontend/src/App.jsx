@@ -37,7 +37,7 @@ const TheCircleLogo = ({ className }) => (
 	<img
 		src={theCircleLogoImg}
 		alt="The Circle Logo"
-		className={`w-10 h-10 rounded-full object-cover drop-shadow-[0_4px_32px_rgba(80,0,20,0.5)] ${className}`}
+		className={`w-16 h-16 rounded-full object-cover drop-shadow-[0_4px_32px_rgba(80,0,20,0.5)] ${className}`}
 	/>
 );
 
@@ -85,13 +85,18 @@ const HomePage = () => {
 	const filterRef = useRef();
 	const sortRef = useRef();
 
-  useClickOutside(filterRef, () => setFilterOpen(false));
-  useClickOutside(sortRef, () => setSortOpen(false));
+	useClickOutside(filterRef, () => setFilterOpen(false));
+	useClickOutside(sortRef, () => setSortOpen(false));
 
 	// Effect for fetching subscriptions
 	useEffect(() => {
-
-
+		const token = localStorage.getItem("jwt_token");
+		if (!token) {
+			navigate("/login");
+			return;
+		}
+		const decodedToken = jwtDecode(token);
+		const loggedInUserName = decodedToken.userName;
 		const fetchMySubscriptions = async () => {
 			setLoadingSubscriptions(true);
 			setSubscriptionError(null);
@@ -102,7 +107,7 @@ const HomePage = () => {
 					navigate("/login");
 					return;
 				}
-				console.log("GETTING SUBSCRUYPPROJOGPRIUH")
+
 				const response = await fetch(
 					`${API_URL}/profile/getMySubscriptions`,
 					{
@@ -137,6 +142,28 @@ const HomePage = () => {
 
 		fetchMySubscriptions();
 	}, [navigate]);
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+            const token = localStorage.getItem("jwt_token");
+            if (!token) return;
+            try {
+                const response = await fetch(`${API_URL}/profile`, {
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setProfile(data);
+                }
+            } catch (err) {
+                // handle error if needed
+            }
+        };
+        fetchProfile();
+    }, []);
 
   // Effect for WebSocket connection
   useEffect(() => {
@@ -328,12 +355,12 @@ const HomePage = () => {
 	};
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br bg-gradient-to-br from-[#7a1a1a] via-[#a83246] to-[#2d0a14] text-white flex p-4 font-oswald overflow-hidden">
+		<div className="min-h-screen bg-gradient-to-br bg-gradient-to-br from-[#7a1a1a] via-[#800000] to-[#2d0a14] text-white flex p-4 font-oswald overflow-hidden">
 			<div className="flex-grow flex flex-col p-4">
 				<div className="flex flex-col md:flex-row items-center justify-between mb-8">
 					<div className="flex items-center mb-4 md:mb-0">
-						<TheCircleLogo className="w-10 h-10 mr-2" />
-						<h1 className="text-3xl font-bold uppercase tracking-wider text-white">
+						<TheCircleLogo className="w-10 h-10 mr-3" />
+						<h1 className="text-3xl font-bold uppercase tracking-wider text-white mr-20">
 							The Circle
 						</h1>
 					</div>
@@ -351,7 +378,7 @@ const HomePage = () => {
 						/>
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
 						{showUserDropdown && (
-							<div className="absolute z-50 left-0 right-0 mt-2 bg-white/95 rounded-lg shadow-xl max-h-60 overflow-y-auto border border-white/30">
+							<div className="absolute z-50 left-0 right-0 mt-2 bg-white/95 rounded-xl shadow-xl max-h-60 overflow-y-auto border border-white/30">
 								{searchTerm.length < 3 ? (
 									<div className="p-3 text-gray-700 text-center">
 										Please enter at least 3 characters to search for users.
@@ -417,7 +444,7 @@ const HomePage = () => {
 																!filters.subscribedOnly,
 														})
 													}
-													className="rounded text-[#a83246]"
+													className="rounded text-[#800000]"
 												/>
 												<span className="text-gray-800">
 													Subscribed Only
@@ -437,7 +464,7 @@ const HomePage = () => {
 														category: e.target.value,
 													})
 												}
-												className="rounded-md border-gray-300 shadow-sm focus:border-[#a83246] focus:ring-[#a83246] text-gray-800 py-1.5 min-h-[2.1rem] pl-3 bg-white/10 w-44"
+												className="rounded-md border-gray-300 shadow-sm focus:border-[#800000] focus:ring-[#800000] text-gray-800 py-1.5 min-h-[2.1rem] pl-3 bg-white/10 w-44"
 											>
 												<option value="">
 													All Categories
@@ -521,7 +548,7 @@ const HomePage = () => {
 															option.value
 														)
 													}
-													className="text-[#a83246]"
+													className="text-[#800000]"
 												/>
 												<span className="text-gray-800">
 													{option.label}
@@ -578,7 +605,7 @@ const HomePage = () => {
 												.map((tag) => (
 													<span
 														key={tag}
-														className="bg-[#a83246]/10 text-[#a83246] text-xs px-2 py-1 rounded-full"
+														className="bg-[#800000]/10 text-[#800000] text-xs px-2 py-1 rounded-full"
 													>
 														{tag}
 													</span>
@@ -607,11 +634,11 @@ const HomePage = () => {
 							handleProfileClick();
 						}}
 					>
-						<div className="w-10 h-10 rounded-full bg-neutral-700 flex items-center justify-center mr-2 border-2 border-[#a83246] overflow-hidden">
+						<div className="w-10 h-10 rounded-full bg-neutral-700 flex items-center justify-center mr-2 border-2 border-[#800000] overflow-hidden">
 							<User className="w-10 h-10 text-neutral-300" />
 						</div>
 						<h2 className="text-xl font-bold text-gray-800">
-							{profile?.userName?.charAt(0).toUpperCase() || 'U'}
+							{profile?.userName || 'Loading...'}
 						</h2>
 					</div>
 
@@ -621,7 +648,7 @@ const HomePage = () => {
 							e.stopPropagation();
 							handleGoLiveClick();
 						}}
-						className="flex items-center justify-center w-full px-3 py-1.5 text-sm rounded-lg bg-[#a83246] text-white font-semibold hover:bg-[#c04d65] transition-colors shadow-lg shadow-[#a83246]/40"
+						className="flex items-center justify-center w-full px-3 py-1.5 text-sm rounded-lg bg-[#800000] text-white font-semibold hover:bg-[#c04d65] transition-colors shadow-lg shadow-[#800000]/40"
 					>
 						<Camera className="w-4 h-4 mr-1" /> Go Live
 					</button>
@@ -646,7 +673,7 @@ const HomePage = () => {
 									sub?.user && (
 										<li
 											key={sub._id}
-											className="flex items-center mb-3 p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"
+											className="flex items-center mb-3 p-2 rounded-3xl hover:bg-[#f3ece8]/50 transition-colors cursor-pointer"
 											onClick={() =>
 												navigate(
 													`/profile/${sub.user.userName}`,
