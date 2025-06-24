@@ -534,7 +534,7 @@ const HomePage = () => {
 							<User className="w-10 h-10 text-neutral-300" />
 						</div>
 						<h2 className="text-xl font-bold text-gray-800">
-							{profile?.userName?.charAt(0).toUpperCase() || 'U'}
+							{profile?.userName || 'Loading...'}
 						</h2>
 					</div>
 
