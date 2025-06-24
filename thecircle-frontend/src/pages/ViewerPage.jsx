@@ -1240,7 +1240,7 @@ const ViewerPage = () => {
 								</div>
 								<div className="text-sm">
 									<p className="font-semibold text-white">
-										{stream?.streamerName || "Unknown Streamer"}
+										{stream?.streamerName || "... Streamer"}
 									</p>
 									{/* Optionally display a category here */}
 								</div>
@@ -1261,7 +1261,7 @@ const ViewerPage = () => {
 								<div className="flex items-center">
 									<Eye className="w-5 h-5 text-[#ff3333]" />
 									<span className="ml-2 flex items-center" style={{ minHeight: '20px' }}>
-										{stream?.viewers || 0} viewers
+										{stream?.viewerCount || '...'} viewers
 									</span>
 								</div>
 								{/* Stream Verification Status */}

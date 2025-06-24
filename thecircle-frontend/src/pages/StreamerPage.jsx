@@ -609,10 +609,6 @@ const StreamerPage = () => {
 						},
 					})
 				);
-				// console.log(
-				// 	"[Streamer] Sent frame hash via mediasoup event:",
-				// 	frameHash
-				// );
 			}
 		}
 		if (isStreaming) {
@@ -643,7 +639,7 @@ const StreamerPage = () => {
 					})
 				);
 				console.log(
-					"[Streamer] Sent stream data to viewer client" + streamerId + username + viewerCount,
+					"[Streamer] Sent stream data to viewer client with wviewr count" + viewerCount,
 				);
 			}
 		}
@@ -651,7 +647,7 @@ const StreamerPage = () => {
 			intervalId = setInterval(sendStreamerData, 5000);
 		}
 		return () => clearInterval(intervalId);
-	}, [isStreaming]);
+	}, [isStreaming, viewerCount]);
 
 	const extractFramefromStream = (stream) => {
 		if (!stream || !stream.getVideoTracks().length) {
