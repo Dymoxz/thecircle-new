@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import {Model, Types} from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { User, UserDocument } from '../user/user.schema';
 import { Chat } from '../chats/schemas/chat.schema';
 
@@ -14,8 +14,8 @@ export class ProfileService {
   async getUserProfile(userName: string): Promise<any> {
     console.log('Fetching profile for:', userName);
     try {
-const user = await this.userModel.findOne({ userName: userName }).lean();
-console.log('Found user:', user);
+      const user = await this.userModel.findOne({ userName: userName }).lean();
+      console.log('Found user:', user);
       if (!user) return null;
       const isLive = await this.chatModel.exists({ streamer: userName });
       const subscriberCount = user.subscribers?.length || 0;
@@ -31,38 +31,72 @@ console.log('Found user:', user);
   }
 
   async subscribe(subscriberName: string, streamerName: string) {
-    console.log("TRYING TO SUBSCRIBE :" + streamerName +  " for user" + subscriberName );
-    const subscriber = await this.userModel.findOne({ userName: subscriberName });
+    console.log(
+      `TRYING TO SUBSCRIBE: ${streamerName} for user ${subscriberName}`,
+    );
+    const subscriber = await this.userModel.findOne({
+      userName: subscriberName,
+    });
     const streamer = await this.userModel.findOne({ userName: streamerName });
-    if (!subscriber || !streamer) return null;
+    if (!subscriber || !streamer) {
+      console.warn(
+        `Subscription failed: subscriber or streamer not found. subscriber: ${!!subscriber}, streamer: ${!!streamer}`,
+      );
+      return null;
+    }
 
-    // Ensure arrays are initialized
     if (!subscriber.subscribedTo) subscriber.subscribedTo = [];
     if (!streamer.subscribers) streamer.subscribers = [];
     if (typeof streamer.followerCount !== 'number') streamer.followerCount = 0;
 
     // Prevent duplicate subscriptions
-    if (subscriber.subscribedTo.some((s: any) => s.user.toString() === streamer._id.toString())) {
+    if (
+      subscriber.subscribedTo.some(
+        (s: any) => s.user.toString() === streamer._id.toString(),
+      )
+    ) {
+      console.info(
+        `User ${subscriberName} is already subscribed to ${streamerName}`,
+      );
       return { alreadySubscribed: true };
     }
 
     // Add streamer to subscriber's subscribedTo
-    subscriber.subscribedTo.push({ user: new Types.ObjectId(streamer._id), createdAt: new Date() });
+    subscriber.subscribedTo.push({
+      user: new Types.ObjectId(streamer._id),
+      createdAt: new Date(),
+    });
     // Add subscriber to streamer's subscribers
-    streamer.subscribers.push({ user: new Types.ObjectId(subscriber._id), createdAt: new Date() });
+    streamer.subscribers.push({
+      user: new Types.ObjectId(subscriber._id),
+      createdAt: new Date(),
+    });
     streamer.followerCount = Number(streamer.followerCount) + 1;
 
     subscriber.markModified('subscribedTo');
     streamer.markModified('subscribers');
     streamer.markModified('followerCount');
 
-    await subscriber.save();
-    await streamer.save();
-    return { success: true };
+    try {
+      await subscriber.save();
+      await streamer.save();
+      console.log(
+        `Subscription successful: ${subscriberName} subscribed to ${streamerName}`,
+      );
+      return { success: true };
+    } catch (error) {
+      console.error(
+        `Error subscribing ${subscriberName} to ${streamerName}:`,
+        error,
+      );
+      throw error;
+    }
   }
 
   async unsubscribe(subscriberName: string, streamerName: string) {
-    const subscriber = await this.userModel.findOne({ userName: subscriberName });
+    const subscriber = await this.userModel.findOne({
+      userName: subscriberName,
+    });
     const streamer = await this.userModel.findOne({ userName: streamerName });
     if (!subscriber || !streamer) return null;
 
@@ -71,9 +105,13 @@ console.log('Found user:', user);
     if (typeof streamer.followerCount !== 'number') streamer.followerCount = 0;
 
     // Remove streamer from subscriber's subscribedTo
-    subscriber.subscribedTo = subscriber.subscribedTo.filter((s: any) => s.user.toString() !== streamer._id.toString());
+    subscriber.subscribedTo = subscriber.subscribedTo.filter(
+      (s: any) => s.user.toString() !== streamer._id.toString(),
+    );
     // Remove subscriber from streamer's subscribers
-    streamer.subscribers = streamer.subscribers.filter((s: any) => s.user.toString() !== subscriber._id.toString());
+    streamer.subscribers = streamer.subscribers.filter(
+      (s: any) => s.user.toString() !== subscriber._id.toString(),
+    );
     streamer.followerCount = Math.max(0, Number(streamer.followerCount) - 1);
 
     subscriber.markModified('subscribedTo');
@@ -86,13 +124,20 @@ console.log('Found user:', user);
   }
 
   async isSubscribed(subscriberName: string, streamerName: string) {
-    const subscriber = await this.userModel.findOne({ userName: subscriberName });
+    const subscriber = await this.userModel.findOne({
+      userName: subscriberName,
+    });
     const streamer = await this.userModel.findOne({ userName: streamerName });
     if (!subscriber || !subscriber.subscribedTo || !streamer) return false;
-    return subscriber.subscribedTo.some((s: any) => s.user.toString() === streamer._id.toString()) || false;
+    return (
+      subscriber.subscribedTo.some(
+        (s: any) => s.user.toString() === streamer._id.toString(),
+      ) || false
+    );
   }
 
   async getSubscribers(streamerName: string) {
+    console.log('++++++++++++++++++++++++++++++++Fetching Subscribers for user:', streamerName);
     const streamer = await this.userModel
       .findOne({ userName: streamerName })
       .populate('subscribers.user', 'userName email');
@@ -101,6 +146,7 @@ console.log('Found user:', user);
   }
 
   async getSubscriptions(subscriberName: string) {
+    console.log('-------------------------------------------------------Fetching Subscribers for user:', subscriberName);
     const subscriber = await this.userModel
       .findOne({ userName: subscriberName })
       .populate('subscribedTo.user', 'userName email');

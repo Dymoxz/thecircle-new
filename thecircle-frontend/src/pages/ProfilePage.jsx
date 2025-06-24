@@ -191,8 +191,8 @@ const ProfilePage = () => {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          subscriberId: currentUser,
-          streamerId: viewedProfileName,
+          subscriberName: currentUser,
+          streamerName: viewedProfileName,
         }),
       });
 
@@ -376,7 +376,7 @@ const ProfilePage = () => {
                                                     <li
                                                         key={sub._id || sub.user._id}
                                                         className="flex items-center p-2 rounded-3xl hover:bg-[#f3ece8] transition-colors cursor-pointer"
-                                                        onClick={() => navigate(`/profile/${sub.user._id}`)}
+                                                        onClick={() => navigate(`/profile/${sub.user.userName}`)}
                                                     >
                                                         <div
                                                             className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
@@ -410,7 +410,7 @@ const ProfilePage = () => {
                                                     <li
                                                         key={sub._id || sub.user._id}
                                                         className="flex items-center p-2 rounded-3xl hover:bg-[#f3ece8] transition-colors cursor-pointer"
-                                                        onClick={() => navigate(`/profile/${sub.user._id}`)}
+                                                        onClick={() => navigate(`/profile/${sub.user.userName}`)}
                                                     >
                                                         <div
                                                             className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center mr-3 flex-shrink-0 text-white text-sm font-bold">
